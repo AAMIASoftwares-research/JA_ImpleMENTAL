@@ -1,0 +1,10 @@
+# Standard
+numpy
+pandas
+matplotlib
+# The (almost) omplete HoloViz toolset
+# https://holoviz.org/
+holoviews
+geoviews
+hvplot
+datashader
