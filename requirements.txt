@@ -4,7 +4,7 @@ pandas
 matplotlib
 # The (almost) omplete HoloViz toolset
 # https://holoviz.org/
-holoviews
+"holoviews[recommended]" # https://holoviews.org/install.html
 geoviews
 hvplot
 datashader

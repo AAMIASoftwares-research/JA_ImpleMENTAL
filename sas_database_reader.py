@@ -37,12 +37,15 @@ df["ALMENO_1_INT"] = df["ALMENO_1_INT"].astype(bool)
 ID_ASSISTITO is always defined and has zero missing values.
 SESSO is always defined and has zero missing values.
 DT_NASCITA has some missing values as NaT objects.
+    non dovrebbero esserci nan.
 DT_INIZIO_ASSISTENZA has some missing values as NaT objects.
+    non dovrebbero esserci nan.
 DT_FINE_ASSISTENZA has some missing values as NaT objects.
     This is quite understandable as some patients are still in care.
 DT_DECESSO has some missing values as NaT objects.
     This is quite understandable as some patients are still alive.
 DT_INGRESSO_FUP has some missing values as NaT objects.
+    forse ha senso avere nan.
 DT_FINE_FUP has some missing values as NaT objects.
     This is quite understandable as some patients are still in care (?).
 DISTURBO is always defined and has zero missing values.
@@ -51,12 +54,16 @@ TOT_INTERVENTI is always defined and has zero missing values.
     It is mostly zero, but there are some patients with some up to a lot of interventions.
     This variable correlates perfectly with ALMENO_1_INT: where the latter is not a NaN, the former is always > 0.
     Thus, where ALMENO_1_INT is NaN, ALMENO_1_INT is set to False, else True.
-MESI_FUP has no missing values, but it is alweays zero.
-giorni_fup has only missing values (they are all NaN).
+MESI_FUP has no missing values, but it is always zero. non serve.
+giorni_fup has only missing values (they are all NaN). non serve.
 ALMENO_1_INT is NaN when TOT_INTERVENTI is zero, else it is 1.
     Can be converted to a boolean variable.
     sum(df["ALMENO_1_INT"]) == sum(df["TOT_INTERVENTI"] != 0)
+    da togliere.
 """
+
+# Singolo db: Stratifica su: Eta, sesso
+# Piu databases: per singola malattia, coorte
 
 # Adding redundant yet useful colums to the dataframe
 df["ANNO_NASCITA"] = df["DT_NASCITA"].dt.year
