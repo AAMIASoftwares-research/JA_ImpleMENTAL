@@ -83,7 +83,6 @@ plot = df2.hvplot.scatter(
 # Simple Panel with example data
 ##################
 import panel
-
 panel.extension(
     'tabulator',
     template='material',
@@ -115,42 +114,48 @@ header = panel.Row(
     height=60
 )
 
+#
+# https://ja-implemental.eu/
+
 header = panel.panel(
-"""
-<div class="my-container"
+    """
+    <div class="header-container-implemental"
     style="
         display: flex;
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
-        width: 100%;
-        margin: 0px;
-        padding: 0px;
-        background-color: green;
-    "
->
-    <img src="https://implemental.files.wordpress.com/2021/11/2000_podloga-s-logo.jpg?w=1024&h=295"
-         styles="
-            vertical-align: center;
-            object-position: center;
-            height=100%;
-            width=100%;
-            object-fit: cover; 
-         "
-    >
-    <h1 style="vertical-align: center">
-        JA ImpleMENTAL
-    </h1>
-    <img src="https://implemental.files.wordpress.com/2022/09/en-co-funded-by-the-eu_pos.png?w=300"
-        alt="JA ImpleMENTAL logo" style="float:right; vertical-align: center;">
-</div>
-""",
+        width: 100vw;
+        max-height: 311px;
+        min-height: 310px;
+        padding: 0;
+        margin: 0;
+        background: url('https://implemental.files.wordpress.com/2021/11/2000_podloga-s-logo.jpg');
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: 50%;
+        box-sizing: border-box;
+    ">
+        <h1 style="margin-left: 1.5em; font-style: normal; font-weight: 400; font-family: sans-serif; font-size:1.5em;">
+            <a href="https://ja-implemental.eu/" style="text-decoration: none; color: black;">
+                JA on Implementation of Best Practices in</br>
+                the area of Mental Health
+            </a>
+        </h1>
+        <img src="https://implemental.files.wordpress.com/2022/09/en-co-funded-by-the-eu_pos.png?w=300"
+            alt="europe flag" style="float:right; margin-right: 1em;">
+    </div>
+    """,
     styles={
-        "width": "100%",
-        "margin": "0px",
-        "padding": "0px"
+        "width": "100vw",
+        "margin": "0",
+        "padding": "0"
     }
 )
+
+
+
+
 
 tot_interventi_widget = panel.widgets.FloatSlider(name='Totale Interventi', start=5, end=40, value=10)
 
@@ -181,5 +186,6 @@ p = panel.Column(
     body,
     footer
 )
+
 p.show()
 
