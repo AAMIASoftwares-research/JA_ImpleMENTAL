@@ -7,11 +7,11 @@ import hvplot.pandas
 import holoviews
 import bokeh
 # Add backend extensions
-#hvplot.extension('matplotlib')
 # select matplotlib as the backend to use instead of bokeh
 # All methods to show the plots must be changed accordingly
-#if 0: 
-#    hvplot.output(backend='matplotlib')
+if 0: 
+    hvplot.extension('matplotlib')
+    hvplot.output(backend='matplotlib')
 
 
 ##################
@@ -114,9 +114,8 @@ header = panel.Row(
     height=60
 )
 
-#
-# https://ja-implemental.eu/
 
+# https://ja-implemental.eu/
 header = panel.panel(
     """
     <div class="header-container-implemental"
