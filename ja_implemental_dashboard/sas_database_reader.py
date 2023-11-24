@@ -76,10 +76,10 @@ def read_sas_database_ind_1(file_path):
     # COORTE
     df["COORTE"] = df["COORTE"].astype(str)
     # TOT_INTERVENTI
-    df["TOT_INTERVENTI"] = df["TOT_INTERVENTI"].where(pandas.notnull(df["TOT_INTERVENTI"]), 0)
+    df["TOT_INTERVENTI"] = df["TOT_INTERVENTI"].fillna(0)
     df["TOT_INTERVENTI"] = df["TOT_INTERVENTI"].astype(int)
     # ALMENO_1_INT
-    df["ALMENO_1_INT"] = df["ALMENO_1_INT"].where(pandas.notnull(df["ALMENO_1_INT"]), 0)
+    df["ALMENO_1_INT"] = df["ALMENO_1_INT"].fillna(0)
     df["ALMENO_1_INT"] = df["ALMENO_1_INT"].astype(int)
     df["ALMENO_1_INT"] = df["ALMENO_1_INT"].astype(bool)
     # Convert all missing values to None
