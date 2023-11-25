@@ -156,7 +156,7 @@ print(df.columns)
 # Dashboard
 ##################
 
-# - TITLE AND DISEASE CHOICE
+# - TITLE AND DISEASE SELECTOR
 title_choice_map = {
     "Overview on all diseases": "Overview on all diseases",
     "Schizophrenia": "Schizophrenia",
@@ -169,24 +169,32 @@ title_menu_items = [(k, v) for k, v in title_choice_map.items()]
 title_menu_button = panel.widgets.MenuButton(
     name='Select Disease',
     items=title_menu_items,
-    button_type='warning'
-)
-
-disease_selector_row_title = panel.pane.HTML(
-    "<h1>"+title_menu_items[0][0]+"</h1>",
+    button_type='warning',
+    max_width=300,
+    min_width=150,
     styles={
-        "margin-left": "1em"
-    }
+        "margin-right": "2em"
+    } 
 )
 
-def disease_selector_row_title_callback(event):
-    if not event.new == event.old:
-        disease_selector_row_title.object = "<h1>"+event.new+"</h1>"
+title_menu_button.param.set_param(clicked=title_menu_items[0][0])
 
-title_menu_button.on_click(disease_selector_row_title_callback)
+def disease_selector_row_title_maker(value):
+    if value is None:
+        value = """<span style="font-size: 1.1em; color: #888888ff;">
+                Select a disease from the dropdown menu on the right.
+                </span>"""
+    text = "<h1>"+value+"</h1>"
+    html_pane = panel.pane.HTML(
+        text,
+        styles={
+            "margin-left": "1em"
+        }
+    )
+    return html_pane
 
 disease_selector_row = panel.FlexBox(
-    disease_selector_row_title, 
+    panel.bind(disease_selector_row_title_maker, title_menu_button.param.clicked), # 
     title_menu_button,
     flex_direction="row",
     flex_wrap="nowrap", 
