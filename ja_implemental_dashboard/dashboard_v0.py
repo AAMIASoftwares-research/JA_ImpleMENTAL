@@ -139,16 +139,140 @@ footer = panel.panel(
 # Open the dataset
 ##################
 
+######    NOTE    #########
+# here, everything has to be done again once we have true data
+# as for now, we invent just to show that we ave something to show
+
 FILE_NAME = "Indicatore 1_BIPO_coorteA.sas7bdat"
 FILE = os.path.join(DATA_FOLDER, FILE_NAME)
 df = read_sas_database_ind_1(FILE)
 
-# augment dataset so you have something to show
+if 0:
+    print(df.columns)
 
-print(df.columns)
+# bipo, ind 1, 2021
+
+df["INDICATORE"] = "Indicatore 1"
+df["ANNO_DI_INCLUSIONE"] = 2021
+
+####### augment data
+# ricreare un database verosimile seguendo le seguenti possibilita
+
+choice_disturbo = ["BIPO", "SCHIZO", "DEPRE", "ADHD"]
+choice_coorte = ["A", "B", "C", "D"]
+choice_anno_di_inclusione = [2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021]
+choice_indictore = ["Indicatore 1", "Indicatore 2", "Indicatore 3"]
+choice_sex = ["M", "F"]*50 + [None]
+choice_anno_nascita = [i for i in range(1950, 2005)] + [None]
+choice_mese_nascita = [i for i in range(1,13)]
+choice_mesi_fup = [i for i in range(1, 5*12)] + [None]
+
+n_rows = 300000
+df = pandas.DataFrame({
+    # disturbo, coorte, anno inclusione, indicatore
+    "DISTURBO": numpy.random.choice(choice_disturbo, n_rows, replace=True),
+    "COORTE": numpy.random.choice(choice_coorte, n_rows, replace=True),
+    "ANNO_DI_INCLUSIONE": numpy.random.choice(choice_anno_di_inclusione, n_rows, replace=True),
+    "INDICATORE": numpy.random.choice(choice_indictore, n_rows, replace=True),
+    # anagrafe assistito
+    "ID_ASSISTITO": numpy.random.choice([i for i in range(1, 1000000)], n_rows, replace=False),
+    "SESSO": numpy.random.choice(choice_sex, n_rows, replace=True),
+    "ANNO_NASCITA": numpy.random.choice(choice_anno_nascita, n_rows, replace=True),
+    "MESE_NASCITA": numpy.random.choice(choice_mese_nascita, n_rows, replace=True),
+    # ... (manca roba)
+    # anagrafe assistenza
+    "MESI_FUP": numpy.random.choice(choice_mesi_fup, n_rows, replace=True),
+    # ... (manca roba)
+    # numero interventi
+    "TOT_INTERVENTI": numpy.random.choice([i for i in range(1, 150)]+[None], n_rows, replace=True)
+})
+# Dove anno nascita è None, anche mese nascita deve essere none
+df["ANNO_NASCITA"].where(df["MESE_NASCITA"] != None, None,  inplace = True)
+df["MESE_NASCITA"].where(df["ANNO_NASCITA"] != None, None,  inplace = True)
 
 
-######### HOW To STRATIFY??? BOOOH HO POCHISSIMI DATI
+
+
+
+################
+# All diseases page
+################
+
+map_disturbi = {
+    "ALL": "All diseases",
+    "BIPO": "Bipolar Disorder",
+    "SCHIZO": "Schizophrenia",
+    "DEPRE": "Depression",
+    "ADHD": "Attention Deficit Hyperactivity Disorder"
+}
+
+# - for each coorte, plot the number of patients by year of inclusion, for all diseases and for each disease
+
+def plot_all_diseases_by_year_of_inclusion(df: pandas.DataFrame, coorte="Coorte A"):
+    #
+    # attenzione: non cinsidera i doppioni, nel senso che, una persona può comparire nella
+    # indicatore 1, o 2, o n, e quindi essere contata più volte.
+    # Funzione prettamente esemplare e d'esercizio.
+    #
+    # select all by coorte
+    if coorte is None:
+        df2 = df[["DISTURBO", "ANNO_DI_INCLUSIONE"]].copy()
+    else: 
+        coorte = coorte.upper()[-1]
+        df2 = df.loc[df["COORTE"] == coorte, ["DISTURBO", "ANNO_DI_INCLUSIONE"]].copy()
+    # for each year of inclusion, create a tuple (disturbo, count)
+    year_of_inclusion_list = list(set(df2["ANNO_DI_INCLUSIONE"]))
+    year_of_inclusion_list.sort()
+    disturbi = list(set(df2["DISTURBO"]))
+    disturbi.sort()
+    disturbi = numpy.insert(disturbi, 0, "ALL")
+    rows_to_add = []
+    for y in year_of_inclusion_list:
+        row_ = []
+        for dist in disturbi:
+            if dist == "ALL":
+                c_= len(df2.loc[df2["ANNO_DI_INCLUSIONE"] == y, :])
+            else:
+                c_ = len(df2.loc[(df2["ANNO_DI_INCLUSIONE"] == y) & (df2["DISTURBO"] == dist), :])
+            row_.append(c_)
+        rows_to_add.append(row_)
+    rows_to_add = numpy.array(rows_to_add)
+    rows_to_add = numpy.insert(rows_to_add, 0, year_of_inclusion_list, axis=1)
+    columns = ["ANNO DI INCLUSIONE"]
+    columns.extend([map_disturbi[d] for d in disturbi])
+    df3 = pandas.DataFrame(
+        rows_to_add,
+        index=year_of_inclusion_list,
+        columns=columns
+    )
+    # x: always the year of inclusion
+    # y: the number of patient stratified by disease
+    df3.drop(columns=[map_disturbi["ALL"]], inplace=True)
+    pl = df3.hvplot.bar(
+        x="ANNO DI INCLUSIONE",
+        y=[map_disturbi[d] for d in disturbi[1:]],
+        stacked=True,
+        xlabel="Anno di inclusione",
+        ylabel="Numero di pazienti",
+        title="Numero di pazienti per anno di inclusione, per disturbo.",
+        legend="top_left",
+        max_width=600
+    )
+    pl.background_fill_color = "#123456ff"
+    if 0:
+        hvplot.show(pl)
+    else:
+        return pl
+
+
+#plot_all_diseases_by_year_of_inclusion(df)
+
+def plot_all_diseases_by_year_of_inclusion_binding_coorte(coorte="Coorte A"):
+    return plot_all_diseases_by_year_of_inclusion(df, coorte=coorte)
+
+
+
+
 
 
 
@@ -163,6 +287,12 @@ title_choice_map = {
     "Bipolar Disorder": "Bipolar Disorder",
     "Depression": "Depression"
 }
+
+if not df is None:
+    disturbi = list(set(df["DISTURBO"]))
+    disturbi.sort()
+    disturbi = numpy.insert(disturbi, 0, "ALL")
+    title_choice_map = {map_disturbi[k]: map_disturbi[k] for k in disturbi}
 
 title_menu_items = [(k, v) for k, v in title_choice_map.items()]
 
@@ -184,11 +314,13 @@ def disease_selector_row_title_maker(value):
         value = """<span style="font-size: 1.1em; color: #888888ff;">
                 Select a disease from the dropdown menu on the right.
                 </span>"""
+    if value == "All diseases":
+        value = "Overview on all diseases"
     text = "<h1>"+value+"</h1>"
     html_pane = panel.pane.HTML(
         text,
         styles={
-            "margin-left": "1em"
+            "margin-left": "1.5em"
         }
     )
     return html_pane
@@ -246,14 +378,43 @@ coorte_selector_row = panel.Column(
 )
 
 
+# - PLOTS AND VIXs
+
+def get_main_box_elements(disease_selector_value):
+    if disease_selector_value == "All diseases":
+        return [
+            panel.bind(plot_all_diseases_by_year_of_inclusion_binding_coorte, coorte_radio_group.param.value)
+        ]
+    else:
+        return [
+            panel.bind(plot_all_diseases_by_year_of_inclusion_binding_coorte, coorte_radio_group.param.value),
+            plot_all_diseases_by_year_of_inclusion(df),
+            plot_all_diseases_by_year_of_inclusion(df),
+            plot_all_diseases_by_year_of_inclusion(df),
+            plot_all_diseases_by_year_of_inclusion(df)
+        ]
+    
+main_box = panel.GridBox(
+    objects=panel.bind(get_main_box_elements, title_menu_button.param.clicked),
+    ncols = 2,
+    width_policy = "max",
+    height_policy = "fit",
+    align="center",
+    styles={
+        "background": "#00000000",
+        "justify-content": "space-evenly"
+    }
+)
+
+
+
 # - BODY
 
 body = panel.Column(
     disease_selector_row,
     coorte_selector_row,
+    main_box,
     styles={
-        #"padding": "5px",
-        #"margin": "5px",
         "margin-top": "20px",
         "padding-top": "0px",
         "margin-bottom": "10px",
