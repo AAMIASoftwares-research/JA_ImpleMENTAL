@@ -32,6 +32,10 @@ DATA_FOLDER = os.path.normpath(
 )
 
 
+
+
+
+
 ########
 # header
 ########
@@ -44,7 +48,7 @@ header = panel.panel(
         flex-direction: row;
         justify-content: space-evenly;
         align-items: center;
-        width: 100vw;
+        width: calc(100vw - 17px);
         max-height: 311px;
         min-height: 310px;
         padding: 0;
@@ -86,7 +90,7 @@ header = panel.panel(
     </div>
     """,
     styles={
-        "width": "100vw",
+        "width": "calc(100vw - 17px)",
         "margin": "0",
         "padding": "0"
     }
@@ -101,7 +105,7 @@ footer = panel.panel(
     """
     <div class="footer-container-implemental" style="
         margin: auto;
-        width: 100vw;
+        width: calc(100vw - 17px);
         text-align: center;
         margin-top: -16px;
         margin-bottom: 0%;
@@ -125,13 +129,21 @@ footer = panel.panel(
     </div>
     """,
     styles={
-        "width": "100vw",
         "margin": "0",
         "padding": "0",
         "position": "fixed",
         "bottom": "0"
     }
 )
+
+
+
+
+
+
+
+
+
 
 
 
@@ -258,7 +270,6 @@ def plot_all_diseases_by_year_of_inclusion(df: pandas.DataFrame, coorte="Coorte 
         legend="top_left",
         max_width=600
     )
-    pl.background_fill_color = "#123456ff"
     if 0:
         hvplot.show(pl)
     else:
@@ -377,6 +388,18 @@ coorte_selector_row = panel.Column(
     panel.bind(update_coorte_html, coorte_radio_group.param.value)
 )
 
+top_selector_row = panel.Column(
+    disease_selector_row,
+    coorte_selector_row,
+    styles={
+        "margin-top": "0px",
+        "padding-top": "0px",
+        "margin-bottom": "5px",
+        "background": "#e9ecefff",
+        "border-radius": "16px"
+    }
+)
+
 
 # - PLOTS AND VIXs
 
@@ -401,25 +424,23 @@ main_box = panel.GridBox(
     height_policy = "fit",
     align="center",
     styles={
-        "background": "#00000000",
-        "justify-content": "space-evenly"
+        "justify-content": "space-evenly",
+        "width": "95%"
     }
 )
+
 
 
 
 # - BODY
 
 body = panel.Column(
-    disease_selector_row,
-    coorte_selector_row,
+    top_selector_row,
     main_box,
     styles={
         "margin-top": "20px",
         "padding-top": "0px",
-        "margin-bottom": "10px",
-        "background": "#e9ecefff",
-        "border-radius": "16px"
+        "margin-bottom": "15px"
     }
 )
 
@@ -432,8 +453,8 @@ p = panel.Column(
     body,
     footer,
     styles={
-        "background": '#f5f5f5ff',
-        "width": '100vw',
+        "background": "#ffffffff",
+        "width": 'calc(100vw - 17px)',
         "height": "100%"
     }
 )
