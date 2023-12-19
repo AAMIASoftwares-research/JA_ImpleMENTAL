@@ -29,7 +29,7 @@ from .sas_database_reader import read_sas_database_ind_1
 #####################
 
 AVAILABLE_LANGUAGES = ["en", "it", "fr", "de", "es", "pt"]
-display_language = AVAILABLE_LANGUAGES[2]
+display_language = AVAILABLE_LANGUAGES[0]
 
 ##############
 # DIRECTORIES
@@ -38,8 +38,6 @@ display_language = AVAILABLE_LANGUAGES[2]
 DATA_FOLDER = os.path.normpath(
     "C:/Users/lecca/Desktop/AAMIASoftwares-research/JA_ImpleMENTAL/ExampleData/"
 )
-
-
 
 
 
@@ -239,11 +237,15 @@ df = pandas.DataFrame({
     "MESI_FUP": numpy.random.choice(choice_mesi_fup, n_rows, replace=True),
     # ... (manca roba)
     # numero interventi
-    "TOT_INTERVENTI": numpy.random.choice([i for i in range(1, 150)]+[None], n_rows, replace=True)
+    "TOT_INTERVENTI": numpy.random.poisson(2, n_rows) # indicatore si calcola con questo
 })
-# Dove anno nascita è None, anche mese nascita deve essere none
+# Dove anno nascita is None, anche mese nascita deve essere none
 df["ANNO_NASCITA"].where(df["MESE_NASCITA"] != None, None,  inplace = True)
 df["MESE_NASCITA"].where(df["ANNO_NASCITA"] != None, None,  inplace = True)
+# Dove TOT_INTERVENTI is 0, qualche volta lo mettiamo come None o NaN, così il codice a valle risulta piu robusto
+for i in range(0, n_rows):
+    if df["TOT_INTERVENTI"][i] == 0:
+        df["TOT_INTERVENTI"][i] = numpy.random.choice([0, None, None, None, numpy.nan, numpy.nan])
 
 
 
@@ -446,14 +448,20 @@ def plot_all_diseases_by_year_of_inclusion(df: pandas.DataFrame, coorte="Coorte 
     else:
         return pl
 
-
-#plot_all_diseases_by_year_of_inclusion(df)
-
 def plot_all_diseases_by_year_of_inclusion_binding_coorte(coorte="Coorte A"):
     return plot_all_diseases_by_year_of_inclusion(df, coorte=coorte)
 
 
+##################
+# Single disease page
+##################
 
+# - depending on the selected disease, cohort, and indicator, plot
+# the history (by year of inclusion on the x axis) of the number of patients
+# Also stratify the patients by sex and age (in 5 years intervals)
+
+def plot_indicatore_time_series_plus_stratification():
+    pass
 
 
 
