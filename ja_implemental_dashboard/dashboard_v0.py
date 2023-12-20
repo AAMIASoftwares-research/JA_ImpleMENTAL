@@ -240,14 +240,16 @@ df = pandas.DataFrame({
     "TOT_INTERVENTI": numpy.random.poisson(2, n_rows) # indicatore si calcola con questo
 })
 # Dove anno nascita is None, anche mese nascita deve essere none
-df["ANNO_NASCITA"].where(df["MESE_NASCITA"] != None, None,  inplace = True)
-df["MESE_NASCITA"].where(df["ANNO_NASCITA"] != None, None,  inplace = True)
+df.loc[df["MESE_NASCITA"].isnull(), "ANNO_NASCITA"] = None
+df.loc[df["ANNO_NASCITA"].isnull(), "MESE_NASCITA"] = None
+# Cambia TOT_INTERVENTI in base a indicatore, così da avere grafici un po diversi
+df.loc[df["INDICATORE"] == "Indicatore 1", "TOT_INTERVENTI"] = (df.loc[df["INDICATORE"] == "Indicatore 1", "TOT_INTERVENTI"] - 1).clip(lower=0)
+df.loc[df["INDICATORE"] == "Indicatore 2", "TOT_INTERVENTI"] = (df.loc[df["INDICATORE"] == "Indicatore 2", "TOT_INTERVENTI"] - 2).clip(lower=0)
 # Dove TOT_INTERVENTI is 0, qualche volta lo mettiamo come None o NaN, così il codice a valle risulta piu robusto
-for i in range(0, n_rows):
-    if df["TOT_INTERVENTI"][i] == 0:
-        df["TOT_INTERVENTI"][i] = numpy.random.choice([0, None, None, None, numpy.nan, numpy.nan])
-
-
+df.loc[df["TOT_INTERVENTI"] == 0, "TOT_INTERVENTI"] = numpy.random.choice(
+    [0, None, None, None, numpy.nan, numpy.nan], len(df.loc[df["TOT_INTERVENTI"] == 0, "TOT_INTERVENTI"]),
+    replace=True
+)
 
 
 
@@ -460,8 +462,67 @@ def plot_all_diseases_by_year_of_inclusion_binding_coorte(coorte="Coorte A"):
 # the history (by year of inclusion on the x axis) of the number of patients
 # Also stratify the patients by sex and age (in 5 years intervals)
 
-def plot_indicatore_time_series_plus_stratification():
-    pass
+def plot_indicatore_time_series_plus_stratification(
+        df_global,
+        disease,
+        cohort,
+        indicator
+        ):
+    """
+    stratification: m-f, age
+    x: year of inclusion
+    y: indicatore (number of interventions != 0 / number of patients)
+    """
+    # select data to plot and put it into a different interactive dataframe
+    df = df_global.loc[
+        (df_global["DISTURBO"] == disease) &
+        (df_global["COORTE"] == cohort) &
+        (df_global["INDICATORE"] == indicator),
+        ["ANNO_DI_INCLUSIONE", "SESSO", "ANNO_NASCITA", "MESE_NASCITA", "TOT_INTERVENTI"]
+    ].copy()
+    # add age column
+    df["AGE"] = df["ANNO_DI_INCLUSIONE"] - df["ANNO_NASCITA"]
+    df.loc[df["MESE_NASCITA"] <= 11, "AGE"] -= 1
+    # add age group column ordered by 18-25, 26-35, 36-45, 46-55, 56-65, over 65  
+    df["AGE_GROUP"] = df["AGE"]
+    df.loc[df["AGE"] <= 25, "AGE_GROUP"] = "18-25"
+    df.loc[(df["AGE"] > 25) & (df["AGE"] <= 35), "AGE_GROUP"] = "26-35"
+    df.loc[(df["AGE"] > 35) & (df["AGE"] <= 45), "AGE_GROUP"] = "36-45"
+    df.loc[(df["AGE"] > 45) & (df["AGE"] <= 55), "AGE_GROUP"] = "46-55"
+    df.loc[(df["AGE"] > 55) & (df["AGE"] <= 65), "AGE_GROUP"] = "56-65"
+    df.loc[df["AGE"] > 65, "AGE_GROUP"] = "over 65"
+    df.loc[df["AGE"].isna(), "AGE_GROUP"] = "Unknown age"
+    # clean TOT_INTERVENTI from NaN
+    df.loc[df["TOT_INTERVENTI"].isna(), "TOT_INTERVENTI"] = 0
+    # clean SESSO from NaN and None and subtitute with "Unknown"
+    df.loc[df["SESSO"].isna(), "SESSO"] = "Unknown sex"
+    # - anno di inclusione
+    anno_di_inclusione = list(set(df["ANNO_DI_INCLUSIONE"]))
+    anno_di_inclusione.sort()
+    
+    # statistiche sesso
+    
+    ##########     later if needed
+    # now, lets plot!
+    # x: year of inclusion
+    # y: indicatore ((number of TOT_INTERVENTI != 0) / number of patients)
+    pl = df.hvplot.bar(
+        x="ANNO_DI_INCLUSIONE",
+        y="TOT_INTERVENTI",
+        xlabel=database_keys_map[display_language]["ANNO_DI_INCLUSIONE"],
+        ylabel=database_keys_map[display_language]["TOT_INTERVENTI"],
+        title="Number of interventions by year of inclusion.",
+        max_width=600,
+        by=["AGE_GROUP"]
+    )
+    if 1:
+        hvplot.show(pl)
+    else:
+        return pl
+
+
+plot_indicatore_time_series_plus_stratification(df, "BIPO", "A", "Indicatore 1")
+quit()
 
 
 
