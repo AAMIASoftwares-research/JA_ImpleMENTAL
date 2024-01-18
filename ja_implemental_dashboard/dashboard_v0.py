@@ -1,3 +1,8 @@
+# Author: Matteo Leccardi
+# Interesting resources:
+# https://justinbois.github.io/bootcamp/2022/lessons/l40_holoviews.html
+
+
 import os, sys
 import pandas
 import numpy
@@ -25,7 +30,7 @@ from .sas_database_reader import read_sas_database_ind_1
 
 
 #####################
-# LANGUAGE SELECTION
+# LANGUAGE SELECTION 
 #####################
 
 AVAILABLE_LANGUAGES = ["en", "it", "fr", "de", "es", "pt"]
@@ -462,6 +467,7 @@ def plot_all_diseases_by_year_of_inclusion_binding_coorte(coorte="Coorte A"):
 # the history (by year of inclusion on the x axis) of the number of patients
 # Also stratify the patients by sex and age (in 5 years intervals)
 
+
 def plot_indicatore_time_series_plus_stratification(
         df_global,
         disease,
@@ -473,7 +479,7 @@ def plot_indicatore_time_series_plus_stratification(
     x: year of inclusion
     y: indicatore (number of interventions != 0 / number of patients)
     """
-    # select data to plot and put it into a different interactive dataframe
+    # select data to plot and put it into a different dataframe
     df = df_global.loc[
         (df_global["DISTURBO"] == disease) &
         (df_global["COORTE"] == cohort) &
@@ -481,9 +487,11 @@ def plot_indicatore_time_series_plus_stratification(
         ["ANNO_DI_INCLUSIONE", "SESSO", "ANNO_NASCITA", "MESE_NASCITA", "TOT_INTERVENTI"]
     ].copy()
     # add age column
+    df.loc[df["MESE_NASCITA"].isna(), "MESE_NASCITA"] = 9 # if month of birth is unknown, assume september
     df["AGE"] = df["ANNO_DI_INCLUSIONE"] - df["ANNO_NASCITA"]
     df.loc[df["MESE_NASCITA"] <= 11, "AGE"] -= 1
     # add age group column ordered by 18-25, 26-35, 36-45, 46-55, 56-65, over 65  
+    AGE_GROUPS = ["18-25", "26-35", "36-45", "46-55", "56-65", "over 65", "Unknown age", "any age"]
     df["AGE_GROUP"] = df["AGE"]
     df.loc[df["AGE"] <= 25, "AGE_GROUP"] = "18-25"
     df.loc[(df["AGE"] > 25) & (df["AGE"] <= 35), "AGE_GROUP"] = "26-35"
@@ -495,30 +503,144 @@ def plot_indicatore_time_series_plus_stratification(
     # clean TOT_INTERVENTI from NaN
     df.loc[df["TOT_INTERVENTI"].isna(), "TOT_INTERVENTI"] = 0
     # clean SESSO from NaN and None and subtitute with "Unknown"
+    BIOLOGICAL_BIRTH_SEXES = ["M", "F", "Unknown sex", "any sex"]
     df.loc[df["SESSO"].isna(), "SESSO"] = "Unknown sex"
     # - anno di inclusione
     anno_di_inclusione = list(set(df["ANNO_DI_INCLUSIONE"]))
     anno_di_inclusione.sort()
     
-    # statistiche sesso
-    
-    ##########     later if needed
-    # now, lets plot!
-    # x: year of inclusion
-    # y: indicatore ((number of TOT_INTERVENTI != 0) / number of patients)
-    pl = df.hvplot.bar(
-        x="ANNO_DI_INCLUSIONE",
-        y="TOT_INTERVENTI",
-        xlabel=database_keys_map[display_language]["ANNO_DI_INCLUSIONE"],
-        ylabel=database_keys_map[display_language]["TOT_INTERVENTI"],
-        title="Number of interventions by year of inclusion.",
-        max_width=600,
-        by=["AGE_GROUP"]
+    #######      old pipeline      #######
+    ######################################
+    ######################################
+    plot_lists_year_of_inclusion = []
+    plot_lists_age_group = []
+    plot_list_sex = []
+    plot_list_indicator_value = []
+    for anno in anno_di_inclusione:
+        for age_group in AGE_GROUPS:
+            for sex in BIOLOGICAL_BIRTH_SEXES:
+                plot_lists_year_of_inclusion.append(anno)
+                plot_lists_age_group.append(age_group)
+                plot_list_sex.append(sex)
+                # stratify
+                df_temp_ = df.loc[df["ANNO_DI_INCLUSIONE"] == anno, :]
+                num_patients_in_reference_year = len(df_temp_)
+                if age_group == "any age":
+                    pass
+                else:
+                    df_temp_ = df_temp_.loc[df_temp_["AGE_GROUP"] == age_group, :]
+                if sex == "any sex":
+                    pass
+                else:
+                    df_temp_ = df_temp_.loc[df_temp_["SESSO"] == sex, :]
+                # make indicator value
+                num_patients_with_interventions = len(df_temp_.loc[df_temp_["TOT_INTERVENTI"] != 0, :])
+                indicator_value = num_patients_with_interventions / num_patients_in_reference_year
+                #####################
+                ##################### stratificando, devo stratificare anche il denominatore o
+                ##################### soltanto il numeratore? Io direi anche il denominatore
+                ##################### (es. maschi con almeno un intervento / maschi totali)
+                ##################### ma prima meglio chiedere
+                #####################  CHIEDERE AI CAPI ------------------------------------------
+                plot_list_indicator_value.append(indicator_value)
+    # build dataframe
+    df_plot = pandas.DataFrame({
+        "YEAR_OF_INCLUSION": plot_lists_year_of_inclusion,
+        "AGE_GROUP": plot_lists_age_group,
+        "SEX": plot_list_sex,
+        "INDICATOR_VALUE": plot_list_indicator_value
+    })
+
+
+    #######      new pipeline      #######
+    ######## intractive dataframe ########
+    ######################################
+    # a working example: https://gist.github.com/MarcSkovMadsen/ffb273636dced88705c8c88d5ee28f23
+
+    # - slider widget for age grouping
+    range_slider = panel.widgets.EditableRangeSlider(
+        # https://holoviz.org/tutorial/Interactive_Pipelines.html
+        name='Scegli età', 
+        start=18, end=90,
+        value=(20, 30),
+        step=1,
+        format=bokeh.models.formatters.PrintfTickFormatter(format='%d anni')
     )
+    print("\n\n\n")
+    # - dropdown widget for sex grouping 
+
+    # - interactive datarame
+    dfi = df.interactive()
+    filtered_df = dfi[(dfi['AGE'] >= range_slider.value[0]) & (dfi['AGE'] <= range_slider.value[1])].head(10)
+    
+    pipeline = (
+        df.interactive()[(df['AGE'] >= range_slider.value[0]) & (df['AGE'] <= range_slider.value[1])]
+    )
+    
+
+    # - example of interactive plotn - a table
+    # https://panel.holoviz.org/reference/panes/Table.html
+    # Interactive Table
+    table = pipeline.pipe(
+        panel.widgets.Tabulator,
+        pagination="remote",
+        page_size=20,
+        theme="fast",
+        sizing_mode="stretch_both",
+    ).panel(name="Table")
+
+    # - plot it for debugging
+    p = panel.Column(
+        table,
+        range_slider
+    )
+    p.show()
+    quit()
+    
+
+    
+
+
+
+
+
+    ## from https://holoviews.org/reference/elements/bokeh/Bars.html
+    # and https://justinbois.github.io/bootcamp/2022/lessons/l40_holoviews.html
+    age_group_dimension_picker = holoviews.Dimension('AGE_GROUP', values=['any age'])
+    sex_dimension_picker = holoviews.Dimension("SEX", values=["Unknown sex", "M", "F"])
+    bars = holoviews.Bars(
+        df_plot,
+        kdims=["YEAR_OF_INCLUSION", sex_dimension_picker, 'AGE_GROUP'],
+        vdims=["INDICATOR_VALUE"],
+        ylabel=indicator,
+        title="Indicator value by year of inclusion" ### translate
+        
+    ).groupby(
+        ['AGE_GROUP']
+    ).opts(
+        stacked=True, tools=['hover'], width=800
+    )
+    
+    ###    also make table to the right (plot + table, you have to use the + operator)
     if 1:
-        hvplot.show(pl)
+        hvplot.show(bars)
     else:
-        return pl
+        return bars
+
+
+def plot_indicatore_time_series_stratification_and_table_idf(df_global,
+        disease,
+        cohort,
+        indicator
+        ):
+    """
+    stratification: m-f, age
+    x: year of inclusion
+    y: indicatore (number of interventions != 0 / number of patients)
+    """
+    # kind of as the previous function, but with a table
+    # also, i'm using interactive dataframe from holoviz to try and simplify everything
+
 
 
 plot_indicatore_time_series_plus_stratification(df, "BIPO", "A", "Indicatore 1")
