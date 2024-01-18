@@ -467,6 +467,31 @@ def plot_all_diseases_by_year_of_inclusion_binding_coorte(coorte="Coorte A"):
 # the history (by year of inclusion on the x axis) of the number of patients
 # Also stratify the patients by sex and age (in 5 years intervals)
 
+def clean_global_dataframe_by_disease_cohort_indicator(df_global, disease, cohort, indicator):
+    """
+    This function takes the global dataframe and returns a new dataframe
+    with only the rows that are relevant to the selected disease, cohort, and indicator.
+    """
+    df = df_global.loc[
+        (df_global["DISTURBO"] == disease) &
+        (df_global["COORTE"] == cohort) &
+        (df_global["INDICATORE"] == indicator),
+        ["ANNO_DI_INCLUSIONE", "SESSO", "ANNO_NASCITA", "MESE_NASCITA", "TOT_INTERVENTI"]
+    ].copy()
+    # add age column
+    df.loc[df["MESE_NASCITA"].isna(), "MESE_NASCITA"] = 9 # if month of birth is unknown, assume september
+    df["AGE"] = df["ANNO_DI_INCLUSIONE"] - df["ANNO_NASCITA"]
+    df.loc[df["MESE_NASCITA"] <= 11, "AGE"] -= 1
+    # remove year of birth and month of birth
+    df.drop(columns=["ANNO_NASCITA", "MESE_NASCITA"], inplace=True)
+    # clean TOT_INTERVENTI from NaN
+    df.loc[df["TOT_INTERVENTI"].isna(), "TOT_INTERVENTI"] = 0
+    # clean SESSO from NaN and None and subtitute with "Unk."
+    df.loc[df["SESSO"].isna(), "SESSO"] = "Unk."
+    # clean AGE from NaN and None and subtitute with "Unk."
+    df.loc[df["AGE"].isna(), "AGE"] = "Unk."
+    # return the cleaned dataframe
+    return df
 
 def plot_indicatore_time_series_plus_stratification(
         df_global,
@@ -567,32 +592,43 @@ def plot_indicatore_time_series_plus_stratification(
         format=bokeh.models.formatters.PrintfTickFormatter(format='%d anni')
     )
     print("\n\n\n")
-    # - dropdown widget for sex grouping 
+    # - dropdown widget for sex grouping
+    #later
 
-    # - interactive datarame
-    dfi = df.interactive()
-    filtered_df = dfi[(dfi['AGE'] >= range_slider.value[0]) & (dfi['AGE'] <= range_slider.value[1])].head(10)
-    
+    # - interactive dataframe pipeline    
     pipeline = (
-        df.interactive()[(df['AGE'] >= range_slider.value[0]) & (df['AGE'] <= range_slider.value[1])]
+        df.interactive()
+        .loc[
+            (df['AGE'] >= range_slider.value[0]) & (df['AGE'] <= range_slider.value[1]), 
+            ['ANNO_DI_INCLUSIONE', 'SESSO', 'AGE', 'TOT_INTERVENTI']
+        ]
+        .groupby(['ANNO_DI_INCLUSIONE', 'SESSO'])
+        .agg({'TOT_INTERVENTI': 'sum'})
+        .reset_index()
     )
+    p = panel.Column(pipeline, range_slider)
+    p.show() ##############################
+    quit()
     
+    # panel dataframe 
+    df_pane = panel.pane.DataFrame(pipeline, width=400)
+
 
     # - example of interactive plotn - a table
     # https://panel.holoviz.org/reference/panes/Table.html
     # Interactive Table
-    table = pipeline.pipe(
+    """table = pipeline.pipe(
         panel.widgets.Tabulator,
         pagination="remote",
         page_size=20,
         theme="fast",
         sizing_mode="stretch_both",
-    ).panel(name="Table")
+    ).panel(name="Table")"""
 
     # - plot it for debugging
     p = panel.Column(
-        table,
-        range_slider
+        range_slider,
+        df_pane
     )
     p.show()
     quit()
