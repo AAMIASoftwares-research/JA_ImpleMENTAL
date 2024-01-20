@@ -28,6 +28,11 @@ panel.extension(
 
 from .sas_database_reader import read_sas_database_ind_1
 
+def dict_find_key_by_value(d, v):
+    for k in d.keys():
+        if d[k] == v:
+            return k
+    return None
 
 #####################
 # LANGUAGE SELECTION 
@@ -493,6 +498,177 @@ def clean_global_dataframe_by_disease_cohort_indicator(df_global, disease, cohor
     # return the cleaned dataframe
     return df
 
+# now basically I have to create a function which outputs a row of the body of the dashboard
+# given:
+# - the global dataframe
+# - the disease
+# - the cohort
+# - the indicator
+
+def get_clean_dataframe_filters_for_numerator_and_denominator(df, year_of_inclusion:int, sex:str, age_range: tuple[int, int], age_range_min_max: tuple[int, int]):
+    # denominator
+    # - year of inclusion
+    denominator_condition = df["ANNO_DI_INCLUSIONE"] == year_of_inclusion
+    # - age range
+    if age_range[0] == age_range_min_max[0] and age_range[1] == age_range_min_max[1]:
+        # in this case, the user is asking for all ages, so we give them also the unknowns
+        # in other words, we remove nothing from the denominator (we keep all the people)
+        pass 
+    else:
+        # in this case, the unknowns are not considered in the indicator calculation
+        age_vector = numpy.array([(int(a) if len(str(a))<4 else -10) for a in df["AGE"] ])
+        denominator_condition = denominator_condition & (age_vector >= age_range[0]) & (age_vector <= age_range[1])
+    # - biological sex
+    if sex == "ALL":
+        pass
+    elif sex == "M":
+        denominator_condition = denominator_condition & (df["SESSO"] == "M")
+    elif sex == "F":
+        denominator_condition = denominator_condition & (df["SESSO"] == "F")
+    elif sex == "M and F":
+        denominator_condition = denominator_condition & ((df["SESSO"] == "M") | (df["SESSO"] == "F"))
+    elif sex == "Unk.":
+        pass
+    # numerator
+    denominator_condition = numpy.array(denominator_condition)
+    numerator_condition = denominator_condition.copy()
+    if sex == "Unk.":
+        numerator_condition = numerator_condition & (df["SESSO"] == "Unk.")
+    numerator_condition = numerator_condition & (df["TOT_INTERVENTI"] > 0)
+    return numerator_condition, denominator_condition
+
+
+def get_plot__binding_callback(df_clean, sex_selector_widget, age_range_selector_widget, age_range_min_max):
+        # make a plot with x: year of inclusion, y: indicator value, considering the provided stratification
+        # simple version: just a plot
+        x = [int(y) for y in list(set(df_clean["ANNO_DI_INCLUSIONE"]))]
+        x.sort()
+        y = []
+        for year in x:
+            numerator, denominator = (numpy.sum(a) for a in get_clean_dataframe_filters_for_numerator_and_denominator(df_clean, year, sex_selector_widget, age_range_selector_widget, age_range_min_max))
+            if denominator == 0:
+                y.append(0)
+            else:
+                y.append(numerator / denominator)
+        # make the plot
+        x = numpy.array(x)
+        y = numpy.array(y)
+        plot = holoviews.Curve(
+            data=pandas.DataFrame({"x": x, "y": 100*y}),
+            kdims=[("x", "Year of inclusion")],
+            vdims=[("y", "Indicator value (%)")]
+        ).opts(
+            xlabel=database_keys_map[display_language]["ANNO_DI_INCLUSIONE"],
+            ylabel="Indicator value",
+            yformatter='%d%%',
+            title="Indicator value by year of inclusion",
+            show_grid=True,
+            tools=["hover"],
+            color="blue"
+        )
+        return plot
+
+def get_dataframe_for_tabulator__binding_callback(df_clean, sex_selector_widget, age_range_selector_widget, age_range_min_max):
+    # get the indices to build the sub-table
+    years = [int(y) for y in list(set(df_clean["ANNO_DI_INCLUSIONE"]))]
+    years.sort()
+    denominator_filter = numpy.zeros(len(df_clean), dtype=bool)
+    for year in years:
+        _, d = get_clean_dataframe_filters_for_numerator_and_denominator(df_clean, year, sex_selector_widget, age_range_selector_widget, age_range_min_max)
+        denominator_filter = denominator_filter | d
+    if sex_selector_widget == "Unk.":
+        # in the table, I want to show just the unknowns, so I have to consider them in the denominator
+        denominator_filter = denominator_filter & (df_clean["SESSO"] == "Unk.")
+    # get subtable and return it
+    dataframe_to_display_into_tabulator = df_clean.loc[denominator_filter, :]
+    return dataframe_to_display_into_tabulator
+
+def get_box_element(df_global, disease, cohort, indicator):
+    """ The box element is a row, containing a column with title, description of the indicator,
+        a row with a plot and a table side by side, and widgets to interact with the plot and the table.
+    """
+    df = clean_global_dataframe_by_disease_cohort_indicator(df_global, disease, cohort, indicator)
+    # - title
+    title_panel = panel.panel(
+        "<h1>" + indicator + "</h1>",
+        styles={"text-align": "left"}
+    )
+    # - description
+    description_panel = panel.panel(
+        "<p>(Optional) description of the indicator</p>",
+        styles={"text-align": "left", "color": "#546e7a", "font-size": "0.7em"}
+    )
+    # widgets - sex selector
+    sex_selector_widget = panel.widgets.Select(
+        name=database_keys_map[display_language]["SESSO"],
+        value="All",
+        options=["M", "F", "M and F", "Unk.", "All"]
+    )
+    # widgets - age selector
+    age_min = max(18, min([int(y) for y in df["AGE"] if y != "Unk."]))
+    age_max = max(90, max([int(y) for y in df["AGE"] if y != "Unk."]))
+    age_range_selector_widget = panel.widgets.RangeSlider(
+        name='Age range', 
+        start=age_min, 
+        end=age_max,
+        value=(20, 30),
+        step=1,
+        format=bokeh.models.formatters.PrintfTickFormatter(format='%d y.o.')
+    )
+    widget_row = panel.WidgetBox(
+        sex_selector_widget,
+        age_range_selector_widget
+    )
+    # - plot
+    plot_pane = panel.bind(
+        get_plot__binding_callback,
+        df_clean=df,
+        sex_selector_widget=sex_selector_widget,
+        age_range_selector_widget=age_range_selector_widget,
+        age_range_min_max=(age_min, age_max)
+    )
+    # table
+    table_widget = panel.widgets.Tabulator(
+        panel.bind(
+            get_dataframe_for_tabulator__binding_callback,
+            df_clean=df,
+            sex_selector_widget=sex_selector_widget,
+            age_range_selector_widget=age_range_selector_widget,
+            age_range_min_max=(age_min, age_max)
+        ),
+        theme='modern',
+        pagination='remote', 
+        page_size=10
+    )
+    ###############                                                       MAKE BINDING ALSO FOR TABLE SEX AND AGE
+    
+    # box element
+    box_element = panel.Column(
+        title_panel,
+        description_panel,
+        panel.Row(
+            panel.Column(
+                plot_pane,
+                widget_row
+            ),
+            table_widget
+        ),
+        sizing_mode='stretch_width',
+        styles={
+            "margin-top": "0.5em",
+            "margin-bottom": "0.5em"
+        }
+    )
+    return box_element
+
+
+
+
+
+
+
+
+##################
 def plot_indicatore_time_series_plus_stratification(
         df_global,
         disease,
@@ -662,25 +838,7 @@ def plot_indicatore_time_series_plus_stratification(
         hvplot.show(bars)
     else:
         return bars
-
-
-def plot_indicatore_time_series_stratification_and_table_idf(df_global,
-        disease,
-        cohort,
-        indicator
-        ):
-    """
-    stratification: m-f, age
-    x: year of inclusion
-    y: indicatore (number of interventions != 0 / number of patients)
-    """
-    # kind of as the previous function, but with a table
-    # also, i'm using interactive dataframe from holoviz to try and simplify everything
-
-
-
-plot_indicatore_time_series_plus_stratification(df, "BIPO", "A", "Indicatore 1")
-quit()
+##################    this one is TO DLETE
 
 
 
@@ -824,7 +982,7 @@ coorte_radio_group = panel.widgets.RadioButtonGroup(
     button_type='primary'
 )
 
-def build_coorte_tooltip_html(text: str):
+def build_coorte_tooltip_html(value: str, text: str):
     s_ = """
         <p style="
             color: #888888ff;
@@ -832,13 +990,14 @@ def build_coorte_tooltip_html(text: str):
             text-align: center;
         ">
     """
+    s_ += "<span style='color:#707070ff;'><b>"+value+"</b></span></br>"
     e_ = "</p>"
     text = text.replace("\"", """<span style='color:#707070ff;'><b>""", 1)
     text = text.replace("\"", """</b></span>""", 1)
     return s_ + text + e_
 
 def update_coorte_html(value):
-    return panel.pane.HTML(build_coorte_tooltip_html(coorte_explain_dict[display_language][value]))
+    return panel.pane.HTML(build_coorte_tooltip_html(value, coorte_explain_dict[display_language][value]))
 
 coorte_selector_row = panel.Column(
     coorte_radio_group,
@@ -860,29 +1019,53 @@ top_selector_row = panel.Column(
 
 # - PLOTS AND VIXs
 
-def get_main_box_elements(disease_selector_value):
+def get_main_box_elements(df, disease_selector_value, coorte_selector_value):
     if disease_selector_value == diseases_map[display_language]["ALL"]:
         return [
             panel.bind(plot_all_diseases_by_year_of_inclusion_binding_coorte, coorte_radio_group.param.value)
         ]
-    ###### put here the rest of the logic
     else:
-        return [
-            panel.bind(plot_all_diseases_by_year_of_inclusion_binding_coorte, coorte_radio_group.param.value),
-            plot_all_diseases_by_year_of_inclusion(df),
-            plot_all_diseases_by_year_of_inclusion(df),
-            #plot_all_diseases_by_year_of_inclusion(df),
-            #plot_all_diseases_by_year_of_inclusion(df)
-        ]
+        # clean input
+        disease_selector_value = dict_find_key_by_value(diseases_map[display_language], disease_selector_value)
+        coorte_selector_value = str(coorte_selector_value)[-1].upper()
+        # find list of all indicators available for that disease and cohort
+        list_of_boxes_to_display = []
+        selection = (df["DISTURBO"] == disease_selector_value)
+        selection = selection & (df["COORTE"] == coorte_selector_value)
+        indicators = list(set(df.loc[selection,"INDICATORE"]))
+        indicators.sort()
+        # get all plots and elements
+        for indicator in indicators:
+            list_of_boxes_to_display.append(
+                get_box_element(df, disease_selector_value, coorte_selector_value, indicator)
+            )
+        return list_of_boxes_to_display
     
-main_box = panel.GridBox(
-    objects=panel.bind(get_main_box_elements, title_menu_button.param.clicked),
-    ncols = 2,
+"""main_box = panel.GridBox(
+    objects=panel.bind(
+        get_main_box_elements,
+        df=df,
+        disease_selector_value=title_menu_button.param.clicked, 
+        coorte_selector_value=coorte_radio_group.param.value
+    ),
+    ncols = 1,
     width_policy = "max",
     height_policy = "fit",
     align="center",
     styles={
-        "justify-content": "space-evenly",
+        #"justify-content": "space-evenly",
+        "width": "95%"
+    }
+)"""
+main_box = panel.Column(
+    objects=panel.bind(
+        get_main_box_elements,
+        df=df,
+        disease_selector_value=title_menu_button.param.clicked, 
+        coorte_selector_value=coorte_radio_group.param.value
+    ),
+    align="center",
+    styles={
         "width": "95%"
     }
 )
@@ -895,10 +1078,11 @@ main_box = panel.GridBox(
 body = panel.Column(
     top_selector_row,
     main_box,
+    panel.Spacer(height=50),
     styles={
         "margin-top": "20px",
         "padding-top": "0px",
-        "margin-bottom": "15px"
+        "margin-bottom": "35px"
     }
 )
 
@@ -906,7 +1090,7 @@ body = panel.Column(
 # Dashboard
 ##################
 
-p = panel.Column(
+APP = panel.Column(
     header,
     body,
     footer,
@@ -916,4 +1100,4 @@ p = panel.Column(
         "height": "100%"
     }
 )
-p.show()
+APP.show()
