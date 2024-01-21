@@ -12,12 +12,6 @@ import hvplot
 import hvplot.pandas
 import holoviews
 import bokeh
-# Add backend extensions
-# select matplotlib as the backend to use instead of bokeh
-# All methods to show the plots must be changed accordingly
-if 0: 
-    hvplot.extension('matplotlib')
-    hvplot.output(backend='matplotlib')
 
 import panel
 panel.extension(
@@ -28,18 +22,15 @@ panel.extension(
 
 from .sas_database_reader import read_sas_database_ind_1
 
+############
+# UTILITIES
+############
+
 def dict_find_key_by_value(d, v):
     for k in d.keys():
         if d[k] == v:
             return k
     return None
-
-#####################
-# LANGUAGE SELECTION 
-#####################
-
-AVAILABLE_LANGUAGES = ["en", "it", "fr", "de", "es", "pt"]
-display_language = AVAILABLE_LANGUAGES[0]
 
 ##############
 # DIRECTORIES
@@ -52,9 +43,152 @@ DATA_FOLDER = os.path.normpath(
 
 
 
-########
-# header
-########
+
+###################
+# Open the dataset
+###################
+
+######    NOTE    #########
+# here, everything has to be done again once we have true data.
+# The developed pipeline opens and cleans the data a little bit,
+# however this is not final, as the final data structure and specifications
+# of the database is to yet defined.
+
+FILE_NAME = "Indicatore 1_BIPO_coorteA.sas7bdat"
+FILE = os.path.join(DATA_FOLDER, FILE_NAME)
+DB = read_sas_database_ind_1(FILE)
+
+if 0:
+    print(DB.columns)
+
+# bipo, ind 1, 2021
+
+DB["INDICATORE"] = "Indicatore 1"
+DB["ANNO_DI_INCLUSIONE"] = 2021
+
+
+
+
+############################
+# DUMMY DATASET FOR TESTING
+############################
+####### augment data
+# ricreare un database verosimile seguendo le seguenti possibilita
+
+choice_disturbo = ["BIPO", "SCHIZO", "DEPRE", "ADHD"]
+choice_coorte = ["A", "B", "C", "D"]
+choice_anno_di_inclusione = [2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021]
+choice_indictore = ["Indicatore 1", "Indicatore 2", "Indicatore 3"]
+choice_sex = ["M", "F"]*50 + [None]
+choice_anno_nascita = [i for i in range(1950, 2005)] + [None]
+choice_mese_nascita = [i for i in range(1,13)]
+choice_mesi_fup = [i for i in range(1, 5*12)] + [None]
+
+n_rows = 300000
+DB = pandas.DataFrame({
+    # disturbo, coorte, anno inclusione, indicatore
+    "DISTURBO": numpy.random.choice(choice_disturbo, n_rows, replace=True),
+    "COORTE": numpy.random.choice(choice_coorte, n_rows, replace=True),
+    "ANNO_DI_INCLUSIONE": numpy.random.choice(choice_anno_di_inclusione, n_rows, replace=True),
+    "INDICATORE": numpy.random.choice(choice_indictore, n_rows, replace=True),
+    # anagrafe assistito
+    "ID_ASSISTITO": numpy.random.choice([i for i in range(1, 1000000)], n_rows, replace=False),
+    "SESSO": numpy.random.choice(choice_sex, n_rows, replace=True),
+    "ANNO_NASCITA": numpy.random.choice(choice_anno_nascita, n_rows, replace=True),
+    "MESE_NASCITA": numpy.random.choice(choice_mese_nascita, n_rows, replace=True),
+    # ... (manca roba)
+    # anagrafe assistenza
+    "MESI_FUP": numpy.random.choice(choice_mesi_fup, n_rows, replace=True),
+    # ... (manca roba)
+    # numero interventi
+    "TOT_INTERVENTI": numpy.random.poisson(2, n_rows) # indicatore si calcola con questo
+})
+# Dove anno nascita is None, anche mese nascita deve essere none
+DB.loc[DB["MESE_NASCITA"].isnull(), "ANNO_NASCITA"] = None
+DB.loc[DB["ANNO_NASCITA"].isnull(), "MESE_NASCITA"] = None
+# Cambia TOT_INTERVENTI in base a indicatore, così da avere grafici un po diversi
+DB.loc[DB["INDICATORE"] == "Indicatore 1", "TOT_INTERVENTI"] = (DB.loc[DB["INDICATORE"] == "Indicatore 1", "TOT_INTERVENTI"] - 1).clip(lower=0)
+DB.loc[DB["INDICATORE"] == "Indicatore 2", "TOT_INTERVENTI"] = (DB.loc[DB["INDICATORE"] == "Indicatore 2", "TOT_INTERVENTI"] - 2).clip(lower=0)
+# Dove TOT_INTERVENTI is 0, qualche volta lo mettiamo come None o NaN, così il codice a valle risulta piu robusto
+DB["TOT_INTERVENTI"] = DB["TOT_INTERVENTI"].astype(float) # first i have to cast it, otherwise pandas is not happy
+DB.loc[DB["TOT_INTERVENTI"] == 0, "TOT_INTERVENTI"] = numpy.random.choice(
+    [0, numpy.nan, numpy.nan, numpy.nan], len(DB.loc[DB["TOT_INTERVENTI"] == 0, "TOT_INTERVENTI"]),
+    replace=True
+)
+
+
+
+
+# preliminary database cleaning
+# - the following steps should be put into a proper function, nut as of now, i'll do that here
+# - - Replace None and numpy.nan with 0
+DB["TOT_INTERVENTI"].fillna(0, inplace=True)
+# - - Convert back to integer
+DB["TOT_INTERVENTI"] = DB["TOT_INTERVENTI"].astype(int)
+
+
+
+
+#####################
+# LANGUAGE SELECTION 
+#####################
+
+
+# make a dropdown menu and related binding callback
+# so that languace can be changed easily by the user
+
+LANGUAGE_DICT = {
+    # The options parameter also accepts a dictionary
+    # whose keys are going to be the labels of the dropdown menu,
+    # while the values are the objects that will be set into the 
+    # widget.value parameter field.
+    "Deutsch" : "de",
+    "English" : "en",
+    "Español" : "es",
+    "Français" : "fr",
+    "Italiano" : "it",
+    "Português" : "pt"
+}
+DEFAULT_LANGUAGE = "en"
+
+AVAILABLE_LANGUAGES = [v for v in LANGUAGE_DICT.values()]
+display_language = DEFAULT_LANGUAGE ########################## back-compatible with the code
+
+def language_selector_widget_make_name(language_code):
+    return "Language - " + dict_find_key_by_value(LANGUAGE_DICT, language_code)
+
+language_selector_widget = panel.widgets.Select(
+    name=language_selector_widget_make_name(DEFAULT_LANGUAGE),
+    value=DEFAULT_LANGUAGE,
+    options=LANGUAGE_DICT,
+    width=120,
+    styles={
+        "position": "absolute",
+        "margin-top": "0.5em",
+        "margin-left": "5.5em",
+    }
+)
+
+def language_selector_widget_update_name_callback(event):
+    language_selector_widget.name = language_selector_widget_make_name(event.new)
+
+language_selector_widget.param.watch(
+    language_selector_widget_update_name_callback, 
+    'value'
+)
+
+# This widget still has no effect on the dashboard.
+# So, it is not displayed. It is still unclear if by changing language
+# through this widget, it is really possible to change language of everything
+# on the fly, or if it is necessary or much easier to reload the page.
+
+
+
+
+
+#########
+# HEADER
+#########
 
 title_str_html = {
     "en": "JA on Implementation of Best Practices </br> in the area of Mental Health",
@@ -121,9 +255,9 @@ header = panel.panel(
 )
 
 
-########
-# footer
-########
+#########
+# FOOTER
+#########
 
 footer_str_html = {
     "en": """JA ImpleMENTAL is a Joint Action (JA) co-funded by the European Commission (EC)
@@ -198,74 +332,10 @@ footer = panel.panel(
 
 
 
-##################
-# Open the dataset
-##################
 
-######    NOTE    #########
-# here, everything has to be done again once we have true data
-# as for now, we invent just to show that we ave something to show
-
-FILE_NAME = "Indicatore 1_BIPO_coorteA.sas7bdat"
-FILE = os.path.join(DATA_FOLDER, FILE_NAME)
-df = read_sas_database_ind_1(FILE)
-
-if 0:
-    print(df.columns)
-
-# bipo, ind 1, 2021
-
-df["INDICATORE"] = "Indicatore 1"
-df["ANNO_DI_INCLUSIONE"] = 2021
-
-####### augment data
-# ricreare un database verosimile seguendo le seguenti possibilita
-
-choice_disturbo = ["BIPO", "SCHIZO", "DEPRE", "ADHD"]
-choice_coorte = ["A", "B", "C", "D"]
-choice_anno_di_inclusione = [2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021]
-choice_indictore = ["Indicatore 1", "Indicatore 2", "Indicatore 3"]
-choice_sex = ["M", "F"]*50 + [None]
-choice_anno_nascita = [i for i in range(1950, 2005)] + [None]
-choice_mese_nascita = [i for i in range(1,13)]
-choice_mesi_fup = [i for i in range(1, 5*12)] + [None]
-
-n_rows = 300000
-df = pandas.DataFrame({
-    # disturbo, coorte, anno inclusione, indicatore
-    "DISTURBO": numpy.random.choice(choice_disturbo, n_rows, replace=True),
-    "COORTE": numpy.random.choice(choice_coorte, n_rows, replace=True),
-    "ANNO_DI_INCLUSIONE": numpy.random.choice(choice_anno_di_inclusione, n_rows, replace=True),
-    "INDICATORE": numpy.random.choice(choice_indictore, n_rows, replace=True),
-    # anagrafe assistito
-    "ID_ASSISTITO": numpy.random.choice([i for i in range(1, 1000000)], n_rows, replace=False),
-    "SESSO": numpy.random.choice(choice_sex, n_rows, replace=True),
-    "ANNO_NASCITA": numpy.random.choice(choice_anno_nascita, n_rows, replace=True),
-    "MESE_NASCITA": numpy.random.choice(choice_mese_nascita, n_rows, replace=True),
-    # ... (manca roba)
-    # anagrafe assistenza
-    "MESI_FUP": numpy.random.choice(choice_mesi_fup, n_rows, replace=True),
-    # ... (manca roba)
-    # numero interventi
-    "TOT_INTERVENTI": numpy.random.poisson(2, n_rows) # indicatore si calcola con questo
-})
-# Dove anno nascita is None, anche mese nascita deve essere none
-df.loc[df["MESE_NASCITA"].isnull(), "ANNO_NASCITA"] = None
-df.loc[df["ANNO_NASCITA"].isnull(), "MESE_NASCITA"] = None
-# Cambia TOT_INTERVENTI in base a indicatore, così da avere grafici un po diversi
-df.loc[df["INDICATORE"] == "Indicatore 1", "TOT_INTERVENTI"] = (df.loc[df["INDICATORE"] == "Indicatore 1", "TOT_INTERVENTI"] - 1).clip(lower=0)
-df.loc[df["INDICATORE"] == "Indicatore 2", "TOT_INTERVENTI"] = (df.loc[df["INDICATORE"] == "Indicatore 2", "TOT_INTERVENTI"] - 2).clip(lower=0)
-# Dove TOT_INTERVENTI is 0, qualche volta lo mettiamo come None o NaN, così il codice a valle risulta piu robusto
-df.loc[df["TOT_INTERVENTI"] == 0, "TOT_INTERVENTI"] = numpy.random.choice(
-    [0, None, None, None, numpy.nan, numpy.nan], len(df.loc[df["TOT_INTERVENTI"] == 0, "TOT_INTERVENTI"]),
-    replace=True
-)
-
-
-
-################
+####################
 # All diseases page
-################
+####################
 
 diseases_map = {
     "en": {
@@ -445,7 +515,7 @@ def plot_all_diseases_by_year_of_inclusion(df: pandas.DataFrame, coorte="Coorte 
         "pt": "Número de pacientes por ano de inclusão, estratificados por doença."
     }
     df3.drop(columns=[diseases_map[display_language]["ALL"]], inplace=True)
-    pl = df3.hvplot.bar(
+    """pl = df3.hvplot.bar(
         x=database_keys_map[display_language]["ANNO_DI_INCLUSIONE"],
         y=[diseases_map[display_language][d] for d in disturbi[1:]],
         stacked=True,
@@ -454,19 +524,84 @@ def plot_all_diseases_by_year_of_inclusion(df: pandas.DataFrame, coorte="Coorte 
         title=plot_title_map[display_language],
         legend="top_left",
         max_width=600
+    )"""
+    # now, we create the overall plot
+    # - first, the plot of the number of all patients
+    df3_for_plotting = df3.copy()
+    df3_for_plotting[y_abels_map[display_language]] = df3_for_plotting[[diseases_map[display_language][d] for d in disturbi[1:]]].sum(axis=1)
+    df3_for_plotting = df3_for_plotting.drop(columns=[diseases_map[display_language][d] for d in disturbi[1:]])
+    PLOT_COLOR = "blue"
+    curve = holoviews.Curve(
+        data=df3_for_plotting,
+        kdims=[database_keys_map[display_language]["ANNO_DI_INCLUSIONE"]],
+        vdims=[y_abels_map[display_language]],
+    ).opts(
+        color=PLOT_COLOR,
+        line_width=1.5
     )
-    if 0:
-        hvplot.show(pl)
-    else:
-        return pl
+    scatter = holoviews.Scatter(
+        data=df3_for_plotting,
+        kdims=[database_keys_map[display_language]["ANNO_DI_INCLUSIONE"]],
+        vdims=[y_abels_map[display_language]],
+    ).opts(
+        size=10,  # size of the marker
+        fill_color='white',  # color inside the marker
+        line_color=PLOT_COLOR,  # color of the marker's edge
+        line_width=1.5,  # thickness of the marker's edge,
+        tools=["hover"]
+    )
+    text_labels = holoviews.Labels(
+        {
+            ('x', 'y'): df3_for_plotting, 
+            'text': [str(a) for a in df3_for_plotting[y_abels_map[display_language]]]
+        }, 
+        ['x', 'y'], 'text'
+    ).opts(
+        align="center",
+        text_font_size='8pt',
+        yoffset = max(df3_for_plotting[y_abels_map[display_language]])/10,
+        text_color="#302070"
+    )
+    # - here, the barplot with the stacked subdivisions
+    df3_melted = pandas.melt(
+        df3, 
+        id_vars=[database_keys_map[display_language]["ANNO_DI_INCLUSIONE"]],
+        value_vars=[diseases_map[display_language][d] for d in disturbi[1:]],
+        var_name=disease_word_langauges_map[display_language],
+        value_name=y_abels_map[display_language]
+    )
+    bars = holoviews.Bars(
+        data=df3_melted,
+        kdims=[database_keys_map[display_language]["ANNO_DI_INCLUSIONE"], disease_word_langauges_map[display_language]],
+        vdims=[y_abels_map[display_language]],
+    ).opts(
+        stacked=True,
+        legend_position="bottom_left",
+        tools=["hover"],
+        
+    )
+    # - composite plot
+    plot = (bars * curve * scatter * text_labels).opts(
+        xlabel=database_keys_map[display_language]["ANNO_DI_INCLUSIONE"],
+        ylabel=y_abels_map[display_language],
+        title=plot_title_map[display_language],
+        ylim=(
+            0, 
+            (5/4)*df3_for_plotting[y_abels_map[display_language]].max()
+        )
+    )
+    return plot
 
-def plot_all_diseases_by_year_of_inclusion_binding_coorte(coorte="Coorte A"):
-    return plot_all_diseases_by_year_of_inclusion(df, coorte=coorte)
 
 
-##################
+
+
+
+
+
+######################
 # Single disease page
-##################
+######################
 
 # - depending on the selected disease, cohort, and indicator, plot
 # the history (by year of inclusion on the x axis) of the number of patients
@@ -668,180 +803,6 @@ def get_box_element(df_global, disease, cohort, indicator):
 
 
 
-##################
-def plot_indicatore_time_series_plus_stratification(
-        df_global,
-        disease,
-        cohort,
-        indicator
-        ):
-    """
-    stratification: m-f, age
-    x: year of inclusion
-    y: indicatore (number of interventions != 0 / number of patients)
-    """
-    # select data to plot and put it into a different dataframe
-    df = df_global.loc[
-        (df_global["DISTURBO"] == disease) &
-        (df_global["COORTE"] == cohort) &
-        (df_global["INDICATORE"] == indicator),
-        ["ANNO_DI_INCLUSIONE", "SESSO", "ANNO_NASCITA", "MESE_NASCITA", "TOT_INTERVENTI"]
-    ].copy()
-    # add age column
-    df.loc[df["MESE_NASCITA"].isna(), "MESE_NASCITA"] = 9 # if month of birth is unknown, assume september
-    df["AGE"] = df["ANNO_DI_INCLUSIONE"] - df["ANNO_NASCITA"]
-    df.loc[df["MESE_NASCITA"] <= 11, "AGE"] -= 1
-    # add age group column ordered by 18-25, 26-35, 36-45, 46-55, 56-65, over 65  
-    AGE_GROUPS = ["18-25", "26-35", "36-45", "46-55", "56-65", "over 65", "Unknown age", "any age"]
-    df["AGE_GROUP"] = df["AGE"]
-    df.loc[df["AGE"] <= 25, "AGE_GROUP"] = "18-25"
-    df.loc[(df["AGE"] > 25) & (df["AGE"] <= 35), "AGE_GROUP"] = "26-35"
-    df.loc[(df["AGE"] > 35) & (df["AGE"] <= 45), "AGE_GROUP"] = "36-45"
-    df.loc[(df["AGE"] > 45) & (df["AGE"] <= 55), "AGE_GROUP"] = "46-55"
-    df.loc[(df["AGE"] > 55) & (df["AGE"] <= 65), "AGE_GROUP"] = "56-65"
-    df.loc[df["AGE"] > 65, "AGE_GROUP"] = "over 65"
-    df.loc[df["AGE"].isna(), "AGE_GROUP"] = "Unknown age"
-    # clean TOT_INTERVENTI from NaN
-    df.loc[df["TOT_INTERVENTI"].isna(), "TOT_INTERVENTI"] = 0
-    # clean SESSO from NaN and None and subtitute with "Unknown"
-    BIOLOGICAL_BIRTH_SEXES = ["M", "F", "Unknown sex", "any sex"]
-    df.loc[df["SESSO"].isna(), "SESSO"] = "Unknown sex"
-    # - anno di inclusione
-    anno_di_inclusione = list(set(df["ANNO_DI_INCLUSIONE"]))
-    anno_di_inclusione.sort()
-    
-    #######      old pipeline      #######
-    ######################################
-    ######################################
-    plot_lists_year_of_inclusion = []
-    plot_lists_age_group = []
-    plot_list_sex = []
-    plot_list_indicator_value = []
-    for anno in anno_di_inclusione:
-        for age_group in AGE_GROUPS:
-            for sex in BIOLOGICAL_BIRTH_SEXES:
-                plot_lists_year_of_inclusion.append(anno)
-                plot_lists_age_group.append(age_group)
-                plot_list_sex.append(sex)
-                # stratify
-                df_temp_ = df.loc[df["ANNO_DI_INCLUSIONE"] == anno, :]
-                num_patients_in_reference_year = len(df_temp_)
-                if age_group == "any age":
-                    pass
-                else:
-                    df_temp_ = df_temp_.loc[df_temp_["AGE_GROUP"] == age_group, :]
-                if sex == "any sex":
-                    pass
-                else:
-                    df_temp_ = df_temp_.loc[df_temp_["SESSO"] == sex, :]
-                # make indicator value
-                num_patients_with_interventions = len(df_temp_.loc[df_temp_["TOT_INTERVENTI"] != 0, :])
-                indicator_value = num_patients_with_interventions / num_patients_in_reference_year
-                #####################
-                ##################### stratificando, devo stratificare anche il denominatore o
-                ##################### soltanto il numeratore? Io direi anche il denominatore
-                ##################### (es. maschi con almeno un intervento / maschi totali)
-                ##################### ma prima meglio chiedere
-                #####################  CHIEDERE AI CAPI ------------------------------------------
-                plot_list_indicator_value.append(indicator_value)
-    # build dataframe
-    df_plot = pandas.DataFrame({
-        "YEAR_OF_INCLUSION": plot_lists_year_of_inclusion,
-        "AGE_GROUP": plot_lists_age_group,
-        "SEX": plot_list_sex,
-        "INDICATOR_VALUE": plot_list_indicator_value
-    })
-
-
-    #######      new pipeline      #######
-    ######## intractive dataframe ########
-    ######################################
-    # a working example: https://gist.github.com/MarcSkovMadsen/ffb273636dced88705c8c88d5ee28f23
-
-    # - slider widget for age grouping
-    range_slider = panel.widgets.EditableRangeSlider(
-        # https://holoviz.org/tutorial/Interactive_Pipelines.html
-        name='Scegli età', 
-        start=18, end=90,
-        value=(20, 30),
-        step=1,
-        format=bokeh.models.formatters.PrintfTickFormatter(format='%d anni')
-    )
-    print("\n\n\n")
-    # - dropdown widget for sex grouping
-    #later
-
-    # - interactive dataframe pipeline    
-    pipeline = (
-        df.interactive()
-        .loc[
-            (df['AGE'] >= range_slider.value[0]) & (df['AGE'] <= range_slider.value[1]), 
-            ['ANNO_DI_INCLUSIONE', 'SESSO', 'AGE', 'TOT_INTERVENTI']
-        ]
-        .groupby(['ANNO_DI_INCLUSIONE', 'SESSO'])
-        .agg({'TOT_INTERVENTI': 'sum'})
-        .reset_index()
-    )
-    p = panel.Column(pipeline, range_slider)
-    p.show() ##############################
-    quit()
-    
-    # panel dataframe 
-    df_pane = panel.pane.DataFrame(pipeline, width=400)
-
-
-    # - example of interactive plotn - a table
-    # https://panel.holoviz.org/reference/panes/Table.html
-    # Interactive Table
-    """table = pipeline.pipe(
-        panel.widgets.Tabulator,
-        pagination="remote",
-        page_size=20,
-        theme="fast",
-        sizing_mode="stretch_both",
-    ).panel(name="Table")"""
-
-    # - plot it for debugging
-    p = panel.Column(
-        range_slider,
-        df_pane
-    )
-    p.show()
-    quit()
-    
-
-    
-
-
-
-
-
-    ## from https://holoviews.org/reference/elements/bokeh/Bars.html
-    # and https://justinbois.github.io/bootcamp/2022/lessons/l40_holoviews.html
-    age_group_dimension_picker = holoviews.Dimension('AGE_GROUP', values=['any age'])
-    sex_dimension_picker = holoviews.Dimension("SEX", values=["Unknown sex", "M", "F"])
-    bars = holoviews.Bars(
-        df_plot,
-        kdims=["YEAR_OF_INCLUSION", sex_dimension_picker, 'AGE_GROUP'],
-        vdims=["INDICATOR_VALUE"],
-        ylabel=indicator,
-        title="Indicator value by year of inclusion" ### translate
-        
-    ).groupby(
-        ['AGE_GROUP']
-    ).opts(
-        stacked=True, tools=['hover'], width=800
-    )
-    
-    ###    also make table to the right (plot + table, you have to use the + operator)
-    if 1:
-        hvplot.show(bars)
-    else:
-        return bars
-##################    this one is TO DLETE
-
-
-
 
 ##################
 # Dashboard
@@ -849,13 +810,22 @@ def plot_indicatore_time_series_plus_stratification(
 
 # - TITLE AND DISEASE SELECTOR
 
-if not df is None:
-    disturbi = list(set(df["DISTURBO"]))
+if not DB is None:
+    disturbi = list(set(DB["DISTURBO"]))
     disturbi.sort()
     disturbi = numpy.insert(disturbi, 0, "ALL")
     title_choice_map = {diseases_map[display_language][k]: diseases_map[display_language][k] for k in disturbi}
 
 title_menu_items = [(k, v) for k, v in title_choice_map.items()]
+
+disease_word_langauges_map = {
+    "en": "Disease",
+    "it": "Disturbo",
+    "fr": "Trouble",
+    "de": "Störung",
+    "es": "Trastorno",
+    "pt": "Distúrbio"
+}
 
 title_menu_button_name_map = {
     "en": "Select disease",
@@ -920,6 +890,11 @@ disease_selector_row = panel.FlexBox(
     align_items="center", # vertical align
     styles={}
 )
+
+
+
+
+
 
 # - COORTE CHOICE
 
@@ -1017,12 +992,20 @@ top_selector_row = panel.Column(
 )
 
 
-# - PLOTS AND VIXs
+
+
+
+
+
+
+
+
+# - MAIN BODY - PLOTS AND TABLES
 
 def get_main_box_elements(df, disease_selector_value, coorte_selector_value):
     if disease_selector_value == diseases_map[display_language]["ALL"]:
         return [
-            panel.bind(plot_all_diseases_by_year_of_inclusion_binding_coorte, coorte_radio_group.param.value)
+            panel.bind(plot_all_diseases_by_year_of_inclusion, DB, coorte_radio_group.param.value)
         ]
     else:
         # clean input
@@ -1041,26 +1024,11 @@ def get_main_box_elements(df, disease_selector_value, coorte_selector_value):
             )
         return list_of_boxes_to_display
     
-"""main_box = panel.GridBox(
-    objects=panel.bind(
-        get_main_box_elements,
-        df=df,
-        disease_selector_value=title_menu_button.param.clicked, 
-        coorte_selector_value=coorte_radio_group.param.value
-    ),
-    ncols = 1,
-    width_policy = "max",
-    height_policy = "fit",
-    align="center",
-    styles={
-        #"justify-content": "space-evenly",
-        "width": "95%"
-    }
-)"""
+
 main_box = panel.Column(
     objects=panel.bind(
         get_main_box_elements,
-        df=df,
+        df=DB,
         disease_selector_value=title_menu_button.param.clicked, 
         coorte_selector_value=coorte_radio_group.param.value
     ),
@@ -1069,8 +1037,6 @@ main_box = panel.Column(
         "width": "95%"
     }
 )
-
-
 
 
 # - BODY
@@ -1085,6 +1051,17 @@ body = panel.Column(
         "margin-bottom": "35px"
     }
 )
+
+
+
+
+
+
+
+
+
+
+
 
 ##################
 # Dashboard

@@ -30,6 +30,11 @@ def read_sas_database_ind_1(file_path):
     giorni_fup
     ALMENO_1_INT
     """
+    # Note about MISSING VALUES:
+    # When you read a SAS database with pandas.read_sas(), 
+    # any missing values in the database should be automatically 
+    # converted to numpy.nan in the resulting DataFrame.
+    # ----------------------------------------------------------
     # File name cleaning
     file_path = file_path.replace("\\", "/").replace("//", "/")
     file_path = os.path.normpath(file_path)
