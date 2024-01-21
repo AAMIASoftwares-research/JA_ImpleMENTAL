@@ -672,36 +672,140 @@ def get_clean_dataframe_filters_for_numerator_and_denominator(df, year_of_inclus
     numerator_condition = numerator_condition & (df["TOT_INTERVENTI"] > 0)
     return numerator_condition, denominator_condition
 
-
-def get_plot__binding_callback(df_clean, sex_selector_widget, age_range_selector_widget, age_range_min_max):
+def get_plot__binding_callback(df_clean, sex_selector_widget, age_range_selector_widget, age_range_min_max):    ### THIS FUNCTION IS NOT YET READY TO BE MULTILINGUAL
         # make a plot with x: year of inclusion, y: indicator value, considering the provided stratification
-        # simple version: just a plot
         x = [int(y) for y in list(set(df_clean["ANNO_DI_INCLUSIONE"]))]
         x.sort()
-        y = []
-        for year in x:
-            numerator, denominator = (numpy.sum(a) for a in get_clean_dataframe_filters_for_numerator_and_denominator(df_clean, year, sex_selector_widget, age_range_selector_widget, age_range_min_max))
-            if denominator == 0:
-                y.append(0)
-            else:
-                y.append(numerator / denominator)
-        # make the plot
-        x = numpy.array(x)
-        y = numpy.array(y)
-        plot = holoviews.Curve(
-            data=pandas.DataFrame({"x": x, "y": 100*y}),
-            kdims=[("x", "Year of inclusion")],
-            vdims=[("y", "Indicator value (%)")]
-        ).opts(
-            xlabel=database_keys_map[display_language]["ANNO_DI_INCLUSIONE"],
-            ylabel="Indicator value",
-            yformatter='%d%%',
-            title="Indicator value by year of inclusion",
-            show_grid=True,
-            tools=["hover"],
-            color="blue"
-        )
-        return plot
+        # BIOLOGICAL SEX STRATIFICATION DEPENDANT PLOT
+        # A different plot for each sex selection, choosing from: ["M", "F", "M and F", "Unk.", "All"]
+        # Now, for M, F, Unk. and All, the plot is basically, the same, but with different colors.
+        color_map = {
+            "M": "navy",
+            "F": "purple",
+            "Unk.": "gray",
+            "All": "blue"
+        }
+        MF_SCATTER_LINE_COLOR = "#202020"
+        M_AREA_COLOR = "#ffcece"
+        F_AREA_COLOR = "#c5ddf7"
+        common_options = {
+            "xlabel":     database_keys_map[display_language]["ANNO_DI_INCLUSIONE"],
+            "ylabel":     "Indicator value",
+            "yformatter": '%d%%',
+            "title":      "Indicator value by year of inclusion",
+            "show_grid":  True,
+            "ylim":       (0, 100)
+        }
+        if sex_selector_widget in ["M", "F", "Unk.", "All"]:
+            y = []
+            for year in x:
+                numerator, denominator = (numpy.sum(a) for a in get_clean_dataframe_filters_for_numerator_and_denominator(df_clean, year, sex_selector_widget, age_range_selector_widget, age_range_min_max))
+                if denominator == 0:
+                    y.append(0)
+                else:
+                    y.append(numerator / denominator)
+            # make the plot
+            x = numpy.array(x)
+            y = numpy.array(y)
+            curve = holoviews.Curve(
+                data=pandas.DataFrame({"x": x, "y": 100*y}),
+                kdims=[("x", "Year of inclusion")],
+                vdims=[("y", "Indicator value (%)")]
+            ).opts(
+                color=color_map[sex_selector_widget],
+                tools=[],
+            )
+            scatter = holoviews.Scatter(
+                data=pandas.DataFrame({"x": x, "y": 100*y}),
+                kdims=[("x", "Year of inclusion")],
+                vdims=[("y", "Indicator value (%)")]
+            ).opts(
+                size=10, 
+                fill_color='white', 
+                line_color=color_map[sex_selector_widget], 
+                line_width=1.5,
+                tools=["hover"]
+            )
+            plot = (curve * scatter).opts(
+                **common_options
+            )
+            return plot
+        elif sex_selector_widget == "M and F":
+            # Now, we want to have a plot like the one above, but
+            # we also want an area coloring the proportion of males and females
+            # in the total number of patients.
+            y = []
+            ym = []
+            yf = []
+            for year in x:
+                # M and F indicator
+                numerator_mf, denominator_mf = (numpy.sum(a) for a in get_clean_dataframe_filters_for_numerator_and_denominator(df_clean, year, sex_selector_widget, age_range_selector_widget, age_range_min_max))
+                if denominator_mf == 0:
+                    y.append(0)
+                else:
+                    y.append(numerator_mf / denominator_mf)
+                # Contribution of each sex to the MF percentage
+                numerator_m, denominator_m = (numpy.sum(a) for a in get_clean_dataframe_filters_for_numerator_and_denominator(df_clean, year, "M", age_range_selector_widget, age_range_min_max))
+                numerator_f, denominator_f = (numpy.sum(a) for a in get_clean_dataframe_filters_for_numerator_and_denominator(df_clean, year, "F", age_range_selector_widget, age_range_min_max))
+                if denominator_mf == 0:
+                    y_m = 0
+                    y_f = 0
+                else:
+                    y_m = numerator_m / denominator_mf
+                    y_f = numerator_f / denominator_mf
+                ym.append(y_m)
+                yf.append(y_f)
+            # convert to numpy arrays
+            x = numpy.array(x)
+            y = numpy.array(y)
+            ym = numpy.array(ym)
+            yf = numpy.array(yf)
+            # first make the area
+            area_m = holoviews.Area(
+                data=pandas.DataFrame({"x": x, "y": 100*ym}),
+                kdims=[("x", "Year of inclusion")],
+                vdims=[("y", "Proportion of males (%)")],
+            ).opts(
+                color=M_AREA_COLOR,
+                line_width=0
+            )
+            area_f = holoviews.Area(
+                data=pandas.DataFrame({"x": x, "y": 100*yf}),
+                kdims=[("x", "Year of inclusion")],
+                vdims=[("y", "Proportion of females (%)")],
+            ).opts(
+                color=F_AREA_COLOR,
+                line_width=0
+            )
+            overlay = holoviews.Overlay([area_m, area_f])
+            area = holoviews.Area.stack(overlay)
+            # make the MF plot
+            curve = holoviews.Curve(
+                data=pandas.DataFrame({"x": x, "y": 100*y}),
+                kdims=[("x", "Year of inclusion")],
+                vdims=[("y", "Indicator value (%)")]
+            ).opts(
+                color=MF_SCATTER_LINE_COLOR,
+                tools=[],
+                line_width=2.5
+            )
+            scatter = holoviews.Scatter(
+                data=pandas.DataFrame({"x": x, "y": 100*y}),
+                kdims=[("x", "Year of inclusion")],
+                vdims=[("y", "Indicator value (%)")]
+            ).opts(
+                size=10, 
+                fill_color='white', 
+                line_color=MF_SCATTER_LINE_COLOR, 
+                line_width=2.5,
+                tools=["hover"]
+            )
+            plot = (area * curve * scatter).opts(
+                **common_options
+            )
+            return plot
+        else:
+            raise RuntimeError("This should never happen. Choose a valid sex selection option.")
 
 def get_dataframe_for_tabulator__binding_callback(df_clean, sex_selector_widget, age_range_selector_widget, age_range_min_max):
     # get the indices to build the sub-table
@@ -725,13 +829,29 @@ def get_box_element(df_global, disease, cohort, indicator):
     df = clean_global_dataframe_by_disease_cohort_indicator(df_global, disease, cohort, indicator)
     # - title
     title_panel = panel.panel(
-        "<h1>" + indicator + "</h1>",
-        styles={"text-align": "left"}
+        """<h1 style="
+                text-align: left; 
+                font-size: 1.2em; 
+                color: #4a4a4a;
+                padding-bottom: 0;
+                margin-bottom: 0; 
+        ">""" + indicator + "</h1>",
+        styles={
+        }
     )
     # - description
     description_panel = panel.panel(
-        "<p>(Optional) description of the indicator</p>",
-        styles={"text-align": "left", "color": "#546e7a", "font-size": "0.7em"}
+        """<p style="
+                text-align: left;
+                color: #546e7a;
+                font-size: 0.7em;
+                margin-top: 0;
+                margin-bottom: 0.0em;
+                padding-top: 0;
+                padding-bottom: 0;
+        ">(Optional) description of the indicator</p>""",
+        styles={
+        }
     )
     # widgets - sex selector
     sex_selector_widget = panel.widgets.Select(
@@ -771,12 +891,10 @@ def get_box_element(df_global, disease, cohort, indicator):
             age_range_selector_widget=age_range_selector_widget,
             age_range_min_max=(age_min, age_max)
         ),
-        theme='modern',
+        theme='simple',
         pagination='remote', 
         page_size=10
-    )
-    ###############                                                       MAKE BINDING ALSO FOR TABLE SEX AND AGE
-    
+    )    
     # box element
     box_element = panel.Column(
         title_panel,
@@ -788,7 +906,7 @@ def get_box_element(df_global, disease, cohort, indicator):
             ),
             table_widget
         ),
-        sizing_mode='stretch_width',
+        sizing_mode='stretch_both',
         styles={
             "margin-top": "0.5em",
             "margin-bottom": "0.5em"
