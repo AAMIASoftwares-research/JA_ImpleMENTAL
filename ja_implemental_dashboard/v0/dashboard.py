@@ -20,7 +20,7 @@ panel.extension(
     sizing_mode='stretch_width'
 )
 
-from .sas_database_reader import read_sas_database_ind_1
+from ..sas_database_reader import read_sas_database_ind_1
 
 ############
 # UTILITIES
@@ -75,7 +75,7 @@ DB["ANNO_DI_INCLUSIONE"] = 2021
 ####### augment data
 # ricreare un database verosimile seguendo le seguenti possibilita
 
-choice_disturbo = ["BIPO", "SCHIZO", "DEPRE", "ADHD"]
+choice_disturbo = ["BIPO", "SCHIZO", "DISEASE1", "DISEASE2"]
 choice_coorte = ["A", "B", "C", "D"]
 choice_anno_di_inclusione = [2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021]
 choice_indictore = ["Indicatore 1", "Indicatore 2", "Indicatore 3"]
@@ -129,6 +129,11 @@ DB["TOT_INTERVENTI"] = DB["TOT_INTERVENTI"].astype(int)
 
 
 
+
+
+
+
+
 #####################
 # LANGUAGE SELECTION 
 #####################
@@ -149,7 +154,7 @@ LANGUAGE_DICT = {
     "Italiano" : "it",
     "Português" : "pt"
 }
-DEFAULT_LANGUAGE = "en"
+DEFAULT_LANGUAGE = "it"
 
 AVAILABLE_LANGUAGES = [v for v in LANGUAGE_DICT.values()]
 display_language = DEFAULT_LANGUAGE ########################## back-compatible with the code
@@ -326,63 +331,56 @@ footer = panel.panel(
 
 
 
+########################
+# LANGUAGE DICTIONARIES
+########################
 
-
-
-
-
-
-
-####################
-# All diseases page
-####################
-
-diseases_map = {
+diseases_langmap = {
     "en": {
         "ALL": "All diseases",
         "BIPO": "Bipolar Disorder",
         "SCHIZO": "Schizophrenia",
-        "DEPRE": "Depression",
-        "ADHD": "Attention Deficit Hyperactivity Disorder"
+        "DISEASE1": "Disease 1",
+        "DISEASE2": "Disease 2"
     },
     "it": {
         "ALL": "Tutti i disturbi",
         "BIPO": "Disturbo bipolare",
         "SCHIZO": "Schizofrenia",
-        "DEPRE": "Depressione",
-        "ADHD": "Disturbo da deficit di attenzione e iperattività"
+        "DISEASE1": "Disturbo 1",
+        "DISEASE2": "Disturbo 2"
     },
     "fr": {
         "ALL": "Tous les troubles",
         "BIPO": "Trouble bipolaire",
         "SCHIZO": "Schizophrénie",
-        "DEPRE": "Dépression",
-        "ADHD": "Trouble du déficit de l'attention avec hyperactivité"
+        "DISEASE1": "Trouble 1",
+        "DISEASE2": "Trouble 2"
     },
     "de": {
         "ALL": "Alle Störungen",
         "BIPO": "Bipolare Störung",
         "SCHIZO": "Schizophrenie",
-        "DEPRE": "Depression",
-        "ADHD": "Aufmerksamkeitsdefizit-Hyperaktivitätsstörung"
+        "DISEASE1": "Störung 1",
+        "DISEASE2": "Störung 2"
     },
     "es": {
         "ALL": "Todos los trastornos",
         "BIPO": "Trastorno bipolar",
         "SCHIZO": "Esquizofrenia",
-        "DEPRE": "Depresión",
-        "ADHD": "Trastorno por déficit de atención con hiperactividad"
+        "DISEASE1": "Trastorno 1",
+        "DISEASE2": "Trastorno 2"
     },
     "pt": {
         "ALL": "Todos os distúrbios",
         "BIPO": "Transtorno bipolar",
         "SCHIZO": "Esquizofrenia",
-        "DEPRE": "Depressão",
-        "ADHD": "Transtorno de déficit de atenção com hiperatividade"
+        "DISEASE1": "Transtorno 1",
+        "DISEASE2": "Transtorno 2"
     }
 }
 
-database_keys_map = {
+database_keys_langmap = {
     "en": {
         "DISTURBO": "Disease",
         "COORTE": "Cohort",
@@ -393,7 +391,8 @@ database_keys_map = {
         "ANNO_NASCITA": "Year of birth",
         "MESE_NASCITA": "Month of birth",
         "MESI_FUP": "Months of follow up",
-        "TOT_INTERVENTI": "Number of interventions"
+        "TOT_INTERVENTI": "Number of interventions",
+        "AGE": "Age"
     },
     "it": {
         "DISTURBO": "Disturbo",
@@ -405,7 +404,8 @@ database_keys_map = {
         "ANNO_NASCITA": "Anno di nascita",
         "MESE_NASCITA": "Mese di nascita",
         "MESI_FUP": "Mesi di follow up",
-        "TOT_INTERVENTI": "Numero di interventi"
+        "TOT_INTERVENTI": "Numero di interventi",
+        "AGE": "Età"
     },
     "fr": {
         "DISTURBO": "Trouble",
@@ -417,7 +417,8 @@ database_keys_map = {
         "ANNO_NASCITA": "Année de naissance",
         "MESE_NASCITA": "Mois de naissance",
         "MESI_FUP": "Mois de suivi",
-        "TOT_INTERVENTI": "Nombre d'interventions"
+        "TOT_INTERVENTI": "Nombre d'interventions",
+        "AGE": "Âge"
     },
     "de": {
         "DISTURBO": "Störung",
@@ -429,7 +430,8 @@ database_keys_map = {
         "ANNO_NASCITA": "Geburtsjahr",
         "MESE_NASCITA": "Geburtsmonat",
         "MESI_FUP": "Monate der Nachverfolgung",
-        "TOT_INTERVENTI": "Anzahl der Interventionen"
+        "TOT_INTERVENTI": "Anzahl der Interventionen",
+        "AGE": "Alter"
     },
     "es": {
         "DISTURBO": "Trastorno",
@@ -441,7 +443,8 @@ database_keys_map = {
         "ANNO_NASCITA": "Año de nacimiento",
         "MESE_NASCITA": "Mes de nacimiento",
         "MESI_FUP": "Meses de seguimiento",
-        "TOT_INTERVENTI": "Número de intervenciones"
+        "TOT_INTERVENTI": "Número de intervenciones",
+        "AGE": "Edad"
     },
     "pt": {
         "DISTURBO": "Distúrbio",
@@ -453,9 +456,150 @@ database_keys_map = {
         "ANNO_NASCITA": "Ano de nascimento",
         "MESE_NASCITA": "Mês de nascimento",
         "MESI_FUP": "Meses de acompanhamento",
-        "TOT_INTERVENTI": "Número de intervenções"
+        "TOT_INTERVENTI": "Número de intervenções",
+        "AGE": "Idade"
     }
 }
+
+indicator_langmap_it = {
+    "en": {
+        "Indicatore": "Indicator",
+    },
+    "it": {
+        "Indicatore": "Indicatore",
+    },
+    "fr": {
+        "Indicatore": "Indicateur",
+    },
+    "de": {
+        "Indicatore": "Indikator",
+    },
+    "es": {
+        "Indicatore": "Indicador",
+    },
+    "pt": {
+        "Indicatore": "Indicador",
+    }
+}
+
+sex_selector_langmap = {
+        "en": {
+            "M": "Males",
+            "F": "Females",
+            "M and F": "Males and Females",
+            "Unk.": "Unknown",
+            "All": "All"
+        },
+        "it": {
+            "M": "Maschi",
+            "F": "Femmine",
+            "M and F": "Maschi e Femmine",
+            "Unk.": "Sconosciuto",
+            "All": "Tutti"
+        },
+        "fr": {
+            "M": "Hommes",
+            "F": "Femmes",
+            "M and F": "Hommes et Femmes",
+            "Unk.": "Inconnu",
+            "All": "Tous"
+        },
+        "de": {
+            "M": "Männer",
+            "F": "Frauen",
+            "M and F": "Männer und Frauen",
+            "Unk.": "Unbekannt",
+            "All": "Alle"
+        },
+        "es": {
+            "M": "Hombres",
+            "F": "Mujeres",
+            "M and F": "Hombres y Mujeres",
+            "Unk.": "Desconocido",
+            "All": "Todos"
+        },
+        "pt": {
+            "M": "Homens",
+            "F": "Mulheres",
+            "M and F": "Homens e Mulheres",
+            "Unk.": "Desconhecido",
+            "All": "Todos"
+        }
+    }
+
+age_range_langmap = {
+    "en": "Age range",
+    "it": "Fascia d'età",
+    "fr": "Tranche d'âge",
+    "de": "Altersbereich",
+    "es": "Rango de edad",
+    "pt": "Faixa etária"
+}
+
+years_old_langmap = {
+    "en": "y.o.",
+    "it": "anni",
+    "fr": "ans",
+    "de": "J.a.",
+    "es": "años",
+    "pt": "anos"
+}
+
+indicator_value_langmap = {
+    "en": "Indicator value",
+    "it": "Valore dell'indicatore",
+    "fr": "Valeur de l'indicateur",
+    "de": "Indikatorwert",
+    "es": "Valor del indicador",
+    "pt": "Valor do indicador"
+}
+
+indicator_plot_title_langmap = {
+    "en": "Indicator value by year of inclusion",
+    "it": "Valore dell'indicatore per anno di inclusione",
+    "fr": "Valeur de l'indicateur par année d'inclusion",
+    "de": "Indikatorwert nach Jahr der Aufnahme",
+    "es": "Valor del indicador por año de inclusión",
+    "pt": "Valor do indicador por ano de inclusão"
+}
+
+proportions_text_plot_indicator_area_hover_langmap = {
+    "en": {
+        "M": "Males (% of numerator)",
+        "F": "Females (% of numerator)"
+    },
+    "it": {
+        "M": "Maschi (% del numeratore)",
+        "F": "Femmine (% del numeratore)"
+    },
+    "fr": {
+        "M": "Hommes (% du numérateur)",
+        "F": "Femmes (% du numérateur)"
+    },
+    "de": {
+        "M": "Männer (% des Zählers)",
+        "F": "Frauen (% des Zählers)"
+    },
+    "es": {
+        "M": "Hombres (% del numerador)",
+        "F": "Mujeres (% del numerador)"
+    },
+    "pt": {
+        "M": "Homens (% do numerador)",
+        "F": "Mulheres (% do numerador)"
+    }
+}
+
+
+
+
+
+
+
+####################
+# All diseases page
+####################
+
 
 # - for each coorte, plot the number of patients by year of inclusion, for all diseases and for each disease
 
@@ -489,8 +633,8 @@ def plot_all_diseases_by_year_of_inclusion(df: pandas.DataFrame, coorte="Coorte 
         rows_to_add.append(row_)
     rows_to_add = numpy.array(rows_to_add)
     rows_to_add = numpy.insert(rows_to_add, 0, year_of_inclusion_list, axis=1)
-    columns = [database_keys_map[display_language]["ANNO_DI_INCLUSIONE"]]
-    columns.extend([diseases_map[display_language][d] for d in disturbi])
+    columns = [database_keys_langmap[display_language]["ANNO_DI_INCLUSIONE"]]
+    columns.extend([diseases_langmap[display_language][d] for d in disturbi])
     df3 = pandas.DataFrame(
         rows_to_add,
         index=year_of_inclusion_list,
@@ -498,7 +642,7 @@ def plot_all_diseases_by_year_of_inclusion(df: pandas.DataFrame, coorte="Coorte 
     )
     # x: always the year of inclusion
     # y: the number of patient stratified by disease
-    y_abels_map = {
+    y_labels_langmap = {
         "en": "Number of patients",
         "it": "Numero di pazienti",
         "fr": "Nombre de patients",
@@ -506,7 +650,7 @@ def plot_all_diseases_by_year_of_inclusion(df: pandas.DataFrame, coorte="Coorte 
         "es": "Número de pacientes",
         "pt": "Número de pacientes"
     }
-    plot_title_map = {
+    plot_title_langmap = {
         "en": "Number of patients by year of inclusion, stratified by disease.",
         "it": "Numero di pazienti per anno di inclusione, stratificati per disturbo.",
         "fr": "Nombre de patients par année d'inclusion, stratifiés par maladie.",
@@ -514,35 +658,25 @@ def plot_all_diseases_by_year_of_inclusion(df: pandas.DataFrame, coorte="Coorte 
         "es": "Número de pacientes por año de inclusión, estratificados por enfermedad.",
         "pt": "Número de pacientes por ano de inclusão, estratificados por doença."
     }
-    df3.drop(columns=[diseases_map[display_language]["ALL"]], inplace=True)
-    """pl = df3.hvplot.bar(
-        x=database_keys_map[display_language]["ANNO_DI_INCLUSIONE"],
-        y=[diseases_map[display_language][d] for d in disturbi[1:]],
-        stacked=True,
-        xlabel=database_keys_map[display_language]["ANNO_DI_INCLUSIONE"],
-        ylabel=y_abels_map[display_language],
-        title=plot_title_map[display_language],
-        legend="top_left",
-        max_width=600
-    )"""
+    df3.drop(columns=[diseases_langmap[display_language]["ALL"]], inplace=True)
     # now, we create the overall plot
     # - first, the plot of the number of all patients
     df3_for_plotting = df3.copy()
-    df3_for_plotting[y_abels_map[display_language]] = df3_for_plotting[[diseases_map[display_language][d] for d in disturbi[1:]]].sum(axis=1)
-    df3_for_plotting = df3_for_plotting.drop(columns=[diseases_map[display_language][d] for d in disturbi[1:]])
+    df3_for_plotting[y_labels_langmap[display_language]] = df3_for_plotting[[diseases_langmap[display_language][d] for d in disturbi[1:]]].sum(axis=1)
+    df3_for_plotting = df3_for_plotting.drop(columns=[diseases_langmap[display_language][d] for d in disturbi[1:]])
     PLOT_COLOR = "blue"
     curve = holoviews.Curve(
         data=df3_for_plotting,
-        kdims=[database_keys_map[display_language]["ANNO_DI_INCLUSIONE"]],
-        vdims=[y_abels_map[display_language]],
+        kdims=[database_keys_langmap[display_language]["ANNO_DI_INCLUSIONE"]],
+        vdims=[y_labels_langmap[display_language]],
     ).opts(
         color=PLOT_COLOR,
         line_width=1.5
     )
     scatter = holoviews.Scatter(
         data=df3_for_plotting,
-        kdims=[database_keys_map[display_language]["ANNO_DI_INCLUSIONE"]],
-        vdims=[y_abels_map[display_language]],
+        kdims=[database_keys_langmap[display_language]["ANNO_DI_INCLUSIONE"]],
+        vdims=[y_labels_langmap[display_language]],
     ).opts(
         size=10,  # size of the marker
         fill_color='white',  # color inside the marker
@@ -553,27 +687,27 @@ def plot_all_diseases_by_year_of_inclusion(df: pandas.DataFrame, coorte="Coorte 
     text_labels = holoviews.Labels(
         {
             ('x', 'y'): df3_for_plotting, 
-            'text': [str(a) for a in df3_for_plotting[y_abels_map[display_language]]]
+            'text': [str(a) for a in df3_for_plotting[y_labels_langmap[display_language]]]
         }, 
         ['x', 'y'], 'text'
     ).opts(
         align="center",
         text_font_size='8pt',
-        yoffset = max(df3_for_plotting[y_abels_map[display_language]])/10,
+        yoffset = max(df3_for_plotting[y_labels_langmap[display_language]])/10,
         text_color="#302070"
     )
     # - here, the barplot with the stacked subdivisions
     df3_melted = pandas.melt(
         df3, 
-        id_vars=[database_keys_map[display_language]["ANNO_DI_INCLUSIONE"]],
-        value_vars=[diseases_map[display_language][d] for d in disturbi[1:]],
+        id_vars=[database_keys_langmap[display_language]["ANNO_DI_INCLUSIONE"]],
+        value_vars=[diseases_langmap[display_language][d] for d in disturbi[1:]],
         var_name=disease_word_langauges_map[display_language],
-        value_name=y_abels_map[display_language]
+        value_name=y_labels_langmap[display_language]
     )
     bars = holoviews.Bars(
         data=df3_melted,
-        kdims=[database_keys_map[display_language]["ANNO_DI_INCLUSIONE"], disease_word_langauges_map[display_language]],
-        vdims=[y_abels_map[display_language]],
+        kdims=[database_keys_langmap[display_language]["ANNO_DI_INCLUSIONE"], disease_word_langauges_map[display_language]],
+        vdims=[y_labels_langmap[display_language]],
     ).opts(
         stacked=True,
         legend_position="bottom_left",
@@ -582,12 +716,12 @@ def plot_all_diseases_by_year_of_inclusion(df: pandas.DataFrame, coorte="Coorte 
     )
     # - composite plot
     plot = (bars * curve * scatter * text_labels).opts(
-        xlabel=database_keys_map[display_language]["ANNO_DI_INCLUSIONE"],
-        ylabel=y_abels_map[display_language],
-        title=plot_title_map[display_language],
+        xlabel=database_keys_langmap[display_language]["ANNO_DI_INCLUSIONE"],
+        ylabel=y_labels_langmap[display_language],
+        title=plot_title_langmap[display_language],
         ylim=(
             0, 
-            (5/4)*df3_for_plotting[y_abels_map[display_language]].max()
+            (5/4)*df3_for_plotting[y_labels_langmap[display_language]].max()
         )
     )
     return plot
@@ -686,14 +820,15 @@ def get_plot__binding_callback(df_clean, sex_selector_widget, age_range_selector
             "All": "blue"
         }
         MF_SCATTER_LINE_COLOR = "#202020"
-        M_AREA_COLOR = "#ffcece"
-        F_AREA_COLOR = "#c5ddf7"
+        M_AREA_COLOR = "#c5ddf7a0"
+        F_AREA_COLOR = "#ffcecea0"
         common_options = {
-            "xlabel":     database_keys_map[display_language]["ANNO_DI_INCLUSIONE"],
-            "ylabel":     "Indicator value",
+            "xlabel":     database_keys_langmap[display_language]["ANNO_DI_INCLUSIONE"],
+            "ylabel":     indicator_value_langmap[display_language],
             "yformatter": '%d%%',
-            "title":      "Indicator value by year of inclusion",
+            "title":      indicator_plot_title_langmap[display_language],
             "show_grid":  True,
+            "xlim":       (min(x)-0.5, max(x)+0.5),
             "ylim":       (0, 100)
         }
         if sex_selector_widget in ["M", "F", "Unk.", "All"]:
@@ -735,8 +870,8 @@ def get_plot__binding_callback(df_clean, sex_selector_widget, age_range_selector
             # we also want an area coloring the proportion of males and females
             # in the total number of patients.
             y = []
-            ym = []
-            yf = []
+            ym, ym_proportion = [], []
+            yf, yf_proportion = [], []
             for year in x:
                 # M and F indicator
                 numerator_mf, denominator_mf = (numpy.sum(a) for a in get_clean_dataframe_filters_for_numerator_and_denominator(df_clean, year, sex_selector_widget, age_range_selector_widget, age_range_min_max))
@@ -747,19 +882,29 @@ def get_plot__binding_callback(df_clean, sex_selector_widget, age_range_selector
                 # Contribution of each sex to the MF percentage
                 numerator_m, denominator_m = (numpy.sum(a) for a in get_clean_dataframe_filters_for_numerator_and_denominator(df_clean, year, "M", age_range_selector_widget, age_range_min_max))
                 numerator_f, denominator_f = (numpy.sum(a) for a in get_clean_dataframe_filters_for_numerator_and_denominator(df_clean, year, "F", age_range_selector_widget, age_range_min_max))
-                if denominator_mf == 0:
+                if numerator_mf == 0:
                     y_m = 0
                     y_f = 0
                 else:
-                    y_m = numerator_m / denominator_mf
-                    y_f = numerator_f / denominator_mf
-                ym.append(y_m)
-                yf.append(y_f)
+                    # her, i divide by the numerator, because what i want to display is not the
+                    # indicator computed with just M or F over all M and F, but I want the proportion
+                    # of M or F over all M and F that contribute to the indicator numerator.
+                    # 
+                    # es: if the indicator is the number of patients with at least one intervention,
+                    # with the area plots I want to represent how much M or F contribute to the total
+                    # of the numerator, not the proportion of M or F over all M and F. This should be
+                    # a much useful insight.
+                    y_m = numerator_m / numerator_mf
+                    y_f = numerator_f / numerator_mf
+                ym_proportion.append(y_m) # This is the actual mathematical value I'm interested in,
+                yf_proportion.append(y_f) #  to be displayed in the hover tooltip
+                ym.append(y_m*y[-1])      # This is the value I need to make the area plot
+                yf.append(y_f*y[-1])
             # convert to numpy arrays
             x = numpy.array(x)
             y = numpy.array(y)
-            ym = numpy.array(ym)
-            yf = numpy.array(yf)
+            ym, ym_proportion = numpy.array(ym), numpy.array(ym_proportion).astype(float)
+            yf, yf_proportion = numpy.array(yf), numpy.array(yf_proportion).astype(float)
             # first make the area
             area_m = holoviews.Area(
                 data=pandas.DataFrame({"x": x, "y": 100*ym}),
@@ -777,8 +922,38 @@ def get_plot__binding_callback(df_clean, sex_selector_widget, age_range_selector
                 color=F_AREA_COLOR,
                 line_width=0
             )
-            overlay = holoviews.Overlay([area_m, area_f])
-            area = holoviews.Area.stack(overlay)
+            area = holoviews.Area.stack(
+                holoviews.Overlay([area_m, area_f])
+            )
+            # make a scatterplot at top of female area with, for each point,
+            # when you hover on it, tells the proportion of males and females
+            males_prop_text = proportions_text_plot_indicator_area_hover_langmap[display_language]["M"]
+            female_prop_text = proportions_text_plot_indicator_area_hover_langmap[display_language]["F"]
+            custom_tooltips = bokeh.models.HoverTool(
+                tooltips=[
+                    (database_keys_langmap[display_language]["ANNO_DI_INCLUSIONE"], "@x"),
+                    (males_prop_text, "@males_prop %"),
+                    (female_prop_text, "@females_prop %")
+                ]
+            )
+            area_tooltip_scatter = holoviews.Points(
+                data=pandas.DataFrame(
+                    {
+                        "x": x.tolist(),                                    # x axis location
+                        "y": (100*ym).tolist(),                             # y axis location
+                        "males_prop": (100*ym_proportion).tolist(),         # only in hover tooltip
+                        "females_prop": (100*yf_proportion).tolist()         # only in hover tooltip
+                    },
+                ),
+                kdims=["x", "y"],
+                vdims=["males_prop","females_prop"]
+            ).opts(
+                size=5,
+                fill_color="white",
+                hover_fill_color="gray",
+                line_width=0,
+                tools=[custom_tooltips]
+            )
             # make the MF plot
             curve = holoviews.Curve(
                 data=pandas.DataFrame({"x": x, "y": 100*y}),
@@ -787,7 +962,7 @@ def get_plot__binding_callback(df_clean, sex_selector_widget, age_range_selector
             ).opts(
                 color=MF_SCATTER_LINE_COLOR,
                 tools=[],
-                line_width=2.5
+                #line_width=2.5
             )
             scatter = holoviews.Scatter(
                 data=pandas.DataFrame({"x": x, "y": 100*y}),
@@ -800,14 +975,15 @@ def get_plot__binding_callback(df_clean, sex_selector_widget, age_range_selector
                 line_width=2.5,
                 tools=["hover"]
             )
-            plot = (area * curve * scatter).opts(
+            plot = (area * area_tooltip_scatter * curve * scatter).opts(
                 **common_options
             )
             return plot
         else:
             raise RuntimeError("This should never happen. Choose a valid sex selection option.")
 
-def get_dataframe_for_tabulator__binding_callback(df_clean, sex_selector_widget, age_range_selector_widget, age_range_min_max):
+def get_dataframe_for_tabulator__binding_callback(df_clean: pandas.DataFrame, sex_selector_widget, age_range_selector_widget, age_range_min_max):
+    df_clean = df_clean.copy() # so we detach from the original dataframe
     # get the indices to build the sub-table
     years = [int(y) for y in list(set(df_clean["ANNO_DI_INCLUSIONE"]))]
     years.sort()
@@ -822,12 +998,15 @@ def get_dataframe_for_tabulator__binding_callback(df_clean, sex_selector_widget,
     dataframe_to_display_into_tabulator = df_clean.loc[denominator_filter, :]
     return dataframe_to_display_into_tabulator
 
-def get_box_element(df_global, disease, cohort, indicator):
+def get_box_element(df_global, disease: str, cohort: str, indicator: str):
     """ The box element is a row, containing a column with title, description of the indicator,
         a row with a plot and a table side by side, and widgets to interact with the plot and the table.
     """
     df = clean_global_dataframe_by_disease_cohort_indicator(df_global, disease, cohort, indicator)
     # - title
+    ind_text_, ind_num_ = tuple(indicator.split(" ")) # "Indicatore 1" -> "Indicatore" -> "Indicator"
+    ind_text_t_ = indicator_langmap_it[display_language][ind_text_]
+    indicator_text_title = ind_text_t_ + " " + ind_num_
     title_panel = panel.panel(
         """<h1 style="
                 text-align: left; 
@@ -835,7 +1014,7 @@ def get_box_element(df_global, disease, cohort, indicator):
                 color: #4a4a4a;
                 padding-bottom: 0;
                 margin-bottom: 0; 
-        ">""" + indicator + "</h1>",
+        ">""" + indicator_text_title + "</h1>",
         styles={
         }
     )
@@ -845,30 +1024,36 @@ def get_box_element(df_global, disease, cohort, indicator):
                 text-align: left;
                 color: #546e7a;
                 font-size: 0.7em;
-                margin-top: 0;
+                margin-top: -1.0em;
                 margin-bottom: 0.0em;
                 padding-top: 0;
                 padding-bottom: 0;
-        ">(Optional) description of the indicator</p>""",
+        ">(Optional) description of the indicator (yet to be translated)</p>""",
         styles={
         }
     )
     # widgets - sex selector
     sex_selector_widget = panel.widgets.Select(
-        name=database_keys_map[display_language]["SESSO"],
+        name=database_keys_langmap[display_language]["SESSO"],
         value="All",
-        options=["M", "F", "M and F", "Unk.", "All"]
+        options={ # key -> value displayed in web page, value -> value passed to the callback
+            sex_selector_langmap[display_language]["M"]: "M", 
+            sex_selector_langmap[display_language]["F"]: "F", 
+            sex_selector_langmap[display_language]["M and F"]: "M and F", 
+            sex_selector_langmap[display_language]["Unk."]: "Unk.", 
+            sex_selector_langmap[display_language]["All"]: "All"
+        }
     )
     # widgets - age selector
     age_min = max(18, min([int(y) for y in df["AGE"] if y != "Unk."]))
     age_max = max(90, max([int(y) for y in df["AGE"] if y != "Unk."]))
     age_range_selector_widget = panel.widgets.RangeSlider(
-        name='Age range', 
+        name=age_range_langmap[display_language], 
         start=age_min, 
         end=age_max,
         value=(20, 30),
         step=1,
-        format=bokeh.models.formatters.PrintfTickFormatter(format='%d y.o.')
+        format=bokeh.models.formatters.PrintfTickFormatter(format='%d '+years_old_langmap[display_language])
     )
     widget_row = panel.WidgetBox(
         sex_selector_widget,
@@ -893,8 +1078,25 @@ def get_box_element(df_global, disease, cohort, indicator):
         ),
         theme='simple',
         pagination='remote', 
-        page_size=10
-    )    
+        page_size=10,
+        formatters={
+            # formatters (dict): A dictionary mapping from column name to a bokeh CellFormatter instance
+            # or Tabulator formatter specification.
+            # https://docs.bokeh.org/en/latest/docs/reference/models/widgets/tables.html
+            "ANNO_DI_INCLUSIONE": bokeh.models.NumberFormatter(format="0"),
+            "TOT_INTERVENTI": bokeh.models.NumberFormatter(format="0"),
+            "AGE": bokeh.models.NumberFormatter(format="0")
+        },
+        text_align="left",
+        titles={
+            # titles (dict): A dictionary mapping from column name to a string to use as the column title.
+            "ANNO_DI_INCLUSIONE": database_keys_langmap[display_language]["ANNO_DI_INCLUSIONE"],
+            "SESSO": database_keys_langmap[display_language]["SESSO"],
+            "TOT_INTERVENTI": database_keys_langmap[display_language]["TOT_INTERVENTI"],
+            "AGE": database_keys_langmap[display_language]["AGE"]
+        },
+        show_index=False
+    )
     # box element
     box_element = panel.Column(
         title_panel,
@@ -906,6 +1108,7 @@ def get_box_element(df_global, disease, cohort, indicator):
             ),
             table_widget
         ),
+        #
         sizing_mode='stretch_both',
         styles={
             "margin-top": "0.5em",
@@ -932,7 +1135,7 @@ if not DB is None:
     disturbi = list(set(DB["DISTURBO"]))
     disturbi.sort()
     disturbi = numpy.insert(disturbi, 0, "ALL")
-    title_choice_map = {diseases_map[display_language][k]: diseases_map[display_language][k] for k in disturbi}
+    title_choice_map = {diseases_langmap[display_language][k]: diseases_langmap[display_language][k] for k in disturbi}
 
 title_menu_items = [(k, v) for k, v in title_choice_map.items()]
 
@@ -987,7 +1190,7 @@ def disease_selector_row_title_maker(value):
         value = """<span style="font-size: 1.1em; color: #888888ff;">
                 """+default_title_message_map[display_language]+"""
                 </span>"""
-    if value == diseases_map[display_language]["ALL"]:
+    if value == diseases_langmap[display_language]["ALL"]:
         value = all_diseases_title_message_map[display_language]
     text = "<h1>"+value+"</h1>"
     html_pane = panel.pane.HTML(
@@ -1121,13 +1324,13 @@ top_selector_row = panel.Column(
 # - MAIN BODY - PLOTS AND TABLES
 
 def get_main_box_elements(df, disease_selector_value, coorte_selector_value):
-    if disease_selector_value == diseases_map[display_language]["ALL"]:
+    if disease_selector_value == diseases_langmap[display_language]["ALL"]:
         return [
             panel.bind(plot_all_diseases_by_year_of_inclusion, DB, coorte_radio_group.param.value)
         ]
     else:
         # clean input
-        disease_selector_value = dict_find_key_by_value(diseases_map[display_language], disease_selector_value)
+        disease_selector_value = dict_find_key_by_value(diseases_langmap[display_language], disease_selector_value)
         coorte_selector_value = str(coorte_selector_value)[-1].upper()
         # find list of all indicators available for that disease and cohort
         list_of_boxes_to_display = []
@@ -1140,6 +1343,10 @@ def get_main_box_elements(df, disease_selector_value, coorte_selector_value):
             list_of_boxes_to_display.append(
                 get_box_element(df, disease_selector_value, coorte_selector_value, indicator)
             )
+        # add a final spacer to make room for the page footer
+        list_of_boxes_to_display.append(
+            panel.Spacer(height=100)
+        )
         return list_of_boxes_to_display
     
 
