@@ -134,13 +134,19 @@ DB["TOT_INTERVENTI"] = DB["TOT_INTERVENTI"].astype(int)
 
 
 
-#####################
-# LANGUAGE SELECTION 
-#####################
 
 
-# make a dropdown menu and related binding callback
-# so that languace can be changed easily by the user
+
+
+
+
+
+
+########################
+# LANGUAGE DICTIONARIES
+########################
+
+# All dictionaries are gathered here, ordered by section of the dashboard
 
 LANGUAGE_DICT = {
     # The options parameter also accepts a dictionary
@@ -154,48 +160,22 @@ LANGUAGE_DICT = {
     "Italiano" : "it",
     "Português" : "pt"
 }
-DEFAULT_LANGUAGE = "it"
-
 AVAILABLE_LANGUAGES = [v for v in LANGUAGE_DICT.values()]
-display_language = DEFAULT_LANGUAGE ########################## back-compatible with the code
+DEFAULT_LANGUAGE = "en"
 
-def language_selector_widget_make_name(language_code):
-    return "Language - " + dict_find_key_by_value(LANGUAGE_DICT, language_code)
+# - HEADER
 
-language_selector_widget = panel.widgets.Select(
-    name=language_selector_widget_make_name(DEFAULT_LANGUAGE),
-    value=DEFAULT_LANGUAGE,
-    options=LANGUAGE_DICT,
-    width=120,
-    styles={
-        "position": "absolute",
-        "margin-top": "0.5em",
-        "margin-left": "5.5em",
-    }
-)
-
-def language_selector_widget_update_name_callback(event):
-    language_selector_widget.name = language_selector_widget_make_name(event.new)
-
-language_selector_widget.param.watch(
-    language_selector_widget_update_name_callback, 
-    'value'
-)
-
-# This widget still has no effect on the dashboard.
-# So, it is not displayed. It is still unclear if by changing language
-# through this widget, it is really possible to change language of everything
-# on the fly, or if it is necessary or much easier to reload the page.
+eu_funding_string_langmap = {
+    "en": "Co-funded by the European Union",
+    "it": "Co-finanziato dall'Unione Europea",
+    "fr": "Co-financé par l'Union européenne",
+    "de": "Mitfinanziert von der Europäischen Union",
+    "es": "Cofinanciado por la Unión Europea",
+    "pt": "Co-financiado pela União Europeia"
+}  ### the one displayed is just an image, so this is not used yet  -> make image of just the flag
 
 
-
-
-
-#########
-# HEADER
-#########
-
-title_str_html = {
+title_str_html_langmap = {
     "en": "JA on Implementation of Best Practices </br> in the area of Mental Health",
     "it": "JA sull'implementazione delle migliori pratiche </br> nel campo della salute mentale",
     "fr": "JA sur la mise en œuvre des meilleures pratiques </br> dans le domaine de la santé mentale",
@@ -204,67 +184,9 @@ title_str_html = {
     "pt": "JA sobre a implementação das melhores práticas </br> no domínio da saúde mental",
 }
 
-# https://ja-implemental.eu/
-header = panel.panel(
-    """
-    <div class="header-container-implemental" style="
-        display: flex;
-        flex-direction: row;
-        justify-content: space-evenly;
-        align-items: center;
-        width: calc(100vw - 17px);
-        max-height: 311px;
-        min-height: 310px;
-        padding: 0;
-        margin: 0;
-        background: url('https://implemental.files.wordpress.com/2021/11/2000_podloga-s-logo.jpg');
-        background-size: cover;
-        background-repeat: no-repeat;
-        background-position: 50%;
-        box-sizing: border-box;
-        border-radius: 0px 0px 16px 16px;
-    ">
-        <h1 style="
-            margin-right: 1.5em;
-            font-style: normal;
-            font-weight: 600;
-            font-family: sans-serif;
-            font-size: 1.1em;
-            direction: ltr;
-            background-color: #e7e7e7;
-            border-radius: 8px;
-            padding: 5px;
-            text-align: center;
-            color: #333333;
-            border: solid 1px #555555;
-            ">
-            <a href="https://ja-implemental.eu/" style="text-decoration: none;color: inherit;">
-                """ + title_str_html[display_language] + """
-            </a>
-        </h1>
-        <img src="https://implemental.files.wordpress.com/2022/09/en-co-funded-by-the-eu_pos.png?w=300"
-             alt="europe flag"
-             style="
-                float:right;
-                margin-right: 1em;
-                max-width: 300px;
-                min-width: 200px;
-        ">
-    </div>
-    """,
-    styles={
-        "width": "calc(100vw - 17px)",
-        "margin": "0",
-        "padding": "0"
-    }
-)
+# - FOOTER
 
-
-#########
-# FOOTER
-#########
-
-footer_str_html = {
+footer_str_html_langmap = {
     "en": """JA ImpleMENTAL is a Joint Action (JA) co-funded by the European Commission (EC)
                 under the Third Health Programme (2014-2020). </br>
                 The JA ImpleMENTAL project aims to improve the quality of mental health care in
@@ -294,46 +216,95 @@ footer_str_html = {
                 identificando, analisando e trocando boas práticas no atendimento de saúde mental."""
 }
 
-footer = panel.panel(
-    """
-    <div class="footer-container-implemental" style="
-        margin: auto;
-        width: calc(100vw - 17px);
-        text-align: center;
-        margin-top: -16px;
-        margin-bottom: 0%;
-        background-color: #e9ecef;
-        border-radius: 16px 16px 0px 0px;
-        border: solid 1px #555555;
-        border-bottom: none;
-        margin-left: -1px;
-        margin-right: -1px;
-        ">
-        <p style="
-            display: inline-block;
-            font-size: 0.85em;
-            color: #546e7a;
-        ">
-            """ + footer_str_html[display_language] + """
-        </p>
-    </div>
-    """,
-    styles={
-        "margin": "0",
-        "padding": "0",
-        "position": "fixed",
-        "bottom": "0"
+# - TITLE AND DISEASE SELECTOR
+
+disease_word_langauges_map = {
+    "en": "Disease",
+    "it": "Disturbo",
+    "fr": "Trouble",
+    "de": "Störung",
+    "es": "Trastorno",
+    "pt": "Distúrbio"
+}
+
+title_menu_button_name_map = {
+    "en": "Select disease",
+    "it": "Seleziona disturbo",
+    "fr": "Sélectionnez le trouble",
+    "de": "Wählen Sie die Störung",
+    "es": "Seleccione el trastorno",
+    "pt": "Selecione o distúrbio"
+}
+
+default_title_message_langmap = {
+    "en": "Select a disease from the dropdown menu on the right.",
+    "it": "Seleziona un disturbo dal menu a tendina a destra.",
+    "fr": "Sélectionnez un trouble dans le menu déroulant à droite.",
+    "de": "Wählen Sie eine Störung aus dem Dropdown-Menü rechts aus.",
+    "es": "Seleccione un trastorno del menú desplegable a la derecha.",
+    "pt": "Selecione um distúrbio no menu suspenso à direita."
+}
+all_diseases_title_message_langmap = {
+    "en": "Overview on all diseases",
+    "it": "Panoramica di tutti i disturbi",
+    "fr": "Aperçu de tous les troubles",
+    "de": "Übersicht über alle Störungen",
+    "es": "Descripción general de todos los trastornos",
+    "pt": "Visão geral de todos os distúrbios"
+}
+
+# - COORTE CHOICE
+
+coorte_language_map = {
+    "en": {n: "Cohort "+n for n in ["A", "B", "C", "D"]},
+    "it": {n: "Coorte "+n for n in ["A", "B", "C", "D"]},
+    "fr": {n: "Cohorte "+n for n in ["A", "B", "C", "D"]},
+    "de": {n: "Kohorte "+n for n in ["A", "B", "C", "D"]},
+    "es": {n: "Cohorte "+n for n in ["A", "B", "C", "D"]},
+    "pt": {n: "Cohorte "+n for n in ["A", "B", "C", "D"]}
+}
+
+coorte_explain_dict = {
+    "en": {
+        "Cohort A": "The \"prevalent cohort\" treated is made up of all beneficiaries of the National Health Service (NHS) resident in a given region who, in the year of inclusion, have had a suggestive contact of bipolar disorder with a structure accredited by the NHS.",
+        "Cohort B": "The \"new patients taken in charge cohort\" (or incidents) is made up of the portion of the prevalent cohort that, in the two years preceding the year of inclusion, has not experienced any suggestive contact of bipolar disorder with a structure accredited by the NHS.",
+        "Cohort C": "The \"new cases taken in charge cohort with onset disorder\" is made up of the portion of the new cases taken in charge cohort that, in the year of inclusion, has an age less than or equal to 25 years.",
+        "Cohort D": "The \"discharged patients cohort from hospitalization in Psychiatric Diagnosis and Care Service\" (SPDC) is made up of the portion of the prevalent treated cohort that in the year of inclusion has experienced at least one hospitalization in a SPDC Service or other psychiatric structures for acute events."
+    },
+    "it": {
+        "Coorte A": "La \"coorte prevalente\" trattata è costituita da tutti i beneficiari del Servizio Sanitario Nazionale (SSN) residenti in una data regione che, nell'anno di inclusione, hanno avuto un contatto suggestivo di disturbo bipolare con una struttura accreditata dal SSN.",
+        "Coorte B": "La \"coorte dei nuovi pazienti presi in carico\" (o incidenti) è costituita dalla porzione della coorte prevalente che, nei due anni precedenti l'anno di inclusione, non ha sperimentato alcun contatto suggestivo di disturbo bipolare con una struttura accreditata dal SSN.",
+        "Coorte C": "La \"coorte dei nuovi casi presi in carico con disturbo all'esordio\" è costituita dalla porzione della coorte dei nuovi casi presi in carico che, nell'anno di inclusione, ha un'età inferiore o uguale ai 25 anni compiuti.",
+        "Coorte D": "La \"coorte dei pazienti dimessi da ricovero in Servizio Psichiatrico di Diagnosi e Cura\" (SPDC) è costituita dalla porzione della coorte prevalente trattata che nell'anno di inclusione ha sperimentato almeno un ricovero in un Servizio SPDC o altre strutture psichiatriche per eventi acuti."
+    },
+    "fr": {
+        "Cohort A": "La \"cohorte prévalente\" traitée est constituée de tous les bénéficiaires du Service national de santé (SNS) résidant dans une région donnée qui, au cours de l'année d'inclusion, ont eu un contact suggestif de trouble bipolaire avec une structure agréée par le SNS.",
+        "Cohort B": "La \"cohorte des nouveaux patients pris en charge\" (ou incidents) est constituée de la partie de la cohorte prévalente qui, au cours des deux années précédant l'année d'inclusion, n'a eu aucun contact suggestif de trouble bipolaire avec une structure agréée par le SNS.",
+        "Cohort C": "La \"cohorte des nouveaux cas pris en charge avec trouble débutant\" est constituée de la partie de la cohorte des nouveaux cas pris en charge qui, au cours de l'année d'inclusion, a un âge inférieur ou égal à 25 ans.",
+        "Cohort D": "La \"cohorte des patients sortis d'hospitalisation en service de diagnostic et de soins psychiatriques\" (SPDC) est constituée de la partie de la cohorte prévalente traitée qui, au cours de l'année d'inclusion, a connu au moins une hospitalisation dans un service SPDC ou d'autres structures psychiatriques pour des événements aigus."
+    },
+    "de": {
+        "Kohorte A": "Die behandelte \"prävalente Kohorte\" besteht aus allen Leistungsempfängern des Nationalen Gesundheitsdienstes (NHS), die in einer bestimmten Region ansässig sind und im Jahr der Aufnahme einen suggestiven Kontakt mit einer vom NHS akkreditierten Einrichtung hatten.",
+        "Kohorte B": "Die \"neu aufgenommene Patientenkohorte\" (oder Vorfälle) besteht aus dem Teil der prävalenten Kohorte, der in den zwei Jahren vor dem Aufnahmejahr keinen suggestiven Kontakt mit einer vom NHS akkreditierten Einrichtung hatte.",
+        "Kohorte C": "Die \"neue Fallkohorte mit Beginn der Störung\" besteht aus dem Teil der neuen Fallkohorte, der im Aufnahmejahr ein Alter von weniger als oder gleich 25 Jahren aufweist.",
+        "Kohorte D": "Die \"entlassene Patientenkohorte aus der Hospitalisierung im Psychiatrie-Diagnose- und Behandlungsdienst\" (SPDC) besteht aus dem Teil der behandelten prävalenten Kohorte, der im Aufnahmejahr mindestens einen Krankenhausaufenthalt in einem SPDC-Dienst oder anderen psychiatrischen Einrichtungen für akute Ereignisse hatte."
+    },
+    "es": {
+        "Cohorte A": "La \"cohorte prevalente\" tratada está formada por todos los beneficiarios del Servicio Nacional de Salud (SNS) residentes en una determinada región que, en el año de inclusión, han tenido un contacto sugestivo de trastorno bipolar con una estructura acreditada por el SNS.",
+        "Cohorte B": "La \"cohorte de nuevos pacientes atendidos\" (o incidentes) está formada por la parte de la cohorte prevalente que, en los dos años anteriores al año de inclusión, no ha tenido ningún contacto sugestivo de trastorno bipolar con una estructura acreditada por el SNS.",
+        "Cohorte C": "La \"cohorte de nuevos casos atendidos con trastorno de inicio\" está formada por la parte de la cohorte de nuevos casos atendidos que, en el año de inclusión, tiene una edad inferior o igual a 25 años.",
+        "Cohorte D": "La \"cohorte de pacientes dados de alta de la hospitalización en el servicio de diagnóstico y tratamiento psiquiátrico\" (SPDC) está formada por la parte de la cohorte prevalente tratada que en el año de inclusión ha experimentado al menos una hospitalización en un servicio SPDC u otras estructuras psiquiátricas para eventos agudos."
+    },
+    "pt": {
+        "Cohorte A": "A \"coorte prevalente\" tratada é composta por todos os beneficiários do Serviço Nacional de Saúde (SNS) residentes numa determinada região que, no ano de inclusão, tiveram um contacto sugestivo de perturbação bipolar com uma estrutura acreditada pelo SNS.",
+        "Cohorte B": "A \"coorte de novos pacientes atendidos\" (ou incidentes) é composta pela parte da coorte prevalente que, nos dois anos anteriores ao ano de inclusão, não teve qualquer contacto sugestivo de perturbação bipolar com uma estrutura acreditada pelo SNS.",
+        "Cohorte C": "A \"coorte de novos casos atendidos com distúrbio de início\" é composta pela parte da coorte de novos casos atendidos que, no ano de inclusão, tem uma idade inferior ou igual a 25 anos.",
+        "Cohorte D": "A \"coorte de pacientes dados de alta da hospitalização no serviço de diagnóstico e tratamento psiquiátrico\" (SPDC) é composta pela parte da coorte prevalente tratada que no ano de inclusão experimentou pelo menos uma hospitalização num serviço SPDC ou outras estruturas psiquiátricas para eventos agudos."
     }
-)
+}
 
 
-
-
-
-
-########################
-# LANGUAGE DICTIONARIES
-########################
+# DATABASE ENTRIES
 
 diseases_langmap = {
     "en": {
@@ -460,6 +431,8 @@ database_keys_langmap = {
         "AGE": "Idade"
     }
 }
+
+# INDICATORS PLOTS AND MAIN BOXES
 
 indicator_langmap_it = {
     "en": {
@@ -589,6 +562,260 @@ proportions_text_plot_indicator_area_hover_langmap = {
         "F": "Mulheres (% do numerador)"
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#####################
+# LANGUAGE SELECTION 
+#####################
+
+
+# make a dropdown menu and related binding callback
+# so that language can be changed easily by the user
+
+global display_language # This is the language used in the dashboard APP
+                        # Global variables are not nice, but this is the easiest way without passing
+                        # the language variable to every function.
+display_language = DEFAULT_LANGUAGE 
+
+def language_selector_widget_make_name(language_code):
+    return "Language - " + dict_find_key_by_value(LANGUAGE_DICT, language_code)
+
+language_selector_widget = panel.widgets.Select(
+    name=language_selector_widget_make_name(DEFAULT_LANGUAGE),
+    value=DEFAULT_LANGUAGE,
+    options=LANGUAGE_DICT,
+    width=120,
+    styles={
+        "position": "absolute",
+        "margin-top": "0.5em",
+        "margin-left": "5.5em",
+    }
+)
+
+def language_selector_widget_update_name_callback(event):
+    # update the widget
+    language_selector_widget.name = language_selector_widget_make_name(event.new)
+
+language_selector_widget.param.watch(
+    language_selector_widget_update_name_callback, 
+    'value'
+)
+
+# The callback and connection (binding) to change language to the whole app
+# is at the bottom of this page of code, where the dashboard APP
+# is defined.
+# 
+# To change the language of the whole app, it is necessary to have all the
+# elements of the app in a single function, so that the callback can
+# change the language of all the elements of the app.
+# We divide this task in header's, body's, and footer's builder function,
+# which could be themselves divided in smaller functions.
+#
+# Having everything declared into function is also useful to have a
+# clean and readable code, and to have a single point of control
+# for the whole app.
+# This is also referred to as lambda architecture, and is a good practice
+# for building dashboards and web apps.
+
+
+
+
+
+
+
+
+
+#########
+# HEADER
+#########
+
+def build_header():
+    # https://ja-implemental.eu/
+    header = panel.panel(
+        """
+        <div class="header-container-implemental" style="
+            display: flex;
+            flex-direction: row;
+            justify-content: space-evenly;
+            align-items: center;
+            width: calc(100vw - 17px);
+            max-height: 311px;
+            min-height: 310px;
+            padding: 0;
+            margin: 0;
+            background: url('https://implemental.files.wordpress.com/2021/11/2000_podloga-s-logo.jpg');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: 50%;
+            box-sizing: border-box;
+            border-radius: 0px 0px 16px 16px;
+        ">
+            <h1 style="
+                margin-right: 1.5em;
+                font-style: normal;
+                font-weight: 600;
+                font-family: sans-serif;
+                font-size: 1.1em;
+                direction: ltr;
+                background-color: #e7e7e7;
+                border-radius: 8px;
+                padding: 5px;
+                text-align: center;
+                color: #333333;
+                border: solid 1px #555555;
+                ">
+                <a href="https://ja-implemental.eu/" style="text-decoration: none;color: inherit;">
+                    """ + title_str_html_langmap[display_language] + """
+                </a>
+            </h1>
+            <img src="https://implemental.files.wordpress.com/2022/09/en-co-funded-by-the-eu_pos.png?w=300"
+                alt="europe flag"
+                style="
+                    float:right;
+                    margin-right: 1em;
+                    max-width: 300px;
+                    min-width: 200px;
+            ">
+        </div>
+        """,
+        styles={
+            "width": "calc(100vw - 17px)",
+            "margin": "0",
+            "padding": "0"
+        }
+    )
+    # add the language selector widget to the header
+    header = panel.Column(
+        header,
+        language_selector_widget,
+        sizing_mode="stretch_width"
+    )
+    return header
+
+
+#########
+# FOOTER
+#########
+
+def build_footer():
+    footer = panel.panel(
+    """
+    <div class="footer-container-implemental" style="
+        margin: auto;
+        width: calc(100vw - 17px);
+        text-align: center;
+        margin-top: -16px;
+        margin-bottom: 0%;
+        background-color: #e9ecef;
+        border-radius: 16px 16px 0px 0px;
+        border: solid 1px #555555;
+        border-bottom: none;
+        margin-left: -1px;
+        margin-right: -1px;
+        ">
+        <p style="
+            display: inline-block;
+            font-size: 0.85em;
+            color: #546e7a;
+        ">
+            """ + footer_str_html_langmap[display_language] + """
+        </p>
+    </div>
+    """,
+    styles={
+        "margin": "0",
+        "padding": "0",
+        "position": "fixed",
+        "bottom": "0"
+    }
+)
+    return footer
+
+
+
+
+
+#########################
+# PRELIMINARY DATA CHECK
+#########################
+
+# Here, I should already have the database loaded into a pandas dataframe.
+# I should check that the database is not empty, and that it has the correct structure.
+# I should also check that the database has the correct values, and that the values 
+# are consistent with the data dictionary.
+# Part of that is done in the sas_database_reader.py file.
+# Here, I just check if I have the database, but if the database has any problem, this is the right time to
+# raise an error and stop the execution of the program. 
+
+if DB is None:
+    database_not_found_langmap = {
+        "en": "Database not found",
+        "it": "Database non trovato",
+        "fr": "Base de données non trouvée",
+        "de": "Datenbank nicht gefunden",
+        "es": "Base de datos no encontrada",
+        "pt": "Base de dados não encontrada"
+    }
+
+    def build_app(language):
+        # Change language
+        global display_language
+        display_language = language
+        # Build app
+        header = build_header()
+        body = panel.pane.HTML(
+            """<h1 style="
+                    text-align: center; 
+                    font-size: 2em; 
+                    color: #4a4a4a;
+                    padding-bottom: 0;
+                    margin-bottom: 0; 
+                    margin-top: 30px;
+                    font-family: sans-serif;
+                    font-weight: 800;
+            ">""" + database_not_found_langmap[display_language] + "</h1>",
+            styles={
+            }
+        )
+        footer = build_footer()
+        return [header, body, footer]
+
+    APP = panel.Column(
+        objects = panel.bind(
+            build_app, 
+            language_selector_widget
+        ),
+        styles={
+            "background": "#ffffffff",
+            "width": 'calc(100vw - 17px)',
+            "height": "100%"
+        }
+    )
+    APP.show()
+    sys.exit(-1)
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1131,67 +1358,13 @@ def get_box_element(df_global, disease: str, cohort: str, indicator: str):
 
 # - TITLE AND DISEASE SELECTOR
 
-if not DB is None:
-    disturbi = list(set(DB["DISTURBO"]))
-    disturbi.sort()
-    disturbi = numpy.insert(disturbi, 0, "ALL")
-    title_choice_map = {diseases_langmap[display_language][k]: diseases_langmap[display_language][k] for k in disturbi}
-
-title_menu_items = [(k, v) for k, v in title_choice_map.items()]
-
-disease_word_langauges_map = {
-    "en": "Disease",
-    "it": "Disturbo",
-    "fr": "Trouble",
-    "de": "Störung",
-    "es": "Trastorno",
-    "pt": "Distúrbio"
-}
-
-title_menu_button_name_map = {
-    "en": "Select disease",
-    "it": "Seleziona disturbo",
-    "fr": "Sélectionnez le trouble",
-    "de": "Wählen Sie die Störung",
-    "es": "Seleccione el trastorno",
-    "pt": "Selecione o distúrbio"
-}
-title_menu_button = panel.widgets.MenuButton(
-    name=title_menu_button_name_map[display_language],
-    items=title_menu_items,
-    button_type='warning',
-    max_width=300,
-    min_width=150,
-    styles={
-        "margin-right": "2em"
-    } 
-)
-
-title_menu_button.param.set_param(clicked=title_menu_items[0][0])
-
-default_title_message_map = {
-    "en": "Select a disease from the dropdown menu on the right.",
-    "it": "Seleziona un disturbo dal menu a tendina a destra.",
-    "fr": "Sélectionnez un trouble dans le menu déroulant à droite.",
-    "de": "Wählen Sie eine Störung aus dem Dropdown-Menü rechts aus.",
-    "es": "Seleccione un trastorno del menú desplegable a la derecha.",
-    "pt": "Selecione um distúrbio no menu suspenso à direita."
-}
-all_diseases_title_message_map = {
-    "en": "Overview on all diseases",
-    "it": "Panoramica di tutti i disturbi",
-    "fr": "Aperçu de tous les troubles",
-    "de": "Übersicht über alle Störungen",
-    "es": "Descripción general de todos los trastornos",
-    "pt": "Visão geral de todos os distúrbios"
-}
 def disease_selector_row_title_maker(value):
     if value is None:
         value = """<span style="font-size: 1.1em; color: #888888ff;">
-                """+default_title_message_map[display_language]+"""
+                """+default_title_message_langmap[display_language]+"""
                 </span>"""
     if value == diseases_langmap[display_language]["ALL"]:
-        value = all_diseases_title_message_map[display_language]
+        value = all_diseases_title_message_langmap[display_language]
     text = "<h1>"+value+"</h1>"
     html_pane = panel.pane.HTML(
         text,
@@ -1201,82 +1374,40 @@ def disease_selector_row_title_maker(value):
     )
     return html_pane
 
-disease_selector_row = panel.FlexBox(
-    panel.bind(disease_selector_row_title_maker, title_menu_button.param.clicked), # 
-    title_menu_button,
-    flex_direction="row",
-    flex_wrap="nowrap", 
-    align_content="center", # like justify content but vertically
-    justify_content="space-around",  # like align content but horizontally
-    align_items="center", # vertical align
-    styles={}
-)
+def build_body_disease_selector():
+    disturbi = list(set(DB["DISTURBO"]))
+    disturbi.sort()
+    disturbi = numpy.insert(disturbi, 0, "ALL")
+    title_choice_map = {diseases_langmap[display_language][k]: diseases_langmap[display_language][k] for k in disturbi}
+    title_menu_items = [(k, v) for k, v in title_choice_map.items()]
+    # title menu button
+    global title_menu_button
+    title_menu_button = panel.widgets.MenuButton(
+        name=title_menu_button_name_map[display_language],
+        items=title_menu_items,
+        button_type='warning',
+        max_width=300,
+        min_width=150,
+        styles={
+            "margin-right": "2em"
+        } 
+    )
+    title_menu_button.param.set_param(clicked=title_menu_items[0][0])
+    # make the whole row
+    disease_selector_row = panel.FlexBox(
+        panel.bind(disease_selector_row_title_maker, title_menu_button.param.clicked), # 
+        title_menu_button,
+        flex_direction="row",
+        flex_wrap="nowrap", 
+        align_content="center", # like justify content but vertically
+        justify_content="space-around",  # like align content but horizontally
+        align_items="center", # vertical align
+        styles={}
+    )
+    return disease_selector_row
 
 
-
-
-
-
-# - COORTE CHOICE
-
-coorte_language_map = {
-    "en": {n: "Cohort "+n for n in ["A", "B", "C", "D"]},
-    "it": {n: "Coorte "+n for n in ["A", "B", "C", "D"]},
-    "fr": {n: "Cohorte "+n for n in ["A", "B", "C", "D"]},
-    "de": {n: "Kohorte "+n for n in ["A", "B", "C", "D"]},
-    "es": {n: "Cohorte "+n for n in ["A", "B", "C", "D"]},
-    "pt": {n: "Cohorte "+n for n in ["A", "B", "C", "D"]}
-}
-
-coorte_explain_dict = {
-    "en": {
-        "Cohort A": "The \"prevalent cohort\" treated is made up of all beneficiaries of the National Health Service (NHS) resident in a given region who, in the year of inclusion, have had a suggestive contact of bipolar disorder with a structure accredited by the NHS.",
-        "Cohort B": "The \"new patients taken in charge cohort\" (or incidents) is made up of the portion of the prevalent cohort that, in the two years preceding the year of inclusion, has not experienced any suggestive contact of bipolar disorder with a structure accredited by the NHS.",
-        "Cohort C": "The \"new cases taken in charge cohort with onset disorder\" is made up of the portion of the new cases taken in charge cohort that, in the year of inclusion, has an age less than or equal to 25 years.",
-        "Cohort D": "The \"discharged patients cohort from hospitalization in Psychiatric Diagnosis and Care Service\" (SPDC) is made up of the portion of the prevalent treated cohort that in the year of inclusion has experienced at least one hospitalization in a SPDC Service or other psychiatric structures for acute events."
-    },
-    "it": {
-        "Coorte A": "La \"coorte prevalente\" trattata è costituita da tutti i beneficiari del Servizio Sanitario Nazionale (SSN) residenti in una data regione che, nell'anno di inclusione, hanno avuto un contatto suggestivo di disturbo bipolare con una struttura accreditata dal SSN.",
-        "Coorte B": "La \"coorte dei nuovi pazienti presi in carico\" (o incidenti) è costituita dalla porzione della coorte prevalente che, nei due anni precedenti l'anno di inclusione, non ha sperimentato alcun contatto suggestivo di disturbo bipolare con una struttura accreditata dal SSN.",
-        "Coorte C": "La \"coorte dei nuovi casi presi in carico con disturbo all'esordio\" è costituita dalla porzione della coorte dei nuovi casi presi in carico che, nell'anno di inclusione, ha un'età inferiore o uguale ai 25 anni compiuti.",
-        "Coorte D": "La \"coorte dei pazienti dimessi da ricovero in Servizio Psichiatrico di Diagnosi e Cura\" (SPDC) è costituita dalla porzione della coorte prevalente trattata che nell'anno di inclusione ha sperimentato almeno un ricovero in un Servizio SPDC o altre strutture psichiatriche per eventi acuti."
-    },
-    "fr": {
-        "Cohort A": "La \"cohorte prévalente\" traitée est constituée de tous les bénéficiaires du Service national de santé (SNS) résidant dans une région donnée qui, au cours de l'année d'inclusion, ont eu un contact suggestif de trouble bipolaire avec une structure agréée par le SNS.",
-        "Cohort B": "La \"cohorte des nouveaux patients pris en charge\" (ou incidents) est constituée de la partie de la cohorte prévalente qui, au cours des deux années précédant l'année d'inclusion, n'a eu aucun contact suggestif de trouble bipolaire avec une structure agréée par le SNS.",
-        "Cohort C": "La \"cohorte des nouveaux cas pris en charge avec trouble débutant\" est constituée de la partie de la cohorte des nouveaux cas pris en charge qui, au cours de l'année d'inclusion, a un âge inférieur ou égal à 25 ans.",
-        "Cohort D": "La \"cohorte des patients sortis d'hospitalisation en service de diagnostic et de soins psychiatriques\" (SPDC) est constituée de la partie de la cohorte prévalente traitée qui, au cours de l'année d'inclusion, a connu au moins une hospitalisation dans un service SPDC ou d'autres structures psychiatriques pour des événements aigus."
-    },
-    "de": {
-        "Kohorte A": "Die behandelte \"prävalente Kohorte\" besteht aus allen Leistungsempfängern des Nationalen Gesundheitsdienstes (NHS), die in einer bestimmten Region ansässig sind und im Jahr der Aufnahme einen suggestiven Kontakt mit einer vom NHS akkreditierten Einrichtung hatten.",
-        "Kohorte B": "Die \"neu aufgenommene Patientenkohorte\" (oder Vorfälle) besteht aus dem Teil der prävalenten Kohorte, der in den zwei Jahren vor dem Aufnahmejahr keinen suggestiven Kontakt mit einer vom NHS akkreditierten Einrichtung hatte.",
-        "Kohorte C": "Die \"neue Fallkohorte mit Beginn der Störung\" besteht aus dem Teil der neuen Fallkohorte, der im Aufnahmejahr ein Alter von weniger als oder gleich 25 Jahren aufweist.",
-        "Kohorte D": "Die \"entlassene Patientenkohorte aus der Hospitalisierung im Psychiatrie-Diagnose- und Behandlungsdienst\" (SPDC) besteht aus dem Teil der behandelten prävalenten Kohorte, der im Aufnahmejahr mindestens einen Krankenhausaufenthalt in einem SPDC-Dienst oder anderen psychiatrischen Einrichtungen für akute Ereignisse hatte."
-    },
-    "es": {
-        "Cohorte A": "La \"cohorte prevalente\" tratada está formada por todos los beneficiarios del Servicio Nacional de Salud (SNS) residentes en una determinada región que, en el año de inclusión, han tenido un contacto sugestivo de trastorno bipolar con una estructura acreditada por el SNS.",
-        "Cohorte B": "La \"cohorte de nuevos pacientes atendidos\" (o incidentes) está formada por la parte de la cohorte prevalente que, en los dos años anteriores al año de inclusión, no ha tenido ningún contacto sugestivo de trastorno bipolar con una estructura acreditada por el SNS.",
-        "Cohorte C": "La \"cohorte de nuevos casos atendidos con trastorno de inicio\" está formada por la parte de la cohorte de nuevos casos atendidos que, en el año de inclusión, tiene una edad inferior o igual a 25 años.",
-        "Cohorte D": "La \"cohorte de pacientes dados de alta de la hospitalización en el servicio de diagnóstico y tratamiento psiquiátrico\" (SPDC) está formada por la parte de la cohorte prevalente tratada que en el año de inclusión ha experimentado al menos una hospitalización en un servicio SPDC u otras estructuras psiquiátricas para eventos agudos."
-    },
-    "pt": {
-        "Cohorte A": "A \"coorte prevalente\" tratada é composta por todos os beneficiários do Serviço Nacional de Saúde (SNS) residentes numa determinada região que, no ano de inclusão, tiveram um contacto sugestivo de perturbação bipolar com uma estrutura acreditada pelo SNS.",
-        "Cohorte B": "A \"coorte de novos pacientes atendidos\" (ou incidentes) é composta pela parte da coorte prevalente que, nos dois anos anteriores ao ano de inclusão, não teve qualquer contacto sugestivo de perturbação bipolar com uma estrutura acreditada pelo SNS.",
-        "Cohorte C": "A \"coorte de novos casos atendidos com distúrbio de início\" é composta pela parte da coorte de novos casos atendidos que, no ano de inclusão, tem uma idade inferior ou igual a 25 anos.",
-        "Cohorte D": "A \"coorte de pacientes dados de alta da hospitalização no serviço de diagnóstico e tratamento psiquiátrico\" (SPDC) é composta pela parte da coorte prevalente tratada que no ano de inclusão experimentou pelo menos uma hospitalização num serviço SPDC ou outras estruturas psiquiátricas para eventos agudos."
-    }
-}
-
-coorte_button_options_list = [
-    v for v in coorte_explain_dict[display_language].keys()
-]
-
-coorte_radio_group = panel.widgets.RadioButtonGroup(
-    name='coorte selector', 
-    options=coorte_button_options_list, 
-    value=coorte_button_options_list[0],
-    button_type='primary'
-)
+# COORTE SELECTOR
 
 def build_coorte_tooltip_html(value: str, text: str):
     s_ = """
@@ -1295,23 +1426,40 @@ def build_coorte_tooltip_html(value: str, text: str):
 def update_coorte_html(value):
     return panel.pane.HTML(build_coorte_tooltip_html(value, coorte_explain_dict[display_language][value]))
 
-coorte_selector_row = panel.Column(
-    coorte_radio_group,
-    panel.bind(update_coorte_html, coorte_radio_group.param.value)
-)
+def build_body_coorte_selector():
+    # buttons coorte selector
+    coorte_button_options_list = [
+        v for v in coorte_explain_dict[display_language].keys()
+    ]
+    global coorte_radio_group                                       ### THIS IS NOT A GOOD IDEA but i have to make it work
+    coorte_radio_group = panel.widgets.RadioButtonGroup(
+        name='coorte selector', 
+        options=coorte_button_options_list, 
+        value=coorte_button_options_list[0],
+        button_type='primary'
+    )
+    # 
+    coorte_selector_row = panel.Column(
+        coorte_radio_group,
+        panel.bind(update_coorte_html, coorte_radio_group.param.value)
+    )
+    return coorte_selector_row
 
-top_selector_row = panel.Column(
-    disease_selector_row,
-    coorte_selector_row,
-    styles={
-        "margin-top": "0px",
-        "padding-top": "0px",
-        "margin-bottom": "5px",
-        "background": "#e9ecefff",
-        "border-radius": "16px"
-    }
-)
-
+def build_body_top_row():
+    disease_selector_row = build_body_disease_selector()
+    coorte_selector_row = build_body_coorte_selector()
+    top_selector_row = panel.Column(
+        disease_selector_row,
+        coorte_selector_row,
+        styles={
+            "margin-top": "0px",
+            "padding-top": "0px",
+            "margin-bottom": "5px",
+            "background": "#e9ecefff",
+            "border-radius": "16px"
+        }
+    )
+    return top_selector_row
 
 
 
@@ -1349,33 +1497,35 @@ def get_main_box_elements(df, disease_selector_value, coorte_selector_value):
         )
         return list_of_boxes_to_display
     
-
-main_box = panel.Column(
-    objects=panel.bind(
-        get_main_box_elements,
-        df=DB,
-        disease_selector_value=title_menu_button.param.clicked, 
-        coorte_selector_value=coorte_radio_group.param.value
-    ),
-    align="center",
-    styles={
-        "width": "95%"
-    }
-)
+def build_body_main_box():
+    main_box = panel.Column(
+        objects=panel.bind(
+            get_main_box_elements,
+            df=DB,
+            disease_selector_value=title_menu_button.param.clicked, 
+            coorte_selector_value=coorte_radio_group.param.value
+        ),
+        align="center",
+        styles={
+            "width": "95%"
+        }
+    )
+    return main_box
 
 
 # - BODY
-
-body = panel.Column(
-    top_selector_row,
-    main_box,
-    panel.Spacer(height=50),
-    styles={
-        "margin-top": "20px",
-        "padding-top": "0px",
-        "margin-bottom": "35px"
-    }
-)
+def build_body():                 ############################################   PROBABLY NOT AS EASY AS THIS
+    body = panel.Column(
+        build_body_top_row(),
+        build_body_main_box(),
+        panel.Spacer(height=50),
+        styles={
+            "margin-top": "20px",
+            "padding-top": "0px",
+            "margin-bottom": "35px"
+        }
+    )
+    return body
 
 
 
@@ -1392,14 +1542,49 @@ body = panel.Column(
 # Dashboard
 ##################
 
+# LANGUAGE WIDGET:
+# The languagw widget, defined before the header, 
+# is a widget that allows the user to change the language of the dashboard.
+# as of now, since we do not want to re-write the whole code,
+# we will reload the whole page when the language is changed.
+#
+# To do so, here i define all the builders for the different parts of the dashboard,
+# whch are the header, the body and the footer.
+# This structure was thought AFTER developing all the dashboard, so it is not
+# the best structure, but it is the one I have now. If code needed to be refactored,
+# this would be the first thing to do, to create builders of each component of the dashboard
+# so they can be plugged in together easily. Also using a global variable is usually a thrash idea.
+#
+# The various builders are spread here and there n the code, in the pertinent sections.
+# Down here, I just have the build_all function which calls all the builders and returns
+# the three components of the dashboard.
+
+def build_all(language_value):
+    # update the global variable to change language
+    global display_language
+    if language_value in AVAILABLE_LANGUAGES:
+        display_language = language_value
+    else:
+        display_language = "en"
+    # build the app again
+    header = build_header()
+    body = build_body()
+    footer = build_footer()
+    return [header, body, footer]
+
+
+    
 APP = panel.Column(
-    header,
-    body,
-    footer,
-    styles={
-        "background": "#ffffffff",
-        "width": 'calc(100vw - 17px)',
-        "height": "100%"
-    }
-)
+        objects = panel.bind(
+            build_all, 
+            language_selector_widget
+        ),
+        styles={
+            "background": "#ffffffff",
+            "width": 'calc(100vw - 17px)',
+            "height": "100%"
+        }
+    )
+
+
 APP.show()
