@@ -1,6 +1,6 @@
 # JA_ImpleMENTAL
-Code for the european Joint Action ImpleMENTAL, which tryes to raise awareness on mental health situation of countries and the need for proper data gathering and storing.
 
+Code for the european Joint Action ImpleMENTAL, which tries to raise awareness on mental health situation of countries and the need for proper data gathering and storing.
 
 ## RESOURCES
 
@@ -23,7 +23,7 @@ Then, just convertit into numpy if necessary, and that's it!
 
 ### Start Here: DashBoard
 
-Check out this video, in which description there are a lit of useful resources:
+Check out this video, in which description there are a lot of useful resources:
 https://www.youtube.com/watch?v=tNAFtyjDPsI
 
 Some help on plotting with different backends (bokeh, plotly, matplotlib):
