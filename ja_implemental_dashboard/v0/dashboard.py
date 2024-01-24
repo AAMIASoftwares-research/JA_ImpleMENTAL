@@ -1,5 +1,6 @@
 # Author: Matteo Leccardi
 # Interesting resources:
+# https://holoviz.org/tutorial/index.html
 # https://justinbois.github.io/bootcamp/2022/lessons/l40_holoviews.html
 
 
@@ -176,12 +177,39 @@ eu_funding_string_langmap = {
 
 
 title_str_html_langmap = {
-    "en": "JA on Implementation of Best Practices </br> in the area of Mental Health",
-    "it": "JA sull'implementazione delle migliori pratiche </br> nel campo della salute mentale",
-    "fr": "JA sur la mise en œuvre des meilleures pratiques </br> dans le domaine de la santé mentale",
-    "de": "JA zur Umsetzung bewährter Verfahren im Bereich </br> der psychischen Gesundheit",
-    "es": "JA sobre la implementación de las mejores prácticas </br> en el ámbito de la salud mental",
-    "pt": "JA sobre a implementação das melhores práticas </br> no domínio da saúde mental",
+    "en": "Joint Action on Implementation of Best Practices </br> in the area of Mental Health",
+    "it": "\"Joint Action\" sull'implementazione delle migliori pratiche </br> nel campo della salute mentale",
+    "fr": "\"Joint Action\" sur la mise en œuvre des meilleures pratiques </br> dans le domaine de la santé mentale",
+    "de": "\"Joint Action\" zur Umsetzung bewährter Verfahren im Bereich </br> der psychischen Gesundheit",
+    "es": "\"Joint Action\" sobre la implementación de las mejores prácticas </br> en el ámbito de la salud mental",
+    "pt": "\"Joint Action\" sobre a implementação das melhores práticas </br> no domínio da saúde mental",
+}
+
+language_selector_title_langmap = {
+    "en": 'Language',
+    "it": "Lingua",
+    "fr": "Langue",
+    "de": "Sprache",
+    "es": "Idioma",
+    "pt": "Língua"
+}
+
+home_button_str_html_langmap = {
+    "en": "Project homepage",
+    "it": "Homepage del progetto",
+    "fr": "Page d'accueil du projet",
+    "de": "Projekt-Homepage",
+    "es": "Página de inicio del proyecto",
+    "pt": "Página inicial do projeto"
+}
+
+dashboard_button_str_html_langmap = {
+    "en": "Explore the dashboard",
+    "it": "Esplora il dashboard",
+    "fr": "Explorer le tableau de bord",
+    "de": "Dashboard erkunden",
+    "es": "Explorar el panel de control",
+    "pt": "Explorar o painel"
 }
 
 # - FOOTER
@@ -589,29 +617,48 @@ global display_language # This is the language used in the dashboard APP
                         # the language variable to every function.
 display_language = DEFAULT_LANGUAGE 
 
-def language_selector_widget_make_name(language_code):
-    return "Language - " + dict_find_key_by_value(LANGUAGE_DICT, language_code)
-
+# this is GLOBAL, so that it can be used in the callback
 language_selector_widget = panel.widgets.Select(
-    name=language_selector_widget_make_name(DEFAULT_LANGUAGE),
+    # no name, because we want to use a custom name
     value=DEFAULT_LANGUAGE,
     options=LANGUAGE_DICT,
-    width=120,
+    width=110,
+    background="#00000020",
     styles={
-        "position": "absolute",
-        "margin-top": "15px",
-        "margin-left": "calc(100vw - 190px)"
+        "border-radius": "3px",
+        "margin-top": "0",
+        "padding-top": "0",
     }
 )
 
-def language_selector_widget_update_name_callback(event):
-    # update the widget
-    language_selector_widget.name = language_selector_widget_make_name(event.new)
+def language_selector_widget_make_name_html():
+    global display_language
+    text = language_selector_title_langmap[display_language]
+    html = f"""<div style="
+            text-align:center;
+            margin-bottom: 1px;
+            padding: 0px 0px 0px 0px;
+            font-size: 0.9em;
+            font-weight: 600;
+            font-family: sans-serif;
+            color: #333333;
+        ">{text}</div>"""
+    return panel.pane.HTML(html)
 
-language_selector_widget.param.watch(
-    language_selector_widget_update_name_callback, 
-    'value'
-)
+def get_header_language_selector():
+    lsc = panel.Column(
+        language_selector_widget_make_name_html,
+        language_selector_widget,
+        styles={
+            "position": "absolute",
+            "margin-top": "15px",
+            "margin-left": "calc(100vw - 190px)",
+            "background": "#0000002a",
+            "border-radius": "5px"
+        }
+    )
+    return lsc
+
 
 # The callback and connection (binding) to change language to the whole app
 # is at the bottom of this page of code, where the dashboard APP
@@ -662,24 +709,75 @@ def build_header():
             box-sizing: border-box;
             border-radius: 0px 0px 16px 16px;
         ">
-            <h1 style="
-                margin-right: 1.5em;
-                font-style: normal;
-                font-weight: 600;
-                font-family: sans-serif;
-                font-size: 1.1em;
-                direction: ltr;
-                background-color: #e7e7e7;
-                border-radius: 8px;
-                padding: 5px;
-                text-align: center;
-                color: #333333;
-                border: solid 1px #555555;
-                ">
-                <a href="https://ja-implemental.eu/" style="text-decoration: none;color: inherit;">
+            <div style="
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                width: 100%;
+                height: 100%;
+            ">
+                <h1 style="
+                    margin-right: 1.5em;
+                    font-style: normal;
+                    font-weight: 600;
+                    font-family: sans-serif;
+                    font-size: 1.3em;
+                    direction: ltr;
+                    text-align: center;
+                    color: #333333;
+                    ">
                     """ + title_str_html_langmap[display_language] + """
-                </a>
-            </h1>
+                </h1>
+                <div style="
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: center;
+                    align-items: center;
+                    width: 100%;
+                    height: 100%;
+                    margin-top: 1.2em;
+                ">
+                    <a href="https://ja-implemental.eu/" target="_blank" style="text-decoration: none;color: inherit;">
+                        <button style="
+                            margin-right: 1em;
+                            color: #ffffff;
+                            background-color: #3e7d98;
+                            border: solid 3px #3e7d98;
+                            border-radius: 500px;
+                            padding: 0.5em 1em;
+                            font-style: normal;
+                            font-weight: 800;
+                            font-family: sans-serif;
+                            font-size: 1.4em;
+                            direction: ltr;
+                            text-align: center;
+                            cursor: pointer;
+                            transition: background-color .125s ease-in;
+                        ">
+                            """ + home_button_str_html_langmap[display_language] + """
+                        </button>
+                    </a>
+                    <button onclick="window.scrollTo({ top: 312, behavior: 'smooth' })" style="
+                        margin-left: 1em;
+                        color: #3e7d98;
+                        background-color: #ffffff;
+                        border: solid 3px #ffffff;
+                        border-radius: 500px;
+                        padding: 0.5em 1em;
+                        font-style: normal;
+                        font-weight: 800;
+                        font-family: sans-serif;
+                        font-size: 1.4em;
+                        direction: ltr;
+                        text-align: center;
+                        cursor: pointer;
+                        transition: background-color .125s ease-in;
+                    ">
+                        """ + dashboard_button_str_html_langmap[display_language] + """
+                    </button>
+                </div>
+            </div>
         </div>
         """,
         styles={
@@ -691,7 +789,7 @@ def build_header():
     # add the language selector widget to the header
     header = panel.Column(
         header,
-        language_selector_widget,
+        get_header_language_selector(),
         sizing_mode="stretch_width"
     )
     return header
@@ -702,9 +800,10 @@ def build_header():
 #########
 
 def build_footer():
-    footer = panel.panel(
+    footer = panel.pane.HTML(
     """
     <footer style="
+            z-index: 2147483646;
             position: absolute; 
             bottom: 0; 
             width: calc(100vw - 16px); 
@@ -776,7 +875,7 @@ if DB is None:
         # Build app
         header = build_header()
         body = panel.pane.HTML(
-            """<h1 style="
+            """<h1 id="dashboard-body" style="
                     text-align: center; 
                     font-size: 2em; 
                     color: #4a4a4a;
@@ -1365,7 +1464,7 @@ def disease_selector_row_title_maker(value):
                 </span>"""
     if value == diseases_langmap[display_language]["ALL"]:
         value = all_diseases_title_message_langmap[display_language]
-    text = "<h1>"+value+"</h1>"
+    text = """<h1>"""+value+"</h1>"
     html_pane = panel.pane.HTML(
         text,
         styles={
@@ -1582,7 +1681,8 @@ APP = panel.Column(
         styles={
             "background": "#ffffffff",
             "width": 'calc(100vw - 17px)',
-            "height": "100%"
+            "height": "100%",
+            "scroll-behavior": "smooth"
         }
     )
 
