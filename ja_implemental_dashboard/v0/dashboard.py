@@ -188,30 +188,30 @@ title_str_html_langmap = {
 
 footer_str_html_langmap = {
     "en": """JA ImpleMENTAL is a Joint Action (JA) co-funded by the European Commission (EC)
-                under the Third Health Programme (2014-2020). </br>
+                under the Third Health Programme (2014-2020). 
                 The JA ImpleMENTAL project aims to improve the quality of mental health care in
                 Europe by identifying, analysing and exchanging good practices in mental health care.""",
     "it": """JA ImpleMENTAL è un'azione congiunta (JA) cofinanziata dalla Commissione europea (CE)
-                nell'ambito del terzo programma sanitario (2014-2020). </br>
+                nell'ambito del terzo programma sanitario (2014-2020). 
                 Il progetto JA ImpleMENTAL mira a migliorare la qualità dell'assistenza sanitaria
                 mentale in Europa identificando, analizzando e scambiando buone pratiche nell'assistenza
                 sanitaria mentale.""",
     "fr": """JA ImpleMENTAL est une action conjointe (JA) cofinancée par la Commission européenne (CE)
-                dans le cadre du troisième programme de santé (2014-2020). </br>
+                dans le cadre du troisième programme de santé (2014-2020). 
                 Le projet JA ImpleMENTAL vise à améliorer la qualité des soins de santé mentale en Europe
                 en identifiant, analysant et échangeant les bonnes pratiques en matière de soins de santé
                 mentale.""",
     "de": """JA ImpleMENTAL ist eine Joint Action (JA), die von der Europäischen Kommission (EK)
-                im Rahmen des Dritten Gesundheitsprogramms (2014-2020) kofinanziert wird. </br>
+                im Rahmen des Dritten Gesundheitsprogramms (2014-2020) kofinanziert wird. 
                 Das Projekt JA ImpleMENTAL zielt darauf ab, die Qualität der psychischen Gesundheitsversorgung in Europa
-                durch die Identifizierung, Analyse und den Austausch bewährter Praktiken </br>
+                durch die Identifizierung, Analyse und den Austausch bewährter Praktiken 
                 in der psychischen Gesundheitsversorgung zu verbessern.""",
     "es": """JA ImpleMENTAL es una Acción Conjunta (JA) cofinanciada por la Comisión Europea (CE)
-                en el marco del Tercer Programa de Salud (2014-2020). </br>
+                en el marco del Tercer Programa de Salud (2014-2020). 
                 El proyecto JA ImpleMENTAL tiene como objetivo mejorar la calidad de la atención de salud mental en Europa
                 mediante la identificación, el análisis y el intercambio de buenas prácticas en la atención de salud mental.""",
     "pt": """JA ImpleMENTAL é uma Ação Conjunta (JA) cofinanciada pela Comissão Europeia (CE)
-                no âmbito do Terceiro Programa de Saúde (2014-2020). </br>
+                no âmbito do Terceiro Programa de Saúde (2014-2020). 
                 O projeto JA ImpleMENTAL tem como objetivo melhorar a qualidade do atendimento de saúde mental na Europa
                 identificando, analisando e trocando boas práticas no atendimento de saúde mental."""
 }
@@ -599,8 +599,8 @@ language_selector_widget = panel.widgets.Select(
     width=120,
     styles={
         "position": "absolute",
-        "margin-top": "0.5em",
-        "margin-left": "5.5em",
+        "margin-top": "15px",
+        "margin-left": "calc(100vw - 190px)"
     }
 )
 
@@ -680,14 +680,6 @@ def build_header():
                     """ + title_str_html_langmap[display_language] + """
                 </a>
             </h1>
-            <img src="https://implemental.files.wordpress.com/2022/09/en-co-funded-by-the-eu_pos.png?w=300"
-                alt="europe flag"
-                style="
-                    float:right;
-                    margin-right: 1em;
-                    max-width: 300px;
-                    min-width: 200px;
-            ">
         </div>
         """,
         styles={
@@ -712,27 +704,38 @@ def build_header():
 def build_footer():
     footer = panel.panel(
     """
-    <div class="footer-container-implemental" style="
-        margin: auto;
-        width: calc(100vw - 17px);
-        text-align: center;
-        margin-top: -16px;
-        margin-bottom: 0%;
-        background-color: #e9ecef;
-        border-radius: 16px 16px 0px 0px;
-        border: solid 1px #555555;
-        border-bottom: none;
-        margin-left: -1px;
-        margin-right: -1px;
-        ">
-        <p style="
-            display: inline-block;
-            font-size: 0.85em;
-            color: #546e7a;
-        ">
-            """ + footer_str_html_langmap[display_language] + """
-        </p>
-    </div>
+    <footer style="
+            position: absolute; 
+            bottom: 0; 
+            width: calc(100vw - 16px); 
+            padding: 5px 0; 
+            background-color: #e9ecef;
+            border-radius: 16px 16px 0px 0px;
+            border: solid 1px #555555;
+            margin-bottom: -2px;
+    ">
+        <div style="
+                display: flex; 
+                align-items: center; 
+                justify-content: center;
+            ">
+            <img src="https://implemental.files.wordpress.com/2022/09/en-co-funded-by-the-eu_pos.png?w=300" alt="Cofunded by the European Union" style="
+                    width: 150px; 
+                    height: auto; 
+                    margin-right: 20px;
+                    padding-left: 20px;
+                    min-width: 150px;
+                    max-width: 200px;
+            ">
+            <p style="
+                    text-align: left; 
+                    line-height: 1.5;
+                    padding-right: 20px;
+                    font-size: 0.85em;
+                    color: #546e7a;
+            ">""" + footer_str_html_langmap[display_language] + """</p>
+        </div>
+    </footer>
     """,
     styles={
         "margin": "0",
@@ -742,9 +745,6 @@ def build_footer():
     }
 )
     return footer
-
-
-
 
 
 #########################
