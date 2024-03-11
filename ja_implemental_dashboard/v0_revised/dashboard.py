@@ -284,12 +284,12 @@ all_diseases_title_message_langmap = {
 # - COORTE CHOICE
 
 coorte_language_map = {
-    "en": {n: "Cohort "+n for n in ["A", "B", "C", "D"]},
-    "it": {n: "Coorte "+n for n in ["A", "B", "C", "D"]},
-    "fr": {n: "Cohorte "+n for n in ["A", "B", "C", "D"]},
-    "de": {n: "Kohorte "+n for n in ["A", "B", "C", "D"]},
-    "es": {n: "Cohorte "+n for n in ["A", "B", "C", "D"]},
-    "pt": {n: "Cohorte "+n for n in ["A", "B", "C", "D"]}
+    "en": {n: "Cohort "+n for n in ["A", "B", "C"]}, # ["A", "B", "C", "D"] -> D got discarded
+    "it": {n: "Coorte "+n for n in ["A", "B", "C"]},
+    "fr": {n: "Cohorte "+n for n in ["A", "B", "C"]},
+    "de": {n: "Kohorte "+n for n in ["A", "B", "C"]},
+    "es": {n: "Cohorte "+n for n in ["A", "B", "C"]},
+    "pt": {n: "Cohorte "+n for n in ["A", "B", "C"]}
 }
 
 coorte_explain_dict = {
@@ -297,37 +297,37 @@ coorte_explain_dict = {
         "Cohort A": "The \"prevalent cohort\" treated is made up of all beneficiaries of the National Health Service (NHS) resident in a given region who, in the year of inclusion, have had a suggestive contact of bipolar disorder with a structure accredited by the NHS.",
         "Cohort B": "The \"new patients taken in charge cohort\" (or incidents) is made up of the portion of the prevalent cohort that, in the two years preceding the year of inclusion, has not experienced any suggestive contact of bipolar disorder with a structure accredited by the NHS.",
         "Cohort C": "The \"new cases taken in charge cohort with onset disorder\" is made up of the portion of the new cases taken in charge cohort that, in the year of inclusion, has an age less than or equal to 25 years.",
-        "Cohort D": "The \"discharged patients cohort from hospitalization in Psychiatric Diagnosis and Care Service\" (SPDC) is made up of the portion of the prevalent treated cohort that in the year of inclusion has experienced at least one hospitalization in a SPDC Service or other psychiatric structures for acute events."
+        #"Cohort D": "The \"discharged patients cohort from hospitalization in Psychiatric Diagnosis and Care Service\" (SPDC) is made up of the portion of the prevalent treated cohort that in the year of inclusion has experienced at least one hospitalization in a SPDC Service or other psychiatric structures for acute events."
     },
     "it": {
         "Coorte A": "La \"coorte prevalente\" trattata è costituita da tutti i beneficiari del Servizio Sanitario Nazionale (SSN) residenti in una data regione che, nell'anno di inclusione, hanno avuto un contatto suggestivo di disturbo bipolare con una struttura accreditata dal SSN.",
         "Coorte B": "La \"coorte dei nuovi pazienti presi in carico\" (o incidenti) è costituita dalla porzione della coorte prevalente che, nei due anni precedenti l'anno di inclusione, non ha sperimentato alcun contatto suggestivo di disturbo bipolare con una struttura accreditata dal SSN.",
         "Coorte C": "La \"coorte dei nuovi casi presi in carico con disturbo all'esordio\" è costituita dalla porzione della coorte dei nuovi casi presi in carico che, nell'anno di inclusione, ha un'età inferiore o uguale ai 25 anni compiuti.",
-        "Coorte D": "La \"coorte dei pazienti dimessi da ricovero in Servizio Psichiatrico di Diagnosi e Cura\" (SPDC) è costituita dalla porzione della coorte prevalente trattata che nell'anno di inclusione ha sperimentato almeno un ricovero in un Servizio SPDC o altre strutture psichiatriche per eventi acuti."
+        #"Coorte D": "La \"coorte dei pazienti dimessi da ricovero in Servizio Psichiatrico di Diagnosi e Cura\" (SPDC) è costituita dalla porzione della coorte prevalente trattata che nell'anno di inclusione ha sperimentato almeno un ricovero in un Servizio SPDC o altre strutture psichiatriche per eventi acuti."
     },
     "fr": {
         "Cohort A": "La \"cohorte prévalente\" traitée est constituée de tous les bénéficiaires du Service national de santé (SNS) résidant dans une région donnée qui, au cours de l'année d'inclusion, ont eu un contact suggestif de trouble bipolaire avec une structure agréée par le SNS.",
         "Cohort B": "La \"cohorte des nouveaux patients pris en charge\" (ou incidents) est constituée de la partie de la cohorte prévalente qui, au cours des deux années précédant l'année d'inclusion, n'a eu aucun contact suggestif de trouble bipolaire avec une structure agréée par le SNS.",
         "Cohort C": "La \"cohorte des nouveaux cas pris en charge avec trouble débutant\" est constituée de la partie de la cohorte des nouveaux cas pris en charge qui, au cours de l'année d'inclusion, a un âge inférieur ou égal à 25 ans.",
-        "Cohort D": "La \"cohorte des patients sortis d'hospitalisation en service de diagnostic et de soins psychiatriques\" (SPDC) est constituée de la partie de la cohorte prévalente traitée qui, au cours de l'année d'inclusion, a connu au moins une hospitalisation dans un service SPDC ou d'autres structures psychiatriques pour des événements aigus."
+        #"Cohort D": "La \"cohorte des patients sortis d'hospitalisation en service de diagnostic et de soins psychiatriques\" (SPDC) est constituée de la partie de la cohorte prévalente traitée qui, au cours de l'année d'inclusion, a connu au moins une hospitalisation dans un service SPDC ou d'autres structures psychiatriques pour des événements aigus."
     },
     "de": {
         "Kohorte A": "Die behandelte \"prävalente Kohorte\" besteht aus allen Leistungsempfängern des Nationalen Gesundheitsdienstes (NHS), die in einer bestimmten Region ansässig sind und im Jahr der Aufnahme einen suggestiven Kontakt mit einer vom NHS akkreditierten Einrichtung hatten.",
         "Kohorte B": "Die \"neu aufgenommene Patientenkohorte\" (oder Vorfälle) besteht aus dem Teil der prävalenten Kohorte, der in den zwei Jahren vor dem Aufnahmejahr keinen suggestiven Kontakt mit einer vom NHS akkreditierten Einrichtung hatte.",
         "Kohorte C": "Die \"neue Fallkohorte mit Beginn der Störung\" besteht aus dem Teil der neuen Fallkohorte, der im Aufnahmejahr ein Alter von weniger als oder gleich 25 Jahren aufweist.",
-        "Kohorte D": "Die \"entlassene Patientenkohorte aus der Hospitalisierung im Psychiatrie-Diagnose- und Behandlungsdienst\" (SPDC) besteht aus dem Teil der behandelten prävalenten Kohorte, der im Aufnahmejahr mindestens einen Krankenhausaufenthalt in einem SPDC-Dienst oder anderen psychiatrischen Einrichtungen für akute Ereignisse hatte."
+        #"Kohorte D": "Die \"entlassene Patientenkohorte aus der Hospitalisierung im Psychiatrie-Diagnose- und Behandlungsdienst\" (SPDC) besteht aus dem Teil der behandelten prävalenten Kohorte, der im Aufnahmejahr mindestens einen Krankenhausaufenthalt in einem SPDC-Dienst oder anderen psychiatrischen Einrichtungen für akute Ereignisse hatte."
     },
     "es": {
         "Cohorte A": "La \"cohorte prevalente\" tratada está formada por todos los beneficiarios del Servicio Nacional de Salud (SNS) residentes en una determinada región que, en el año de inclusión, han tenido un contacto sugestivo de trastorno bipolar con una estructura acreditada por el SNS.",
         "Cohorte B": "La \"cohorte de nuevos pacientes atendidos\" (o incidentes) está formada por la parte de la cohorte prevalente que, en los dos años anteriores al año de inclusión, no ha tenido ningún contacto sugestivo de trastorno bipolar con una estructura acreditada por el SNS.",
         "Cohorte C": "La \"cohorte de nuevos casos atendidos con trastorno de inicio\" está formada por la parte de la cohorte de nuevos casos atendidos que, en el año de inclusión, tiene una edad inferior o igual a 25 años.",
-        "Cohorte D": "La \"cohorte de pacientes dados de alta de la hospitalización en el servicio de diagnóstico y tratamiento psiquiátrico\" (SPDC) está formada por la parte de la cohorte prevalente tratada que en el año de inclusión ha experimentado al menos una hospitalización en un servicio SPDC u otras estructuras psiquiátricas para eventos agudos."
+        #"Cohorte D": "La \"cohorte de pacientes dados de alta de la hospitalización en el servicio de diagnóstico y tratamiento psiquiátrico\" (SPDC) está formada por la parte de la cohorte prevalente tratada que en el año de inclusión ha experimentado al menos una hospitalización en un servicio SPDC u otras estructuras psiquiátricas para eventos agudos."
     },
     "pt": {
         "Cohorte A": "A \"coorte prevalente\" tratada é composta por todos os beneficiários do Serviço Nacional de Saúde (SNS) residentes numa determinada região que, no ano de inclusão, tiveram um contacto sugestivo de perturbação bipolar com uma estrutura acreditada pelo SNS.",
         "Cohorte B": "A \"coorte de novos pacientes atendidos\" (ou incidentes) é composta pela parte da coorte prevalente que, nos dois anos anteriores ao ano de inclusão, não teve qualquer contacto sugestivo de perturbação bipolar com uma estrutura acreditada pelo SNS.",
         "Cohorte C": "A \"coorte de novos casos atendidos com distúrbio de início\" é composta pela parte da coorte de novos casos atendidos que, no ano de inclusão, tem uma idade inferior ou igual a 25 anos.",
-        "Cohorte D": "A \"coorte de pacientes dados de alta da hospitalização no serviço de diagnóstico e tratamento psiquiátrico\" (SPDC) é composta pela parte da coorte prevalente tratada que no ano de inclusão experimentou pelo menos uma hospitalização num serviço SPDC ou outras estruturas psiquiátricas para eventos agudos."
+        #"Cohorte D": "A \"coorte de pacientes dados de alta da hospitalização no serviço de diagnóstico e tratamento psiquiátrico\" (SPDC) é composta pela parte da coorte prevalente tratada que no ano de inclusão experimentou pelo menos uma hospitalização num serviço SPDC ou outras estruturas psiquiátricas para eventos agudos."
     }
 }
 
