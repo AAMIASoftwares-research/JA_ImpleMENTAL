@@ -18,6 +18,7 @@ import panel
 panel.extension(
     'tabulator',
     template='material',
+    #design='material',
     sizing_mode='stretch_width'
 )
 
@@ -840,7 +841,8 @@ def build_footer():
         "margin": "0",
         "padding": "0",
         "position": "fixed",
-        "bottom": "0"
+        "bottom": "0",
+        "z-index": "2147483647" # make sure that it always stays on top of everything else in the web page
     }
 )
     return footer
@@ -1598,10 +1600,12 @@ def build_body_coorte_selector():
 
 def build_body_top_row():
     disease_selector_row = build_body_disease_selector()
-    coorte_selector_row = build_body_coorte_selector()
+    # coorte_selector_row = build_body_coorte_selector()    # This was moved from hete to inside the tabs in which to select the indicator type
+    #                                                         This because some indicators are of one type and require a coorte selector (evaluation),
+    #                                                         while others are of another type and do not require a coorte selector (monitoring).
     top_selector_row = panel.Column(
         disease_selector_row,
-        coorte_selector_row,
+        #coorte_selector_row,
         styles={
             "margin-top": "0px",
             "padding-top": "0px",
@@ -1611,8 +1615,6 @@ def build_body_top_row():
         }
     )
     return top_selector_row
-
-
 
 
 
@@ -1676,11 +1678,104 @@ def build_body_main_box():             ##########    qui vanno aggiunte le due t
     return main_box
 
 
+
+#########################################################
+# Create tabs for the two different types of indicators:
+# - monitoring
+# - evaluation (needs the coorte selector)
+#########################################################
+
+def build_monitoring_indicators_tab():
+    body = panel.Column(
+        build_body_main_box(),
+        panel.Spacer(height=50),
+        styles={
+            "margin-top": "20px",
+            "padding-top": "0px",
+            "margin-bottom": "35px"
+        }
+    )
+    return body
+
+def build_evaluation_indicators_tab():
+    body = panel.Column(
+        build_body_coorte_selector(),
+        build_body_main_box(),
+        panel.Spacer(height=50),
+        styles={
+            "margin-top": "20px",
+            "padding-top": "0px",
+            "margin-bottom": "35px"
+        }
+    )
+    return body
+
+evaluation_indicators_langmap = {
+    "en": "Evaluation indicators",
+    "it": "Indicatori di valutazione",
+    "fr": "Indicateurs d'évaluation",
+    "de": "Bewertungsindikatoren",
+    "es": "Indicadores de evaluación",
+    "pt": "Indicadores de avaliação"
+}
+monitoring_indicators_langmap = {
+    "en": "Monitoring indicators",
+    "it": "Indicatori di monitoraggio",
+    "fr": "Indicateurs de surveillance",
+    "de": "Überwachungsindikatoren",
+    "es": "Indicadores de monitoreo",
+    "pt": "Indicadores de monitoramento"
+}
+
+from panel.theme import Material
+
+def build_indicator_type_tabs():
+    tab_evaluation = build_evaluation_indicators_tab() # evaluation is created before monitoring because it needs the coorte selector, otherwise the build_body_main_box() cannot access coorte_selector_value=coorte_radio_group.param.value . This is poor design but it is just a quick fix for the UI.
+    tab_monitoring = build_monitoring_indicators_tab()
+    style_sheet = """
+        :host(.bk-above) {
+            # to modify all the tab ememnts (or, the elemnt inside the tab div)
+        }
+        :host(.bk-above) .bk-header{
+            # to modify the header of the tab
+        }
+        :host(.bk-above) .bk-header .bk-tab {
+            border-bottom-width: 4px;
+            color: #909090ff;
+            border-bottom-color: #909090ff;
+        }
+        :host(.bk-above) .bk-header .bk-tab.bk-active {
+            background: #0072b5ff;
+            color: #fafafaff;
+            font-weight: bold;
+            border-bottom-color: #025383ff;
+        }
+    """
+    # https://panel.holoviz.org/how_to/styling/apply_css.html
+    tabs = panel.Tabs(
+        (monitoring_indicators_langmap[display_language], tab_monitoring),
+        (evaluation_indicators_langmap[display_language], tab_evaluation),
+        tabs_location="above",
+        active=0,
+        styles={
+            "margin-top": "0px",
+            "padding-top": "0px",
+            "margin-bottom": "35px",
+            "--pn-tab-active-color": "#ff1155ff"
+        },
+        design=Material,
+        stylesheets=[style_sheet]
+    )
+    return tabs
+
+
+
+
 # - BODY
 def build_body():               
     body = panel.Column(
         build_body_top_row(),
-        build_body_main_box(),
+        build_indicator_type_tabs(),  # instead of build_body_main_box()
         panel.Spacer(height=50),
         styles={
             "margin-top": "20px",
@@ -1694,6 +1789,16 @@ def build_body():
 
 
 
+###############            inspiration for next UI:
+#
+#       https://awesome-panel.org/resources/hurdat_tracks_viewer/
+#
+#       https://huggingface.co/spaces/ahuang11/hurdat_tracks_viewer/blob/main/app.py 
+#
+#       how is this code so clean???
+#
+# So good, also use tabs for data, so you can see plots bigger, and also the table bigger
+# and in the remainins space you could insert an explanation of the indicator maybe
 
 
 
