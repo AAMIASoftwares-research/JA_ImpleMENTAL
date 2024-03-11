@@ -1585,11 +1585,18 @@ def build_body_coorte_selector():
         v for v in coorte_explain_dict[display_language].keys()
     ]
     global coorte_radio_group                                       ### THIS IS NOT A GOOD IDEA but i have to make it work
+    style_sheet = """
+    :host(.solid) .bk-btn.bk-btn-primary.bk-active {
+        font-weight: bold;
+        background-color: #005587ff;
+    }
+    """
     coorte_radio_group = panel.widgets.RadioButtonGroup(
         name='coorte selector', 
         options=coorte_button_options_list, 
         value=coorte_button_options_list[0],
-        button_type='primary'
+        button_type='primary',
+        stylesheets=[style_sheet]
     )
     # 
     coorte_selector_row = panel.Column(
@@ -1796,6 +1803,9 @@ def build_body():
 #       https://huggingface.co/spaces/ahuang11/hurdat_tracks_viewer/blob/main/app.py 
 #
 #       how is this code so clean???
+#
+#       How to style anything:
+#       https://panel.holoviz.org/how_to/styling/apply_css.html
 #
 # So good, also use tabs for data, so you can see plots bigger, and also the table bigger
 # and in the remainins space you could insert an explanation of the indicator maybe
