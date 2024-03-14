@@ -77,10 +77,10 @@ DB["ANNO_DI_INCLUSIONE"] = 2021
 ####### augment data
 # ricreare un database verosimile seguendo le seguenti possibilita
 
-choice_disturbo = ["BIPO", "SCHIZO", "DISEASE1", "DISEASE2"]
-choice_coorte = ["A", "B", "C", "D"]
+choice_disturbo = ["BIPO", "SCHIZO", "DEPRE"]
+choice_coorte = ["A", "B", "C"]
 choice_anno_di_inclusione = [2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021]
-choice_indictore = ["Indicatore 1", "Indicatore 2", "Indicatore 3"]
+choice_indictore = ["Indicatore 1", "Indicatore 2", "Indicatore 3", "Indicatore 4"]
 choice_sex = ["M", "F"]*50 + [None]
 choice_anno_nascita = [i for i in range(1948, 2011)] + [None]
 choice_mese_nascita = [i for i in range(1,13)]
@@ -340,43 +340,37 @@ diseases_langmap = {
         "ALL": "All diseases",
         "BIPO": "Bipolar Disorder",
         "SCHIZO": "Schizophrenia",
-        "DISEASE1": "Disease 1",
-        "DISEASE2": "Disease 2"
+        "DEPRE": "Depression",
     },
     "it": {
         "ALL": "Tutti i disturbi",
         "BIPO": "Disturbo bipolare",
         "SCHIZO": "Schizofrenia",
-        "DISEASE1": "Disturbo 1",
-        "DISEASE2": "Disturbo 2"
+        "DEPRE": "Depressione",
     },
     "fr": {
         "ALL": "Tous les troubles",
         "BIPO": "Trouble bipolaire",
         "SCHIZO": "Schizophrénie",
-        "DISEASE1": "Trouble 1",
-        "DISEASE2": "Trouble 2"
+        "DEPRE": "Dépression",
     },
     "de": {
         "ALL": "Alle Störungen",
         "BIPO": "Bipolare Störung",
         "SCHIZO": "Schizophrenie",
-        "DISEASE1": "Störung 1",
-        "DISEASE2": "Störung 2"
+        "DEPRE": "Depression",
     },
     "es": {
         "ALL": "Todos los trastornos",
         "BIPO": "Trastorno bipolar",
         "SCHIZO": "Esquizofrenia",
-        "DISEASE1": "Trastorno 1",
-        "DISEASE2": "Trastorno 2"
+        "DEPRE": "Depresión",
     },
     "pt": {
         "ALL": "Todos os distúrbios",
         "BIPO": "Transtorno bipolar",
         "SCHIZO": "Esquizofrenia",
-        "DISEASE1": "Transtorno 1",
-        "DISEASE2": "Transtorno 2"
+        "DEPRE": "Depressão",
     }
 }
 
