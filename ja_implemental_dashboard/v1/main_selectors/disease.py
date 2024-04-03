@@ -6,7 +6,7 @@ panel.extension(
     sizing_mode=PANEL_SIZING_MODE
 )
 
-from .disease_selector_text import DS_DEFAULT_TITLE_MESSAGE, DS_TITLE
+from .disease_text import DS_DEFAULT_TITLE_MESSAGE, DS_TITLE
 
 class DiseaseSelector(object):
     def __init__(self):
@@ -56,8 +56,8 @@ class DiseaseSelector(object):
             "margin-top": "15px",
             "padding-top": "0px",
             "margin-bottom": "5px",
-            "background": "rgb(244 248 251)",
-            "border-radius": "16px"
+            "background": "rgb(211 227 253)",
+            "border-radius": "16px 16px 0px 0px"
         }
     
     def _get_title_panes(self) -> dict[str: dict[str: panel.pane.HTML]]:
