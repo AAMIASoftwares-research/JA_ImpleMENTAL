@@ -33,8 +33,8 @@ class Footer(object):
                         z-index: 2147483646;
                         position: absolute; 
                         bottom: 0; 
-                        width: calc(100vw - 16px * 2); 
-                        margin-left: 16px;
+                        width: calc(100vw - 17px); 
+                        margin-left: 0px;
                         padding: 5px 0; 
                         background-color: #e9ecef;
                         border-radius: 16px 16px 0px 0px;

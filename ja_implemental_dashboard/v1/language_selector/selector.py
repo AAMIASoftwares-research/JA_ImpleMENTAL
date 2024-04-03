@@ -35,7 +35,8 @@ class LanguageSelector(object):
             "background": "#ffffffb3",
             "border-radius": "5px",
             "max-width": "130px",
-            "z-index": "1000"
+            "z-index": "1000",
+            "cursor": "pointer"
         }
         self._panel_title_text_color = "#333333"
         self._panel = self.get_panel()
