@@ -162,3 +162,7 @@ cython_debug/
 
 
 *.lnk
+
+
+# Databases
+*.sas7bdat

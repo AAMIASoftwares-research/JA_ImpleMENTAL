@@ -144,7 +144,12 @@ indicator_panel_2 = IndicatorPanel(
 ##########
 ##########
 
+# Make all indicator panels to be displayed in the dashboard
+
+# .. here
+
 # This is to be imported into the main dashboard
+
 dispatcher_instance = Dispatcher(
     monitoring_panel_classes=[indicator_panel_1, indicator_panel_2],
     evaluation_panel_classes=[indicator_panel_1, indicator_panel_2]

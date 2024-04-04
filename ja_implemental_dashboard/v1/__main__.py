@@ -14,15 +14,6 @@ from .footer import Footer
 from .main_selectors import DiseaseSelector, IndicatorTypeSelector, CohortSelector
 from .indicator import dispatcher_instance
 
-def make_html_prova(lang_code, disease_code, indicator_type_code, cohort_code):
-        print(lang_code, disease_code, indicator_type_code, cohort_code)
-        return panel.pane.HTML(
-              f"""<h2></br></br></br></br></br>
-              Lang code: {lang_code}</br>
-              Disease code: {disease_code}</br>
-              Indicator type code: {indicator_type_code}</br>
-              </h2>""")
-    
 
 if __name__ == "__main__":
 

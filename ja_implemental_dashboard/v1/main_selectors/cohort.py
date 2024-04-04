@@ -21,6 +21,7 @@ class CohortSelector(object):
         self._cohort_descriptions: dict[str: dict[str: str]] = COHORT_DESRIPTIONS
         self._widget_options = {l_: {v: k for k, v in self._cohort_names[l_].items()} for l_ in self._cohort_names.keys()}
         self.widget = self._get_widget()
+        self._cohort_expl_panes = self._get_html_panes()
         self._panes = self._get_panes()
 
     def _get_widget(self) -> panel.widgets.RadioButtonGroup:
@@ -65,7 +66,7 @@ class CohortSelector(object):
         self._language_code = language_code
         self.widget.options = self._widget_options[self._language_code]
 
-    def build_coorte_tooltip_html(self, cohort_name: str, text: str):
+    def _build_coorte_tooltip_html(self, text: str):
         s_ = """
             <p style="
                 color: #888888ff;
@@ -79,18 +80,27 @@ class CohortSelector(object):
         text = text.replace("\"", """</b></span>""", 1)
         return s_ + text + e_
     
+    def _get_html_panes(self) -> dict[str: dict[str: panel.pane.HTML]]:
+        panes_dict = {
+            l: {} for l in self._cohort_descriptions.keys()
+        }
+        for l in self._cohort_descriptions.keys():
+            for k in self._cohort_descriptions[l].keys():
+                pane  = panel.pane.HTML(
+                    self._build_coorte_tooltip_html(self._cohort_descriptions[l][k])
+                )
+                panes_dict[l][k]= pane
+        return panes_dict
+    
     def _get_panes(self) -> panel.viewable.Viewable:
         panes_dict = {
-            l: {} for l in self._cohort_names.keys()
+            l: {} for l in self._cohort_descriptions.keys()
         }
-        for l in self._cohort_names.keys():
-            for k, v in self._cohort_names[l].items():
-                pane  = panel.pane.HTML(
-                    self.build_coorte_tooltip_html(v, self._cohort_descriptions[l][k])
-                )
+        for l in self._cohort_descriptions.keys():
+            for k in self._cohort_descriptions[l].keys():
                 panes_dict[l][k]= panel.Column(
                     self.widget,
-                    pane,
+                    self._cohort_expl_panes[l][k],
                     styles={
                         "width": "60%",
                         # make  a flex to display stuff in a centered column
