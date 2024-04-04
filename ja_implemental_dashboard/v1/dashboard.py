@@ -12,6 +12,7 @@ from .language_selector import LanguageSelector
 from .header import Header
 from .footer import Footer
 from .main_selectors import DiseaseSelector, IndicatorTypeSelector, CohortSelector
+from .indicator import dispatcher_instance
 
 def make_html_prova(lang_code, disease_code, indicator_type_code, cohort_code):
         print(lang_code, disease_code, indicator_type_code, cohort_code)
@@ -30,20 +31,21 @@ if __name__ == "__main__":
     disease_selector_instance = DiseaseSelector()
     indicator_type_selector_instance = IndicatorTypeSelector()
     cohort_selector_instance = CohortSelector()
-
     footer_instance = Footer()
+
     APP = panel.Column(
         language_selector_instance.get_panel(),
         panel.bind(header_instance.get_panel, language_selector_instance.widget),
         panel.bind(disease_selector_instance.get_panel, language_selector_instance.widget, disease_selector_instance.widget),
         panel.bind(indicator_type_selector_instance.get_panel, language_selector_instance.widget),
         panel.bind(cohort_selector_instance.get_panel, language_selector_instance.widget, indicator_type_selector_instance.widget, cohort_selector_instance.widget),
-        panel.bind(make_html_prova, 
+        panel.bind(dispatcher_instance.get_panel, 
                    language_selector_instance.widget, 
                    disease_selector_instance.widget, 
                    indicator_type_selector_instance.widget, 
                    cohort_selector_instance.widget
         ),
-        panel.bind(footer_instance.get_panel, language_selector_instance.widget)
+        panel.bind(footer_instance.get_panel, language_selector_instance.widget),
+        panel.pane.HTML("</br style='padding-top: 200px;'>")
     )
     APP.show()

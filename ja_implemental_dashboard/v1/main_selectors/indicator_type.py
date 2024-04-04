@@ -15,12 +15,17 @@ class IndicatorTypeSelector(object):
         self._language_code = "en"
         self._default_indicator_type_code = "_monitoring_"
         self._indicator_types: dict[str: dict[str: str]] = IT_LANG_DICT
-        self._widget_stylesheets = """
+        self._widget_options = {l_: {v: k for k, v in self._indicator_types[l_].items()} for l_ in self._indicator_types.keys()}
+        self.widget = self._get_widget()
+        self._pane = self._get_pane()
+
+    def _get_widget(self) -> panel.widgets.RadioButtonGroup:
+        _widget_stylesheet = """
             :host(.solid) .bk-btn.bk-btn-default {
                 # the inactive buttons
                 background: #ffffffff;
                 background-color: rgb(211 227 253);
-                color: #909090ff;
+                color: #555555;
                 box-shadow: none;
                 #border-bottom-width: 4px;
                 #border-bottom-color: #909090ff;
@@ -38,11 +43,6 @@ class IndicatorTypeSelector(object):
                 border-radius: 8px 8px 0px 0px; # tl, tr, br, bl
             }
         """
-        self._widget_options = {l_: {v: k for k, v in self._indicator_types[l_].items()} for l_ in self._indicator_types.keys()}
-        self.widget = self._get_widget()
-        self._pane = self._get_pane()
-
-    def _get_widget(self) -> panel.widgets.RadioButtonGroup:
         widget = panel.widgets.RadioButtonGroup(
             name="Indicator type",
             options=self._widget_options[self._language_code],
@@ -52,7 +52,7 @@ class IndicatorTypeSelector(object):
             align="start",
             css_classes=["indicator-type-selector"],
             styles={"margin-left": "20px"},
-            stylesheets=[self._widget_stylesheets]
+            stylesheets=[_widget_stylesheet]
         )
         return widget
     

@@ -15,7 +15,9 @@ class DiseaseSelector(object):
         self._disease_code = "_all_"
         self._titles = DS_TITLE
         self._title_styles = {
-            "width": "auto"
+            "width": "auto",
+            "margin": "auto",
+            "margin-left": "25px",
         }
         self._title_panes = self._get_title_panes()
         # widget
@@ -23,7 +25,9 @@ class DiseaseSelector(object):
         self._widget_width = 300
         self._widget_max_width = 300
         self._widget_min_width = 150
-        self._widget_styles = {}
+        self._widget_styles = {
+            "margin-right": "25px"
+        }
         self._widget_stylesheet = """
             select:not([multiple]).bk-input, select:not([size]).bk-input {
                 border: 1.2px solid rgb(0 0 0 / 0%);
@@ -53,6 +57,8 @@ class DiseaseSelector(object):
         self._panel_justify_content = "space-around"
         self._panel_align_items = "center"
         self._panel_styles = {
+            "width": "100%",
+            "margin": "auto",
             "margin-top": "15px",
             "padding-top": "0px",
             "margin-bottom": "5px",
@@ -65,7 +71,7 @@ class DiseaseSelector(object):
         for _lang in self._titles.keys():
             for _disease in self._titles[_lang].keys():
                 pan = panel.pane.HTML(
-                    """<h1 styles="width: auto">"""+self._titles[_lang][_disease]+"""</h1>""",
+                    """<h1 styles="width: auto; color: #555555;">"""+self._titles[_lang][_disease]+"""</h1>""",
                     styles=self._title_styles
                 )
                 panels[_lang][_disease] = pan
@@ -79,6 +85,7 @@ class DiseaseSelector(object):
             width=self._widget_width,
             max_width=self._widget_max_width,
             min_width=self._widget_min_width,
+            styles=self._widget_styles,
             stylesheets=[self._widget_stylesheet]
         )
         return widget

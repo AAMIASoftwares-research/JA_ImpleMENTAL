@@ -24,16 +24,38 @@ class CohortSelector(object):
         self._panes = self._get_panes()
 
     def _get_widget(self) -> panel.widgets.RadioButtonGroup:
+        _widget_stylesheet = """
+        :host(.solid) .bk-btn.bk-btn-default {
+            box-shadow: none;
+            background: #ffffff00;
+            background-color: #ffffff00;
+            max-width: 25%;
+            color: #555555;
+        }
+        :host(.solid) .bk-btn-group .bk-btn.bk-btn-default.bk-active {
+            box-shadow: none;
+            background: rgb(62 125 152);
+            background-color: rgb(62 125 152);
+            color: #ffffffff;
+            border-radius: 8px;
+        }
+        .bk-btn-group {
+            justify-content: space-between;
+            padding: 8px;
+        }
+        """
         widget = panel.widgets.RadioButtonGroup(
             name="Cohort Selector",
             options=self._widget_options[self._language_code],
             value=self._default_cohort,
-            #width=500,
-            #margin=(0, 0, 0, 0),
-            #align="start",
             css_classes=["cohort-selector"],
-            styles={},
-            stylesheets=[]
+            styles={
+                # make background and container appearance
+                "background": "rgb(211 227 253)",
+                "background-color": "rgb(211 227 253)",
+                "border-radius": "12px",
+            },
+            stylesheets=[_widget_stylesheet]
         )
         return widget
     
@@ -51,7 +73,7 @@ class CohortSelector(object):
                 text-align: center;
             ">
         """
-        s_ += "<span style='color:#707070ff;'><b>"+cohort_name+"</b></span></br>"
+        #s_ += "<span style='color:#707070ff;'><b>"+cohort_name+"</b></span></br>"
         e_ = "</p>"
         text = text.replace("\"", """<span style='color:#707070ff;'><b>""", 1)
         text = text.replace("\"", """</b></span>""", 1)
@@ -70,18 +92,21 @@ class CohortSelector(object):
                     self.widget,
                     pane,
                     styles={
-                        "width": "80%",
+                        "width": "60%",
                         # make  a flex to display stuff in a centered column
                         "display": "flex",
                         "flex-direction": "column",
                         "justify-content": "center",
-                        "align-items": "center", # does not work
-                    }            
+                        "align-items": "center",
+                        "margin": "auto", # without this the column is not centered
+                        "margin-top": "15px",
+                        "margin-bottom": "15px",
+                    }
                 )
         return panes_dict
     
     def _get_empty_pane(self) -> panel.viewable.Viewable:
-        return panel.pane.HTML("</hr style='border: 0'>")
+        return panel.pane.HTML("</hr style='border: 0; margin-top: 25px;'>")
     
     def get_panel(self, language_code: str="en", indicator_type_code: str="_monitoring_", cohort_code: str="_a_") -> panel.viewable.Viewable:
         self._update_widget(language_code)

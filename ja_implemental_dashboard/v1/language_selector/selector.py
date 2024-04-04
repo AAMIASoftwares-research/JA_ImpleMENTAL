@@ -32,7 +32,7 @@ class LanguageSelector(object):
             "position": "absolute",
             "margin-top": "15px",
             "margin-left": "calc(100vw - 190px)",
-            "background": "#ffffffb3",
+            "background": "rgb(255 255 255 / 80%)",
             "border-radius": "5px",
             "max-width": "130px",
             "z-index": "1000",
