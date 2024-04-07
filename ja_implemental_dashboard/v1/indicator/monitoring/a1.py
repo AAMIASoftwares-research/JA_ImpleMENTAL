@@ -59,6 +59,9 @@ def ma1(**kwargs):
         # return
         return ma1
 
+
+
+
 class ma1_tab0(object):
     def __init__(self, language_code: str, dict_of_tables: dict):
         self._language_code = language_code
@@ -73,15 +76,46 @@ class ma1_tab0(object):
 
     def get_plot(self, **kwargs):
         # inputs
-        print(kwargs.get("civil_status"))
-        plot = panel.pane.HTML(
-            f"""<h2>
-            ma1_tab0</br>
-            </h2>
-            <p>{kwargs}, age: {self.widgets_instance.widget_age_instance.value}</p>
-            """
+        language_code = kwargs.get("language_code", "en")
+        disease_code = kwargs.get("disease_code", None)
+        age = self.widgets_instance.widget_age_instance.value
+        gender = kwargs.get("gender", None)
+        civil_status = kwargs.get("civil_status", None)
+        job_condition = kwargs.get("job_condition", None)
+        educational_level = kwargs.get("educational_level", None)
+        # logic
+        years_to_evaluate = self._dict_of_tables["cohorts"]["YEAR_ENTRY"].unique().tolist()
+        years_to_evaluate.sort()
+        ma1_all = []
+        ma1_selected = []
+        for year in years_to_evaluate:
+            ma1_ = ma1(
+                dict_of_tables=self._dict_of_tables,
+                disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
+                year_of_inclusion=year,
+                age=age,
+                gender=gender,
+                civil_status=civil_status,
+                job_condition=job_condition,
+                educational_level=educational_level
+            )
+            ma1_all.append(ma1_["all"])
+            ma1_selected.append(ma1_["selected"])
+        # plot
+        plot_all = holoviews.Curve(
+            (years_to_evaluate, ma1_all),
+            label="All diseases",
+        ).opts(
+            title="Prevalent cohort",
+            xlabel="Year",
+            ylabel="Number of patients",
+            color="blue"
         )
-        return plot
+        out = panel.pane.HoloViews(
+            plot_all
+        )
+        return out
+    
 
     def get_panel(self, language_code, disease_code):
         pane = panel.Row(
@@ -89,7 +123,6 @@ class ma1_tab0(object):
                 self.get_plot, 
                 language_code=language_code, 
                 disease_code=disease_code,
-                dict_of_tables=self._dict_of_tables,
                 age_temp_1=self.widgets_instance.widget_age_instance.widget_age_all,
                 age_temp_2=self.widgets_instance.widget_age_instance.widget_age_lower,
                 age_temp_3=self.widgets_instance.widget_age_instance.widget_age_upper,
@@ -109,9 +142,27 @@ class ma1_tab0(object):
 
 
 if __name__ == "__main__":
+    from ..database import FILES_FOLDER, DATABASE_FILENAMES_DICT, read_databases, preprocess_demographics_database, preprocess_interventions_database, preprocess_cohorts_database
+
+    db = read_databases(DATABASE_FILENAMES_DICT, FILES_FOLDER)
+    db["demographics"] = preprocess_demographics_database(db["demographics"])
+    db["interventions"] = preprocess_interventions_database(db["interventions"])
+    db["cohorts"] = preprocess_cohorts_database(db["cohorts"])
+
+    cohorts_rand = db["cohorts"].copy(deep=True)
+    cohorts_rand["YEAR_ENTRY"] = pandas.Series(numpy.random.randint(2013, 2016, cohorts_rand.shape[0]), index=cohorts_rand.index)
+    database_dict = {
+        "demographics": db["demographics"],
+        "diagnoses": db["diagnoses"],
+        "pharma": db["pharma"],
+        "interventions": db["interventions"],
+        "physical_exams": db["physical_exams"],
+        "cohorts": cohorts_rand
+    }
+
     tab = ma1_tab0(
          language_code="en",
-            dict_of_tables={}
+            dict_of_tables= database_dict  # db
     )
-    app = tab.get_panel(language_code="en", disease_code="COPD")
+    app = tab.get_panel(language_code="en", disease_code="_depression_")
     app.show()

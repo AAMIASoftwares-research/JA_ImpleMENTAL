@@ -23,11 +23,6 @@ WIDGET_AGE_ALL_AGES_TITLE = {
 
 
 
-
-
-
-
-
 #########
 # GENDER
 #########

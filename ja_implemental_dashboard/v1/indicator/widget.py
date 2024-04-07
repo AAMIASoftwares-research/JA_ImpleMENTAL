@@ -271,7 +271,7 @@ class indicator_widgets(object):
     def _get_gender_widget(self) -> panel.widgets.Select:
         widget = panel.widgets.Select(
             options={v: k for k, v in self._gender_widget_options[self._language_code].items()},
-            value="All",
+            value="A",
             name=self._gender_widget_names[self._language_code],
             styles=self._gender_widget_styles,
             stylesheets=[self._selector_stylesheet]

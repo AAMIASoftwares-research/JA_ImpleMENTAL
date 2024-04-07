@@ -66,27 +66,27 @@ def clean_indicator_getter_input(**kwargs):
         age = (90, 150)
     elif isinstance(age, str):
         if age not in ["a", "l", "u"]:
-            raise ValueError("age must be an integer, a tuple of two integers or a string in ['a', 'l', 'u']")
+            raise ValueError(f"age must be an integer, a tuple of two integers or a string in ['a', 'l', 'u'], got {age} instead")
     elif isinstance(age, int):
         age = (age, age)
     elif isinstance(age, tuple):
         if len(age) != 2:
-            raise ValueError("age must be an integer, a tuple of two integers or a string in ['a', 'l', 'u']")
+            raise ValueError(f"age must be an integer, a tuple of two integers or a string in ['a', 'l', 'u'], got {age} instead")
         age = (min(age), max(age))
     else:
-        raise ValueError("age must be an integer, a tuple of two integers or a string in ['a', 'l', 'u']")
+        raise ValueError(f"age must be an integer, a tuple of two integers or a string in ['a', 'l', 'u'], got {age} instead")
     gender = kwargs.get("gender", "A")
     if gender not in ["A", "A-U", "M", "F", "U"]:
-        raise ValueError("gender must be in ['A', 'A-U', 'M', 'F', 'U']")
+        raise ValueError(f"gender must be in ['A', 'A-U', 'M', 'F', 'U'], got {gender} instead")
     civil_status = kwargs.get("civil_status", "All")
     if civil_status not in ["All", "All-Other", "Unmarried", "Married", "Married_no_long", "Other"]:
-        raise ValueError("civil_status must be in ['All', 'All-Other', 'Unmarried', 'Married', 'Married_no_long', 'Other']")
+        raise ValueError(f"civil_status must be in ['All', 'All-Other', 'Unmarried', 'Married', 'Married_no_long', 'Other'], got {civil_status} instead")
     job_condition = kwargs.get("job_condition", "All")
     if job_condition not in ["All", "All-Unknown", "Employed", "Unemployed", "Pension", "Unknown"]:
-        raise ValueError("job_condition must be in ['All', 'All-Unknown', 'Employed', 'Unemployed', 'Pension', 'Unknown']")
+        raise ValueError(f"job_condition must be in ['All', 'All-Unknown', 'Employed', 'Unemployed', 'Pension', 'Unknown'], got {job_condition} instead")
     educational_level = kwargs.get("educational_level", "All")
     if educational_level not in ["All", "All-Unknown", "0-5", "6-8", "9-13", ">=14", "Unknown"]:
-        raise ValueError("educational_level must be in ['All', 'All-Unknown', '0-5', '6-8', '9-13', '>=14', 'Unknown']")
+        raise ValueError(f"educational_level must be in ['All', 'All-Unknown', '0-5', '6-8', '9-13', '>=14', 'Unknown'], got {educational_level} instead")
     # output
     return {
         "dict_of_tables": tables,
