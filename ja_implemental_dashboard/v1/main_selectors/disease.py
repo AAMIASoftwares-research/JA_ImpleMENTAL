@@ -41,12 +41,6 @@ class DiseaseSelector(object):
                 cursor: pointer;
                 background-image: url('data:image/svg+xml;utf8,<svg version="1.1" viewBox="0 0 25 20" xmlns="http://www.w3.org/2000/svg"><path d="M 0,0 25,0 12.5,20 Z" fill="white" /></svg>')
             }
-            option {
-                padding: 0;
-                font-weight: Normal;
-                background: #ffffffff;
-                color: #202020ff;
-            }
         """
         self._widget_options = {l_: {v: k for k, v in self._titles[l_].items()} for l_ in self._titles.keys()}
         self.widget = self._get_widget()
