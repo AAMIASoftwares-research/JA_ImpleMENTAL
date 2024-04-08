@@ -173,7 +173,7 @@ class age_widget(object):
                 self.value = (self.min_age_slider, self.max_age_slider)
                 self.widget_age_lower.value = False
                 self.widget_age_upper.value = False
-        if event.obj.name == "Age":
+        if event.obj.name == self.widget_age_names[self._language_code]:
             # value logic
             self.value = event.new
             # toggles logic

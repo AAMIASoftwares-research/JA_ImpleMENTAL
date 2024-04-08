@@ -8,6 +8,18 @@ panel.extension(
 
 from panel.theme import Material
 
+class EmptyPanel(object):
+    # This class is needed because, for some unknown reason,
+    # if the number of elements in the dispatcher monitoring and evaluation
+    # lists is not the same, the dashboard will not display some of the panels
+    def __init__(self, indicator_type):
+        self._indicator_type = indicator_type
+        self._pane = panel.pane.HTML("<br/>")
+
+    def get_panel(self, **kwargs):
+        return self._pane
+
+
 class IndicatorPanel(object):
     """
     This class contains the logic for displaying the whole indicator panel
@@ -112,7 +124,7 @@ class IndicatorPanel(object):
         return tabs_element
     
     def get_panel(self, **kwargs):
-        # expected order of kwargs:
+        # expected kwargs:
         # language_code, disease_code, cohort_code (not mandatory)
         lc = kwargs.get("language_code", "en")
         dc = kwargs.get("disease_code", "_depression_")

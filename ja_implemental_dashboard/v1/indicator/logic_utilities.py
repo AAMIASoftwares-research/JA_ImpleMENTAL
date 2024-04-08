@@ -1,6 +1,6 @@
 import pandas
 
-from .database import DATETIME_NAN
+from ..database.database import DATETIME_NAN
 
 
 # COMMON UTILITIES

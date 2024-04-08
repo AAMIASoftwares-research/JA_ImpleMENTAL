@@ -10,6 +10,6 @@ panel.extension(
 import holoviews
 holoviews.extension('bokeh')
 
-from ..database import DISEASE_CODE_TO_DB_CODE, COHORT_CODE_TO_DB_CODE
+from ...database.database import DISEASE_CODE_TO_DB_CODE, COHORT_CODE_TO_DB_CODE
 from ..logic_utilities import clean_indicator_getter_input, stratify_demographics
 
