@@ -266,13 +266,13 @@ class mb2_tab0(object):
             plot.line(
                 x=years_to_evaluate, 
                 y=n_list,
-                legend_label=f"{name_}: " + _all_interventions_langdict[language_code] if name_ == "All" else INTERVENTIONS_CODES_LANGDICT_MAP[language_code][name_]["legend"],
+                legend_label=f"{name_}: " + str(_all_interventions_langdict[language_code] if name_ == "All" else INTERVENTIONS_CODES_LANGDICT_MAP[language_code][name_]["legend"]),
                 line_color=INTERVENTIONS_CODES_COLOR_DICT[name_]
             )
             plot.circle(
                 x=years_to_evaluate, 
                 y=n_list,
-                legend_label=f"{name_}: " + _all_interventions_langdict[language_code] if name_ == "All" else INTERVENTIONS_CODES_LANGDICT_MAP[language_code][name_]["legend"],
+                legend_label=f"{name_}: " + str(_all_interventions_langdict[language_code] if name_ == "All" else INTERVENTIONS_CODES_LANGDICT_MAP[language_code][name_]["legend"]),
                 fill_color=INTERVENTIONS_CODES_COLOR_DICT[name_],
                 line_width=0,
                 size=10
@@ -396,11 +396,9 @@ class mb2_tab1(object):
             (g_, c_, v_), 
             kdims=[("year", _year_langdict[language_code]), ("tyep_int", _intervention_type_code_langdict[language_code])], 
             vdims=[("dist", _y_axis_langdict[language_code])]
-        ).sort().opts(
-            show_legend=False, 
-            box_color=holoviews.dim('tyep_int'), 
-            cmap=holoviews.Cycle(list(INTERVENTIONS_CODES_COLOR_DICT.values()))
         ).opts(
+            show_legend=False, 
+            box_fill_color="#d3e3fd", 
             title=mb2_code + " - " + mb2_name_langdict[language_code] + " (distributions) - " + DISEASES_LANGDICT[language_code][disease_code],
         )
         return panel.pane.HoloViews(plot)
@@ -509,8 +507,10 @@ class mb2_tab2(object):
             kdims=[("year", _year_langdict[language_code]), ("tyep_int", _intervention_type_code_langdict[language_code])], 
             vdims=[("dist", _y_axis_langdict[language_code])]
         ).sort().opts(
-            show_legend=False, 
-            box_fill_color=holoviews.dim('tyep_int').str()#INTERVENTIONS_CODES_COLOR_DICT
+            show_legend=False,
+            inner="quartiles",
+            bandwidth=1.5,
+            violin_color="#d3e3fd", 
         ).opts(
             title=mb2_code + " - " + mb2_name_langdict[language_code] + " (distributions) - " + DISEASES_LANGDICT[language_code][disease_code],
         )
@@ -582,14 +582,14 @@ class mb2_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Types of Intervention</h3>
                     <p style='{p_style}'>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["01"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["01"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["02"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["02"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["03"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["03"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["04"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["04"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["05"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["05"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["06"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["06"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["07"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["07"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["Other"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["Other"]["long"]}<br>
+                    <span class="dot c01"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["01"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["01"]["long"]}<br>
+                    <span class="dot c02"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["02"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["02"]["long"]}<br>
+                    <span class="dot c03"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["03"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["03"]["long"]}<br>
+                    <span class="dot c04"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["04"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["04"]["long"]}<br>
+                    <span class="dot c05"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["05"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["05"]["long"]}<br>
+                    <span class="dot c06"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["06"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["06"]["long"]}<br>
+                    <span class="dot c07"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["07"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["07"]["long"]}<br>
+                    <span class="dot Other"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["en"]["Other"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["en"]["Other"]["long"]}<br>
                     </p>
                     
                     <h3 style='{h3_style}'>Indicator Calculation</h3>
@@ -616,14 +616,14 @@ class mb2_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Tipi di Intervento</h3>
                     <p style='{p_style}'>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["01"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["01"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["02"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["02"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["03"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["03"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["04"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["04"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["05"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["05"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["06"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["06"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["07"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["07"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["Other"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["Other"]["long"]}<br>
+                    <span class="dot c01"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["01"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["01"]["long"]}<br>
+                    <span class="dot c02"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["02"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["02"]["long"]}<br>
+                    <span class="dot c03"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["03"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["03"]["long"]}<br>
+                    <span class="dot c04"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["04"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["04"]["long"]}<br>
+                    <span class="dot c05"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["05"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["05"]["long"]}<br>
+                    <span class="dot c06"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["06"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["06"]["long"]}<br>
+                    <span class="dot c07"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["07"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["07"]["long"]}<br>
+                    <span class="dot Other"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["it"]["Other"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["it"]["Other"]["long"]}<br>
                     </p>
                     
                     <h3 style='{h3_style}'>Calcolo dell'Indicatore</h3>
@@ -650,14 +650,14 @@ class mb2_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Types d'Intervention</h3>
                     <p style='{p_style}'>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["01"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["01"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["02"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["02"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["03"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["03"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["04"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["04"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["05"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["05"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["06"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["06"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["07"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["07"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["Other"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["Other"]["long"]}<br>
+                    <span class="dot c01"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["01"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["01"]["long"]}<br>
+                    <span class="dot c02"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["02"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["02"]["long"]}<br>
+                    <span class="dot c03"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["03"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["03"]["long"]}<br>
+                    <span class="dot c04"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["04"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["04"]["long"]}<br>
+                    <span class="dot c05"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["05"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["05"]["long"]}<br>
+                    <span class="dot c06"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["06"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["06"]["long"]}<br>
+                    <span class="dot c07"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["07"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["07"]["long"]}<br>
+                    <span class="dot Other"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["Other"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["fr"]["Other"]["long"]}<br>
                     </p>
                     
                     <h3 style='{h3_style}'>Calcul de l'Indicateur</h3>
@@ -684,14 +684,14 @@ class mb2_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Arten von Interventionen</h3>
                     <p style='{p_style}'>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["01"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["01"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["02"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["02"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["03"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["03"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["04"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["04"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["05"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["05"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["06"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["06"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["07"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["07"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["Other"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["Other"]["long"]}<br>
+                    <span class="dot c01"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["01"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["01"]["long"]}<br>
+                    <span class="dot c02"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["02"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["02"]["long"]}<br>
+                    <span class="dot c03"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["03"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["03"]["long"]}<br>
+                    <span class="dot c04"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["04"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["04"]["long"]}<br>
+                    <span class="dot c05"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["05"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["05"]["long"]}<br>
+                    <span class="dot c06"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["06"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["06"]["long"]}<br>
+                    <span class="dot c07"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["07"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["07"]["long"]}<br>
+                    <span class="dot Other"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["de"]["Other"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["de"]["Other"]["long"]}<br>
                     </p>
                     
                     <h3 style='{h3_style}'>Indikatorberechnung</h3>
@@ -718,14 +718,14 @@ class mb2_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Tipos de Intervención</h3>
                     <p style='{p_style}'>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["01"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["01"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["02"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["02"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["03"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["03"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["04"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["04"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["05"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["05"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["06"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["06"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["07"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["07"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["Other"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["Other"]["long"]}<br>
+                    <span class="dot c01"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["01"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["01"]["long"]}<br>
+                    <span class="dot c02"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["02"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["02"]["long"]}<br>
+                    <span class="dot c03"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["03"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["03"]["long"]}<br>
+                    <span class="dot c04"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["04"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["04"]["long"]}<br>
+                    <span class="dot c05"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["05"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["05"]["long"]}<br>
+                    <span class="dot c06"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["06"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["06"]["long"]}<br>
+                    <span class="dot c07"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["07"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["07"]["long"]}<br>
+                    <span class="dot Other"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["es"]["Other"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["es"]["Other"]["long"]}<br>
                     </p>
                     
                     <h3 style='{h3_style}'>Cálculo del Indicador</h3>
@@ -752,14 +752,14 @@ class mb2_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Tipos de Intervenção</h3>
                     <p style='{p_style}'>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["01"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["01"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["02"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["02"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["03"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["03"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["04"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["04"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["05"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["05"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["06"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["06"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["07"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["07"]["long"]}<br>
-                    - <b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["Other"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["Other"]["long"]}<br>
+                    <span class="dot c01"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["01"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["01"]["long"]}<br>
+                    <span class="dot c02"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["02"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["02"]["long"]}<br>
+                    <span class="dot c03"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["03"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["03"]["long"]}<br>
+                    <span class="dot c04"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["04"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["04"]["long"]}<br>
+                    <span class="dot c05"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["05"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["05"]["long"]}<br>
+                    <span class="dot c06"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["06"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["06"]["long"]}<br>
+                    <span class="dot c07"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["07"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["07"]["long"]}<br>
+                    <span class="dot Other"></span><b>{INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["Other"]["short"]}</b>: {INTERVENTIONS_CODES_LANGDICT_MAP["pt"]["Other"]["long"]}<br>
                     </p>
                     
                     <h3 style='{h3_style}'>Cálculo do Indicador</h3>
@@ -791,7 +791,35 @@ class mb2_tab3(object):
                     "padding-top": "0px",
                     "border": "1px solid rgb(211 227 253)",
                     "border-radius": "8px",
-                }
+                },
+                stylesheets=[
+                    """
+                    .dot {
+                        height: 0.9em;
+                        width: 0.9em;
+                        border-radius: 50%;
+                        display: inline-block;
+                        margin-bottom: -0.1em;
+                        margin-right: 0.4em;
+                    }
+                    .c01 { background-color: %s; }
+                    .c02 { background-color: %s; }
+                    .c03 { background-color: %s; }
+                    .c04 { background-color: %s; }
+                    .c05 { background-color: %s; }
+                    .c06 { background-color: %s; }
+                    .c07 { background-color: %s; }
+                    .Other { background-color: %s; }
+                    """
+                    .replace("%s", INTERVENTIONS_CODES_COLOR_DICT["01"], 1)
+                    .replace("%s", INTERVENTIONS_CODES_COLOR_DICT["02"], 1)
+                    .replace("%s", INTERVENTIONS_CODES_COLOR_DICT["03"], 1)
+                    .replace("%s", INTERVENTIONS_CODES_COLOR_DICT["04"], 1)
+                    .replace("%s", INTERVENTIONS_CODES_COLOR_DICT["05"], 1)
+                    .replace("%s", INTERVENTIONS_CODES_COLOR_DICT["06"], 1)
+                    .replace("%s", INTERVENTIONS_CODES_COLOR_DICT["07"], 1)
+                    .replace("%s", INTERVENTIONS_CODES_COLOR_DICT["Other"], 1)
+                ]
             ) 
             for lang in html_langdict.keys()
         }
@@ -803,7 +831,7 @@ class mb2_tab3(object):
         language_code = kwargs.get("language_code", "en")
         return self._panes[language_code]
    
-    
+ 
 
 
 if __name__ == "__main__":
