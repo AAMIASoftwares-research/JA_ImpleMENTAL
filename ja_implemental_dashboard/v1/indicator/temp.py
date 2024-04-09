@@ -528,6 +528,7 @@ if 0:
     # per cross ref pazienti malattia guarda COHORTE per ora (pipeline completa sarebbe diagnoses)
 
     def mb2(**kwargs):
+        # implementaz finale in monitoring.b2 diversa da questa
         """
         kwargs:
         passed from clean_indicator_getter_input
@@ -711,6 +712,7 @@ if 0:
     )
 
     app.show()
+    quit()
 
 
     
@@ -723,7 +725,7 @@ COHORT_CODE_TO_DB_COHORT_COLUMN = {
     "_c_": "INCIDENT_1825"
 }
 
-if 0:
+if 1:
     def ea1(**kwargs):
         """
         kwargs:
@@ -950,5 +952,6 @@ if 0:
         }
     )
     app.show()
+    quit()
         
 

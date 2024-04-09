@@ -24,7 +24,6 @@ class age_widget(object):
         self.min_age_slider = 10
         self.max_age_slider = 90
         self.value = (self.min_age, self.max_age)
-        self.last_event_time = time.time()
         # styles
         self.switch_stylesheet = """
             .bar {
@@ -94,14 +93,14 @@ class age_widget(object):
             value=(self.min_age_slider, self.max_age_slider),
             step=1,
             # make it so that it fires the changed signal only when the mouse is released
-            callback_throttle=1000,
+            value_throttled=(self.min_age_slider, self.max_age_slider),
             stylesheets=[self.slider_stylesheet]
         )
         # callbacks
         self.widget_age_all.param.watch(self._update_age_switches, "value")
         self.widget_age_lower.param.watch(self._update_age_switches, "value")
         self.widget_age_upper.param.watch(self._update_age_switches, "value")
-        self.widget_age_value.param.watch(self._update_age_switches, "value")
+        self.widget_age_value.param.watch(self._update_age_switches, "value_throttled")
         # panel
         self._panel_styles = {
             "margin-left": "6px",
@@ -138,9 +137,6 @@ class age_widget(object):
         # - if the toggle all is on and another toggle is turned off, then all is turned off
         # - if the slider is full, and the toggles of lower and upper are on, then all is on
         # - when the toggle for lower or upper is turned on, the respective slider side goes to its maximum
-        if time.time() - self.last_event_time < 0.6:
-            return
-        self.last_event_time = time.time()
         if event.obj.name == "Lower":
             if event.new:
                 self.value = (self.min_age, self.value[1])
@@ -264,7 +260,6 @@ class indicator_widgets(object):
             "border-radius": "10px",
             "border": "1px solid #a0a0a0",
             "max-width": "250px",
-            "margin-right": "30px",
         }
         self._panel_stylesheet = ""
     

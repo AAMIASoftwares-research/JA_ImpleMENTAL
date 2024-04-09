@@ -20,6 +20,55 @@ class EmptyPanel(object):
         return self._pane
 
 
+
+class PlaceholderPanel(object):
+    def __init__(self, width=90, width_units: str="%", height=300, height_units="px", placeholder_html_string=None) -> None:
+        self._width = str(width) + width_units
+        self._height = str(height) + height_units
+        if placeholder_html_string is None:
+            self._placeholder_html_string = "<p style='color: #555555ff; font-size: ;'>Placeholder</p>"
+        else:
+            self._placeholder_html_string = placeholder_html_string
+        self._pane = panel.pane.HTML(
+            "",
+            styles={
+                "width": "100%",
+            },
+            stylesheets=[
+                """
+                    div {
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        flex-direction: column;
+                    }
+                """
+            ]
+        )
+
+    def get_panel(self, **kwargs):
+        html_string = f"""
+            <div style='
+                width: {self._width};
+                height: {self._height};
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                flex-direction: column;
+                text-align: center;
+                background-color: rgb(211, 227, 253);
+                border-radius: 20px;
+            '>
+                {self._placeholder_html_string}
+                <br/>
+                <p style='color: #555555ff; font-size: 0.8em;'>{kwargs}</p>
+            </div>
+        """
+        self._pane.object = html_string
+        return self._pane
+
+
+
 class IndicatorPanel(object):
     """
     This class contains the logic for displaying the whole indicator panel
@@ -74,7 +123,10 @@ class IndicatorPanel(object):
             }
         """
         # pane element
-        self._pane_styles = {"margin": "0px", "margin-left": "30px",}
+        self._pane_styles = {
+            "margin": "auto",
+            "width": "95%",
+        }
         self._pane_stylesheet = {}
 
     def _get_title_rows(self):

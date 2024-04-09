@@ -15,8 +15,9 @@ from ..logic_utilities import clean_indicator_getter_input, stratify_demographic
 from ..widget import indicator_widgets
 from ...main_selectors.disease_text import DS_TITLE as DISEASES_LANGDICT
 
+
 # indicator logic
-def ma1(**kwargs):
+def ma3(**kwargs):
     """
     """
     # inputs
@@ -30,7 +31,7 @@ def ma1(**kwargs):
     job_condition = kwargs.get("job_condition", None)
     educational_level = kwargs.get("educational_level", None)
     # output
-    ma1 = {
+    ma3 = {
         "all": None,     # patients with any disease
         "selected": None # patients with the selected disease
     }
@@ -48,46 +49,58 @@ def ma1(**kwargs):
     # - from the cohort table, find the PREVALENT cohort with YEAR_ENTRY equal to year_of_inclusion
     condition = pandas.Series(numpy.repeat(True, tables["cohorts"].shape[0]))
     condition = condition & (tables["cohorts"]["ID_SUBJECT"].isin(stratified_demographics_patient_ids))
-    condition = condition & (tables["cohorts"]["PREVALENT"] == "Y")
+    condition = condition & (tables["cohorts"]["INCIDENT_1825"] == "Y")
     condition = condition & (tables["cohorts"]["YEAR_ENTRY"] == year_of_inclusion)
     # - get indicator for all diseases
-    ma1["all"] = tables["cohorts"].loc[condition, "ID_SUBJECT"].nunique()
+    ma3["all"] = tables["cohorts"].loc[condition, "ID_SUBJECT"].nunique()
     # - get indicator for selected disease
     condition = condition & (tables["cohorts"][disease_db_code] == "Y")
-    ma1["selected"] = tables["cohorts"].loc[condition, "ID_SUBJECT"].nunique()
+    ma3["selected"] = tables["cohorts"].loc[condition, "ID_SUBJECT"].nunique()
     # return
-    return ma1
+    return ma3
 
 
 # Indicator display
-ma1_code = "MA1"
-ma1_name_langdict = {
-    "en": "Treated prevalence",
-    "it": "Prevalenza trattata",
-    "fr": "Prévalence traitée",
-    "de": "Behandlungsprävalenz",
-    "es": "Prevalencia tratada",
-    "pt": "Prevalência tratada"
+ma3_code = "MA3"
+ma3_name_langdict = {
+    "en": "Treated incidence 18-25 years old",
+    "it": "Incidenza trattata 18-25 anni",
+    "fr": "Incidence traitée 18-25 ans",
+    "de": "Behandelte Inzidenz 18-25 Jahre",
+    "es": "Incidencia tratada 18-25 años",
+    "pt": "Incidência tratada 18-25 anos"
 }
-ma1_short_desription_langdict = {
-    "en": """Number of patients with a prevalent mental disorder
-            treated in inpatient and outpatient Mental Health Facilities
-            (for each year of data availability).""",
-    "it": """Numero di pazienti con un disturbo mentale prevalente
-            trattati in strutture di salute mentale ospedaliere e ambulatoriali
-            (per ciascun anno di disponibilità dei dati).""",
-    "fr": """Nombre de patients avec un trouble mental prévalent
-            traités dans des établissements de santé mentale hospitaliers et ambulatoires
-            (pour chaque année de disponibilité des données).""",
-    "de": """Anzahl der Patienten mit einer vorherrschenden psychischen Störung,
-            die in stationären und ambulanten Einrichtungen für psychische Gesundheit behandelt werden
-            (für jedes Jahr der Datenverfügbarkeit).""",
-    "es": """Número de pacientes con un trastorno mental prevalente
-            tratados en instalaciones de salud mental hospitalarias y ambulatorias
-            (para cada año de disponibilidad de datos).""",
-    "pt": """Número de pacientes com um transtorno mental prevalente
-            tratados em instalações de saúde mental hospitalares e ambulatoriais
-            (para cada ano de disponibilidade de dados)."""
+ma3_short_desription_langdict = {
+    "en": 
+        """Number of Patients with an incident mental disorder
+            (or newly taken-in-care) aged 18-25 years old and treated in inpatient and outpatient
+            Mental Health Facilities (for each year of data availability).
+        """,
+    "it":
+        """Numero di pazienti con un disturbo mentale incidente
+            (o appena presi in carico) di età compresa tra 18 e 25 anni e trattati in strutture di salute mentale
+            ospedaliere e ambulatoriali (per ogni anno di disponibilità dei dati).
+        """,
+    "fr":
+        """Nombre de patients atteints d'un trouble mental incident
+            (ou nouvellement pris en charge) âgés de 18 à 25 ans et traités en hospitalisation et en ambulatoire
+            établissements de santé mentale (pour chaque année de disponibilité des données).
+        """,
+    "de":
+        """Anzahl der Patienten mit einer vorherrschenden psychischen Störung
+            (oder neu aufgenommen) im Alter von 18 bis 25 Jahren und behandelt in stationären und ambulanten
+            Einrichtungen für psychische Gesundheit (für jedes Jahr der Datenverfügbarkeit).
+        """,
+    "es":
+        """Número de pacientes con un trastorno mental incidente
+            (o recién ingresados) de 18 a 25 años y tratados en instalaciones de salud mental
+            hospitalarias y ambulatorias (para cada año de disponibilidad de datos).
+        """,
+    "pt":
+        """Número de pacientes com um transtorno mental incidente
+            (ou recém-atendidos) com idades entre 18 e 25 anos e tratados em instalações de saúde mental
+            hospitalares e ambulatoriais (para cada ano de disponibilidade de dados).
+        """
 }
 
 
@@ -112,7 +125,7 @@ _number_of_patients_langdict = {
 # TABS
 #######
 
-ma1_tab_names_langdict: dict[str: list[str]] = {
+ma3_tab_names_langdict: dict[str: list[str]] = {
     "en": ["Indicator"],
     "it": ["Indicatore"],
     "fr": ["Indicateur"],
@@ -121,7 +134,7 @@ ma1_tab_names_langdict: dict[str: list[str]] = {
     "pt": ["Indicador"]
 }
 
-class ma1_tab0(object):
+class ma3_tab0(object):
     def __init__(self, dict_of_tables: dict):
         self._language_code = "en"
         self._dict_of_tables = dict_of_tables
@@ -145,10 +158,10 @@ class ma1_tab0(object):
         # logic
         years_to_evaluate = self._dict_of_tables["cohorts"]["YEAR_ENTRY"].unique().tolist()
         years_to_evaluate.sort()
-        ma1_all = []
-        ma1_selected = []
+        ma3_all = []
+        ma3_selected = []
         for year in years_to_evaluate:
-            ma1_ = ma1(
+            ma3_ = ma3(
                 dict_of_tables=self._dict_of_tables,
                 disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
                 year_of_inclusion=year,
@@ -158,10 +171,10 @@ class ma1_tab0(object):
                 job_condition=job_condition,
                 educational_level=educational_level
             )
-            ma1_all.append(ma1_["all"])
-            ma1_selected.append(ma1_["selected"])
+            ma3_all.append(ma3_["all"])
+            ma3_selected.append(ma3_["selected"])
         # plot - use bokeh because it allows independent zooming
-        _y_max_plot = max(max(ma1_all), max(ma1_selected))
+        _y_max_plot = max(max(ma3_all), max(ma3_selected))
         _y_max_plot *= 1.15
         hover_tool = bokeh.models.HoverTool(
             tooltips=[
@@ -171,7 +184,7 @@ class ma1_tab0(object):
         )
         plot = bokeh.plotting.figure(
             height=350,
-            title=ma1_code + " - " + ma1_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code],
+            title=ma3_code + " - " + ma3_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code],
             x_axis_label=_year_langdict[language_code],
             x_range=(years_to_evaluate[0]-0.5, years_to_evaluate[-1]+0.5),
             y_axis_label=_number_of_patients_langdict[language_code],
@@ -182,27 +195,27 @@ class ma1_tab0(object):
         plot.xaxis.ticker = numpy.sort(years_to_evaluate)
         plot.xgrid.grid_line_color = None
         plot.line(
-            years_to_evaluate, ma1_all,
+            years_to_evaluate, ma3_all,
             legend_label=DISEASES_LANGDICT[language_code]["_all_"],
             line_color="#a0a0a0ff"
         )
         plot.circle(
             x=years_to_evaluate, 
-            y=ma1_all,
+            y=ma3_all,
             legend_label=DISEASES_LANGDICT[language_code]["_all_"],
             fill_color="#a0a0a0ff",
             line_width=0,
             size=10
         )
         plot.line(
-            years_to_evaluate, ma1_selected,
+            years_to_evaluate, ma3_selected,
             legend_label=DISEASES_LANGDICT[language_code][disease_code],
-            line_color="#FF204Eff" # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
+            line_color="#5D0E41ff" # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
         )
         plot.circle(
-            years_to_evaluate, ma1_selected,
+            years_to_evaluate, ma3_selected,
             legend_label=DISEASES_LANGDICT[language_code][disease_code],
-            fill_color="#FF204Eff", # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
+            fill_color="#5D0E41ff", # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
             line_width=0,
             size=10
         )
@@ -239,15 +252,15 @@ class ma1_tab0(object):
         return pane
         
 
-ma1_tab_names_langdict["en"].append("Help")
-ma1_tab_names_langdict["it"].append("Aiuto")
-ma1_tab_names_langdict["fr"].append("Aide")
-ma1_tab_names_langdict["de"].append("Hilfe")
-ma1_tab_names_langdict["es"].append("Ayuda")
-ma1_tab_names_langdict["pt"].append("Ajuda")
+ma3_tab_names_langdict["en"].append("Help")
+ma3_tab_names_langdict["it"].append("Aiuto")
+ma3_tab_names_langdict["fr"].append("Aide")
+ma3_tab_names_langdict["de"].append("Hilfe")
+ma3_tab_names_langdict["es"].append("Ayuda")
+ma3_tab_names_langdict["pt"].append("Ajuda")
 
 
-class ma1_tab1(object):
+class ma3_tab1(object):
     def __init__(self):
         self._language_code = "en"
         # pane
@@ -277,9 +290,12 @@ class ma1_tab1(object):
                 f"""
                     <h3 style='{h3_style}'>Indicator Calculation</h3>
                     <p style='{p_style}'>
-                    The treated prevalence indicator calculates the number of patients 
-                    with a prevalent mental disorder who are treated in inpatient and 
-                    outpatient Mental Health Facilities. It takes into account various 
+                    The treated incidence indicator calculates the number of patients
+                    aged 18-25 years old
+                    with an incident mental disorder (or newly taken-in-care)
+                    treated in inpatient and outpatient Mental Health Facilities for each year
+                    of data availability.
+                    It takes into account various 
                     demographic factors such as year of inclusion, age, gender, civil status, 
                     job condition, and educational level.
                     </p>
@@ -297,100 +313,110 @@ class ma1_tab1(object):
                 f"""
                     <h3 style='{h3_style}'>Calcolo dell'indicatore</h3>
                     <p style='{p_style}'>
-                    L'indicatore di prevalenza trattata calcola il numero di pazienti 
-                    con un disturbo mentale prevalente trattati in strutture di salute mentale 
-                    ospedaliere e ambulatoriali. Considera vari fattori demografici come 
-                    anno di inclusione, età, genere, stato civile, condizione lavorativa e 
-                    livello di istruzione.
+                    L'indicatore di incidenza trattata calcola il numero di pazienti
+                    di età compresa tra 18 e 25 anni
+                    con un disturbo mentale incidente (o appena presi in carico)
+                    trattati in strutture di salute mentale ospedaliere e ambulatoriali
+                    per ogni anno di disponibilità dei dati.
+                    Considera vari fattori demografici come anno di inclusione, età, 
+                    genere, stato civile, condizione lavorativa e livello di istruzione.
                     </p>
 
                     <h3 style='{h3_style}'>Visualizzazione dell'indicatore</h3>
                     <p style='{p_style}'>
-                    L'indicatore è visualizzato come un grafico che mostra il numero di pazienti 
-                    nel corso degli anni di disponibilità dei dati. L'asse x rappresenta gli anni, 
-                    mentre l'asse y rappresenta il numero di pazienti. 
-                    Il grafico è stratificato per malattia, consentendo di selezionare una malattia 
-                    specifica per visualizzarne la prevalenza trattata nel tempo.
+                    L'indicatore è visualizzato come un grafico che mostra il numero di pazienti
+                    nel corso degli anni di disponibilità dei dati. L'asse x rappresenta gli anni,
+                    e l'asse y rappresenta il numero di pazienti.
+                    Il grafico è stratificato per malattia, consentendo di selezionare una malattia specifica
+                    per visualizzarne la prevalenza trattata nel tempo.
                     </p>
                 """,
             "fr":
                 f"""
                     <h3 style='{h3_style}'>Calcul de l'indicateur</h3>
                     <p style='{p_style}'>
-                    L'indicateur de prévalence traitée calcule le nombre de patients 
-                    atteints d'un trouble mental prévalent traités dans des établissements 
-                    de santé mentale hospitaliers et ambulatoires. Il prend en compte divers 
-                    facteurs démographiques tels que l'année d'inclusion, l'âge, le genre, 
-                    l'état civil, la condition de travail et le niveau d'éducation.
+                    L'indicateur d'incidence traitée calcule le nombre de patients
+                    âgés de 18 à 25 ans
+                    atteints d'un trouble mental incident (ou nouvellement pris en charge)
+                    traités dans des établissements de santé mentale hospitaliers et ambulatoires
+                    pour chaque année de disponibilité des données.
+                    Il prend en compte divers facteurs démographiques tels que l'année d'inclusion, l'âge,
+                    le sexe, l'état civil, la condition d'emploi et le niveau d'éducation.
                     </p>
 
                     <h3 style='{h3_style}'>Affichage de l'indicateur</h3>
                     <p style='{p_style}'>
-                    L'indicateur est affiché sous forme de graphique montrant le nombre de patients 
-                    au fil des années de disponibilité des données. L'axe des x représente les années, 
-                    et l'axe des y représente le nombre de patients. 
-                    Le graphique est stratifié par maladie, vous permettant de sélectionner une maladie 
-                    spécifique pour visualiser sa prévalence traitée au fil du temps.
+                    L'indicateur est affiché sous forme de graphique montrant le nombre de patients
+                    au fil des années de disponibilité des données. L'axe des x représente les années,
+                    et l'axe des y représente le nombre de patients.
+                    Le graphique est stratifié par maladie, vous permettant de sélectionner une maladie spécifique
+                    pour voir sa prévalence traitée au fil du temps.
                     </p>
                 """,
             "de":
                 f"""
                     <h3 style='{h3_style}'>Indikatorberechnung</h3>
                     <p style='{p_style}'>
-                    Der Indikator für die behandelte Prävalenz berechnet die Anzahl von Patienten 
-                    mit einer vorherrschenden psychischen Störung, die in stationären und ambulanten 
-                    Einrichtungen für psychische Gesundheit behandelt werden. Er berücksichtigt verschiedene 
-                    demografische Faktoren wie das Jahr der Aufnahme, das Alter, das Geschlecht, den Familienstand, 
-                    die Berufsbedingungen und das Bildungsniveau.
+                    Der Indikator für behandelte Inzidenz berechnet die Anzahl von Patienten
+                    im Alter von 18 bis 25 Jahren
+                    mit einer vorherrschenden psychischen Störung (oder neu aufgenommen)
+                    behandelt in stationären und ambulanten Einrichtungen für psychische Gesundheit
+                    für jedes Jahr der Datenverfügbarkeit.
+                    Es berücksichtigt verschiedene demografische Faktoren wie das Jahr der Aufnahme, das Alter,
+                    das Geschlecht, den Familienstand, den Beschäftigungszustand und das Bildungsniveau.
                     </p>
 
-                    <h3 style='{h3_style}'>Indikatoranzeige</h3>
+                    <h3 style='{h3_style}'>Anzeige des Indikators</h3>
                     <p style='{p_style}'>
-                    Der Indikator wird als Diagramm dargestellt, das die Anzahl der Patienten 
-                    über die Jahre der Datenverfügbarkeit zeigt. Die x-Achse repräsentiert die Jahre, 
-                    und die y-Achse repräsentiert die Anzahl der Patienten. 
-                    Das Diagramm ist nach Krankheit stratifiziert, sodass Sie eine bestimmte Krankheit 
-                    auswählen können, um ihre behandelte Prävalenz im Laufe der Zeit anzuzeigen.
+                    Der Indikator wird als Diagramm dargestellt, das die Anzahl von Patienten zeigt
+                    über die Jahre der Datenverfügbarkeit. Die x-Achse repräsentiert die Jahre,
+                    und die y-Achse repräsentiert die Anzahl von Patienten.
+                    Das Diagramm ist nach Krankheit stratifiziert, sodass Sie eine bestimmte Krankheit auswählen können
+                    um ihre behandelte Prävalenz im Laufe der Zeit zu sehen.
                     </p>
                 """,
             "es":
                 f"""
                     <h3 style='{h3_style}'>Cálculo del indicador</h3>
                     <p style='{p_style}'>
-                    El indicador de prevalencia tratada calcula el número de pacientes 
-                    con un trastorno mental prevalente tratados en instalaciones de salud mental 
-                    hospitalarias y ambulatorias. Toma en cuenta varios factores demográficos 
-                    como el año de inclusión, la edad, el género, el estado civil, la condición laboral 
-                    y el nivel educativo.
+                    El indicador de incidencia tratada calcula el número de pacientes
+                    de 18 a 25 años
+                    con un trastorno mental incidente (o recién atendidos)
+                    tratados en instalaciones de salud mental hospitalarias y ambulatorias
+                    para cada año de disponibilidad de datos.
+                    Toma en cuenta varios factores demográficos como el año de inclusión, la edad,
+                    el género, el estado civil, la condición laboral y el nivel educativo.
                     </p>
 
                     <h3 style='{h3_style}'>Visualización del indicador</h3>
                     <p style='{p_style}'>
-                    El indicador se muestra como un gráfico que muestra el número de pacientes 
-                    a lo largo de los años de disponibilidad de datos. El eje x representa los años, 
-                    y el eje y representa el número de pacientes. 
-                    El gráfico está estratificado por enfermedad, lo que le permite seleccionar una enfermedad 
-                    específica para ver su prevalencia tratada a lo largo del tiempo.
+                    El indicador se muestra como un gráfico que muestra el número de pacientes
+                    a lo largo de los años de disponibilidad de datos. El eje x representa los años,
+                    y el eje y representa el número de pacientes.
+                    El gráfico está estratificado por enfermedad, lo que le permite seleccionar una enfermedad específica
+                    para ver su prevalencia tratada a lo largo del tiempo.
                     </p>
                 """,
             "pt":
                 f"""
                     <h3 style='{h3_style}'>Cálculo do indicador</h3>
                     <p style='{p_style}'>
-                    O indicador de prevalência tratada calcula o número de pacientes 
-                    com um transtorno mental prevalente tratados em instalações de saúde mental 
-                    hospitalares e ambulatoriais. Leva em consideração vários fatores demográficos 
-                    como ano de inclusão, idade, gênero, estado civil, condição de trabalho e 
-                    nível educacional.
+                    O indicador de incidência tratada calcula o número de pacientes
+                    com 18-25 anos
+                    com um transtorno mental incidente (ou recém-atendidos)
+                    tratados em instalações de saúde mental hospitalares e ambulatoriais
+                    para cada ano de disponibilidade de dados.
+                    Leva em consideração vários fatores demográficos como o ano de inclusão, a idade,
+                    o gênero, o estado civil, a condição de trabalho e o nível educacional.
                     </p>
 
-                    <h3 style='{h3_style}'>Exibição do indicador</h3>
+                    <h3 style='{h3_style}'>Visualização do indicador</h3>
                     <p style='{p_style}'>
-                    O indicador é exibido como um gráfico que mostra o número de pacientes 
-                    ao longo dos anos de disponibilidade de dados. O eixo x representa os anos, 
-                    e o eixo y representa o número de pacientes. 
-                    O gráfico é estratificado por doença, permitindo que você selecione uma doença 
-                    específica para ver sua prevalência tratada ao longo do tempo.
+                    O indicador é exibido como um gráfico que mostra o número de pacientes
+                    ao longo dos anos de disponibilidade de dados. O eixo x representa os anos,
+                    e o eixo y representa o número de pacientes.
+                    O gráfico é estratificado por doença, permitindo que você selecione uma doença específica
+                    para ver sua prevalência tratada ao longo do tempo.
                     </p>
                 """
         }
@@ -438,14 +464,14 @@ if __name__ == "__main__":
         "cohorts": cohorts_rand
     }
 
-    tab = ma1_tab0(
+    tab = ma3_tab0(
         dict_of_tables= database_dict  # db
     )
     app = tab.get_panel(language_code="it", disease_code="_depression_")
     app.show()
 
 
-    tab = ma1_tab1()
+    tab = ma3_tab1()
     app = tab.get_panel(language_code="it")
     app.show()
     quit()

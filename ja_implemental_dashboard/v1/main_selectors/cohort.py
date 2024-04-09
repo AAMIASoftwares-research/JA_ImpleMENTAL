@@ -21,8 +21,7 @@ class CohortSelector(object):
         self._cohort_descriptions: dict[str: dict[str: str]] = COHORT_DESRIPTIONS
         self._widget_options = {l_: {v: k for k, v in self._cohort_names[l_].items()} for l_ in self._cohort_names.keys()}
         self.widget = self._get_widget()
-        self._cohort_expl_panes = self._get_html_panes()
-        self._panes = self._get_panes()
+        self._pane = self._get_pane()
 
     def _get_widget(self) -> panel.widgets.RadioButtonGroup:
         _widget_stylesheet = """
@@ -74,56 +73,41 @@ class CohortSelector(object):
                 text-align: center;
             ">
         """
-        #s_ += "<span style='color:#707070ff;'><b>"+cohort_name+"</b></span></br>"
         e_ = "</p>"
         text = text.replace("\"", """<span style='color:#707070ff;'><b>""", 1)
         text = text.replace("\"", """</b></span>""", 1)
         return s_ + text + e_
     
-    def _get_html_panes(self) -> dict[str: dict[str: panel.pane.HTML]]:
-        panes_dict = {
-            l: {} for l in self._cohort_descriptions.keys()
-        }
-        for l in self._cohort_descriptions.keys():
-            for k in self._cohort_descriptions[l].keys():
-                pane  = panel.pane.HTML(
-                    self._build_coorte_tooltip_html(self._cohort_descriptions[l][k])
-                )
-                panes_dict[l][k]= pane
-        return panes_dict
-    
-    def _get_panes(self) -> panel.viewable.Viewable:
-        panes_dict = {
-            l: {} for l in self._cohort_descriptions.keys()
-        }
-        for l in self._cohort_descriptions.keys():
-            for k in self._cohort_descriptions[l].keys():
-                panes_dict[l][k]= panel.Column(
-                    self.widget,
-                    self._cohort_expl_panes[l][k],
-                    styles={
-                        "width": "60%",
-                        # make  a flex to display stuff in a centered column
-                        "display": "flex",
-                        "flex-direction": "column",
-                        "justify-content": "center",
-                        "align-items": "center",
-                        "margin": "auto", # without this the column is not centered
-                        "margin-top": "15px",
-                        "margin-bottom": "15px",
-                    }
-                )
-        return panes_dict
+    def _get_pane(self) -> panel.viewable.Viewable:
+        pane = panel.Column(
+            self.widget,
+            panel.pane.HTML(
+                "" # empty string, but we change it in the get_panel method
+            ),
+            styles={
+                "width": "60%",
+                # make  a flex to display stuff in a centered column
+                "display": "flex",
+                "flex-direction": "column",
+                "justify-content": "center",
+                "align-items": "center",
+                "margin": "auto", # without this the column is not centered
+                "margin-top": "15px",
+                "margin-bottom": "15px",
+            }
+        )
+        return pane
     
     def _get_empty_pane(self) -> panel.viewable.Viewable:
         return panel.pane.HTML("</hr style='border: 0; margin-top: 25px;'>")
     
     def get_panel(self, language_code: str="en", indicator_type_code: str="_monitoring_", cohort_code: str="_a_") -> panel.viewable.Viewable:
         self._update_widget(language_code)
+        self._pane[1].object = self._build_coorte_tooltip_html(self._cohort_descriptions[language_code][cohort_code])
         if indicator_type_code == "_monitoring_":
             return self._get_empty_pane()
         elif indicator_type_code == "_evaluation_":
-            return self._panes[language_code][cohort_code]
+            return self._pane
         else:
             print("ERROR: indicator_type_code not recognized")
     

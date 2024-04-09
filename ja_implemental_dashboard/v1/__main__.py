@@ -1,5 +1,10 @@
 import os, sys, time
 
+import warnings
+# Suppress FutureWarning messages
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+
 import panel
 from ._panel_settings import PANEL_EXTENSION, PANEL_TEMPLATE, PANEL_SIZING_MODE
 panel.extension(
