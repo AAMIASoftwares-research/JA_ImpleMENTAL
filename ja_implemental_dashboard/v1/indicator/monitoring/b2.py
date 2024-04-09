@@ -8,9 +8,16 @@ panel.extension(
     sizing_mode=PANEL_SIZING_MODE
 )
 import holoviews
-holoviews.extension('bokeh') #################################################################
-
-import bokeh.palettes
+holoviews.extension('bokeh') # here holoviews is kept to create a BoxWhisker plot
+                             # anda Violin plot, which are not available in Bokeh
+                             # However, holoview plots for some reason get linked
+                             # in the sense that if you move/zoom on one plot,
+                             # also all other displayed plots move together.
+                             # This is not the case with Bokeh plots, which are
+                             # independent. This is why the line plot is done with Bokeh
+                             # and the other two with Holoviews.
+                             # In the future it would be better to have all plots
+                             # done with Bokeh, but for now this is a workaround.
 import bokeh.models
 import bokeh.events
 import bokeh.plotting
@@ -399,7 +406,7 @@ class mb2_tab1(object):
         ).opts(
             show_legend=False, 
             box_fill_color="#d3e3fd", 
-            title=mb2_code + " - " + mb2_name_langdict[language_code] + " (distributions) - " + DISEASES_LANGDICT[language_code][disease_code],
+            title=mb2_code + " - " + mb2_name_langdict[language_code] + DISEASES_LANGDICT[language_code][disease_code],
         )
         return panel.pane.HoloViews(plot)
         
@@ -510,9 +517,8 @@ class mb2_tab2(object):
             show_legend=False,
             inner="quartiles",
             bandwidth=1.5,
-            violin_color="#d3e3fd", 
-        ).opts(
-            title=mb2_code + " - " + mb2_name_langdict[language_code] + " (distributions) - " + DISEASES_LANGDICT[language_code][disease_code],
+            violin_color="#d3e3fd",
+            title=mb2_code + " - " + mb2_name_langdict[language_code] + DISEASES_LANGDICT[language_code][disease_code],
         )
         return panel.pane.HoloViews(plot)
     

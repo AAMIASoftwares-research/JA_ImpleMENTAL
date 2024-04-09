@@ -94,7 +94,13 @@ __DB__ = {
 }
 
 
+
+
+
+
 # Make all indicator panels to be displayed in the dashboard
+
+# Monitoring indicators
 
 from .monitoring.a1 import (
     ma1_code, ma1_name_langdict, ma1_short_desription_langdict,
@@ -163,12 +169,32 @@ mb2_indicator_panel = IndicatorPanel(
     tab_names_langdict=mb2_tab_names_langdict
 )
 
+# Evaluation indicators
+
+from .evaluation.a1 import (
+    ea1_code, ea1_name_langdict, ea1_short_desription_langdict,
+    ea1_tab_names_langdict,
+    ea1_tab0, ea1_tab1, ea1_tab2, ea1_tab3
+)
+ea1_tab0_instance = ea1_tab0(__DB__)
+ea1_tab1_instance = ea1_tab1(__DB__)
+ea1_tab2_instance = ea1_tab2(__DB__)
+ea1_tab3_instance = ea1_tab3()
+
+ea1_indicator_panel = IndicatorPanel(
+    monitoring_or_evaluation="_evaluation_",
+    indicator_code=ea1_code,
+    indicator_name=ea1_name_langdict,
+    indicator_short_description=ea1_short_desription_langdict,
+    tabs=[ea1_tab0_instance, ea1_tab1_instance, ea1_tab2_instance, ea1_tab3_instance],
+    tab_names_langdict=ea1_tab_names_langdict
+)
 
 # fake evaluation
 from .indicator_panel import PlaceholderPanel
 
 ea1_indicator_panel_placeholder = PlaceholderPanel(
-    placeholder_html_string="<h2>EA1 panel goes here</h2>"
+    placeholder_html_string="<h2>EB1 panel goes here</h2>"
 )
 
 eb2_indicator_panel_placeholder = PlaceholderPanel(
@@ -186,6 +212,7 @@ dispatcher_instance = Dispatcher(
         mb2_indicator_panel
     ],
     evaluation_panel_classes=[
+        ea1_indicator_panel,
         ea1_indicator_panel_placeholder,
         eb2_indicator_panel_placeholder
     ]
