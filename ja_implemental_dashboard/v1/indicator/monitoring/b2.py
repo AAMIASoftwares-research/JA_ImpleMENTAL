@@ -150,6 +150,75 @@ _intervention_type_code_langdict = {
     "pt": "Código do tipo de intervenção"
 }
 
+_hover_tool_langdict = {
+    "en": {
+        "year": "Year",
+        "intervention_type": "Intervention type",
+        "count": "Total",
+        "mean": "Mean",
+        "median": "Median",
+        "stdev": "Standard deviation",
+        "q1": "Q1 (25%)",
+        "q3": "Q3 (75%)",
+        "iqr": "Interquartile range",
+    },
+    "it": {
+        "year": "Anno",
+        "intervention_type": "Tipo di intervento",
+        "count": "Totale",
+        "mean": "Media",
+        "median": "Mediana",
+        "stdev": "Deviazione standard",
+        "q1": "Q1 (25%)",
+        "q3": "Q3 (75%)",
+        "iqr": "Intervallo interquartile",
+    },
+    "fr": {
+        "year": "Année",
+        "intervention_type": "Type d'intervention",
+        "count": "Total",
+        "mean": "Moyenne",
+        "median": "Médiane",
+        "stdev": "Écart-type",
+        "q1": "Q1 (25%)",
+        "q3": "Q3 (75%)",
+        "iqr": "Intervalle interquartile",
+    },
+    "de": {
+        "year": "Jahr",
+        "intervention_type": "Interventionstyp",
+        "count": "Total",
+        "mean": "Mittelwert",
+        "median": "Median",
+        "stdev": "Standardabweichung",
+        "q1": "Q1 (25%)",
+        "q3": "Q3 (75%)",
+        "iqr": "Interquartilbereich",
+    },
+    "es": {
+        "year": "Año",
+        "intervention_type": "Tipo de intervención",
+        "count": "Total",
+        "mean": "Media",
+        "median": "Mediana",
+        "stdev": "Desviación estándar",
+        "q1": "Q1 (25%)",
+        "q3": "Q3 (75%)",
+        "iqr": "Rango intercuartílico",
+    },
+    "pt": {
+        "year": "Ano",
+        "intervention_type": "Tipo de intervenção",
+        "count": "Total",
+        "mean": "Média",
+        "median": "Mediana",
+        "stdev": "Desvio padrão",
+        "q1": "Q1 (25%)",
+        "q3": "Q3 (75%)",
+        "iqr": "Intervalo interquartil",
+    }
+}
+
 from ...database.database import INTERVENTIONS_CODES_LANGDICT_MAP, INTERVENTIONS_CODES_COLOR_DICT
 
 _y_axis_langdict_all = {
@@ -255,6 +324,7 @@ class mb2_tab0(object):
             ]
         )
         plot = bokeh.plotting.figure(
+            sizing_mode="stretch_width",
             height=350,
             title=mb2_code + " - " + mb2_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code],
             x_axis_label=_year_langdict[language_code],
@@ -299,6 +369,8 @@ class mb2_tab0(object):
                 """
             )
         plot.js_on_event(bokeh.events.DoubleTap, toggle_legend_js)
+        plot.toolbar.autohide = True
+        plot.toolbar.logo = None
         out = panel.pane.Bokeh(plot)
         return out
     
@@ -408,7 +480,105 @@ class mb2_tab1(object):
             box_fill_color="#d3e3fd", 
             title=mb2_code + " - " + mb2_name_langdict[language_code] + DISEASES_LANGDICT[language_code][disease_code],
         )
-        return panel.pane.HoloViews(plot)
+        bokeh_plot = holoviews.render(plot)
+        bokeh_plot.sizing_mode="stretch_width"
+        bokeh_plot.height=350
+        bokeh_plot.toolbar.autohide = True
+        bokeh_plot.toolbar.logo = None
+        # add a transparent Circle plot to show some info with a custom hover tool
+        x_source = []
+        year_source = []
+        int_type_source = []
+        total_source = []
+        median_source = []
+        mean_source = []
+        stdev_source = []
+        q1_source = []
+        q3_source = []
+        iqr_source = []
+        i = 0
+        for i_y_, y_ in enumerate(years_to_evaluate):
+            for type_int_ in ["01", "02", "03", "04", "05", "06", "07", "All", "Other"]:
+                # position in plot
+                x_source.append(
+                    0.5 + i + 1.4*(i // len(INTERVENTIONS_CODES_COLOR_DICT.keys()))
+                )
+                i += 1
+                # hover data
+                year_source.append(y_)
+                if type_int_ == "All":
+                    int_type_source.append(
+                        _all_interventions_langdict[language_code]
+                    )
+                else:
+                    int_type_source.append(
+                        INTERVENTIONS_CODES_LANGDICT_MAP[language_code][type_int_]["short"]
+                    )
+                d_src = None
+                if type_int_ == "All":
+                    d_src = mb2_all[i_y_]
+                elif type_int_ == "01":
+                    d_src = mb2_01[i_y_]
+                elif type_int_ == "02":
+                    d_src = mb2_02[i_y_]
+                elif type_int_ == "03":
+                    d_src = mb2_03[i_y_]
+                elif type_int_ == "04":
+                    d_src = mb2_04[i_y_]
+                elif type_int_ == "05":
+                    d_src = mb2_05[i_y_]
+                elif type_int_ == "06":
+                    d_src = mb2_06[i_y_]
+                elif type_int_ == "07":
+                    d_src = mb2_07[i_y_]
+                elif type_int_ == "Other":
+                    d_src = mb2_other[i_y_]
+                total_source.append(len(d_src))
+                median_source.append(numpy.median(d_src))
+                mean_source.append(numpy.mean(d_src))
+                stdev_source.append(numpy.std(d_src))
+                q1_source.append(numpy.percentile(d_src, 25))
+                q3_source.append(numpy.percentile(d_src, 75))
+                iqr_source.append(q3_source[-1] - q1_source[-1])
+        source = bokeh.models.ColumnDataSource({
+            "x": x_source,
+            "year": year_source,
+            "type_int": int_type_source,
+            "count": total_source,
+            "mean": mean_source,
+            "median": median_source,
+            "stdev": stdev_source,
+            "q1": q1_source,
+            "q3": q3_source,
+            "iqr": iqr_source
+        })
+        hover_tool = bokeh.models.HoverTool(
+            tooltips=[
+                (_hover_tool_langdict[language_code]["year"], "@year"),
+                (_hover_tool_langdict[language_code]["intervention_type"], "@type_int"),
+                (_hover_tool_langdict[language_code]["count"], "@count"),
+                (_hover_tool_langdict[language_code]["mean"], "@mean{0.0}"),
+                (_hover_tool_langdict[language_code]["median"], "@median{0.0}"),
+                (_hover_tool_langdict[language_code]["stdev"], "@stdev{0.0}"),
+                (_hover_tool_langdict[language_code]["q1"], "@q1{0.0}"),
+                (_hover_tool_langdict[language_code]["q3"], "@q3{0.0}"),
+                (_hover_tool_langdict[language_code]["iqr"], "@iqr{0.0}"),
+            ]
+        )
+        bk_hover_glyph = bokeh_plot.vspan(
+            x="x", 
+            source=source,
+            line_width=5,
+            line_color="#00000000"
+        )
+        bokeh_plot.add_tools(hover_tool)
+        hover_tool.renderers = [bk_hover_glyph]
+        # final bokeh options
+        bokeh_plot.sizing_mode="stretch_width"
+        bokeh_plot.height=350
+        bokeh_plot.toolbar.autohide = True
+        bokeh_plot.toolbar.logo = None
+        return panel.pane.Bokeh(bokeh_plot)
         
     
 
@@ -520,7 +690,105 @@ class mb2_tab2(object):
             violin_color="#d3e3fd",
             title=mb2_code + " - " + mb2_name_langdict[language_code] + DISEASES_LANGDICT[language_code][disease_code],
         )
-        return panel.pane.HoloViews(plot)
+        bokeh_plot = holoviews.render(plot)
+        bokeh_plot.sizing_mode="stretch_width"
+        bokeh_plot.height=350
+        bokeh_plot.toolbar.autohide = True
+        bokeh_plot.toolbar.logo = None
+        # add a transparent Circle plot to show some info with a custom hover tool
+        x_source = []
+        year_source = []
+        int_type_source = []
+        total_source = []
+        median_source = []
+        mean_source = []
+        stdev_source = []
+        q1_source = []
+        q3_source = []
+        iqr_source = []
+        i = 0
+        for i_y_, y_ in enumerate(years_to_evaluate):
+            for type_int_ in ["01", "02", "03", "04", "05", "06", "07", "All", "Other"]:
+                # position in plot
+                x_source.append(
+                    0.5 + i + 1.4*(i // len(INTERVENTIONS_CODES_COLOR_DICT.keys()))
+                )
+                i += 1
+                # hover data
+                year_source.append(y_)
+                if type_int_ == "All":
+                    int_type_source.append(
+                        _all_interventions_langdict[language_code]
+                    )
+                else:
+                    int_type_source.append(
+                        INTERVENTIONS_CODES_LANGDICT_MAP[language_code][type_int_]["short"]
+                    )
+                d_src = None
+                if type_int_ == "All":
+                    d_src = mb2_all[i_y_]
+                elif type_int_ == "01":
+                    d_src = mb2_01[i_y_]
+                elif type_int_ == "02":
+                    d_src = mb2_02[i_y_]
+                elif type_int_ == "03":
+                    d_src = mb2_03[i_y_]
+                elif type_int_ == "04":
+                    d_src = mb2_04[i_y_]
+                elif type_int_ == "05":
+                    d_src = mb2_05[i_y_]
+                elif type_int_ == "06":
+                    d_src = mb2_06[i_y_]
+                elif type_int_ == "07":
+                    d_src = mb2_07[i_y_]
+                elif type_int_ == "Other":
+                    d_src = mb2_other[i_y_]
+                total_source.append(len(d_src))
+                median_source.append(numpy.median(d_src))
+                mean_source.append(numpy.mean(d_src))
+                stdev_source.append(numpy.std(d_src))
+                q1_source.append(numpy.percentile(d_src, 25))
+                q3_source.append(numpy.percentile(d_src, 75))
+                iqr_source.append(q3_source[-1] - q1_source[-1])
+        source = bokeh.models.ColumnDataSource({
+            "x": x_source,
+            "year": year_source,
+            "type_int": int_type_source,
+            "count": total_source,
+            "mean": mean_source,
+            "median": median_source,
+            "stdev": stdev_source,
+            "q1": q1_source,
+            "q3": q3_source,
+            "iqr": iqr_source
+        })
+        hover_tool = bokeh.models.HoverTool(
+            tooltips=[
+                (_hover_tool_langdict[language_code]["year"], "@year"),
+                (_hover_tool_langdict[language_code]["intervention_type"], "@type_int"),
+                (_hover_tool_langdict[language_code]["count"], "@count"),
+                (_hover_tool_langdict[language_code]["mean"], "@mean{0.0}"),
+                (_hover_tool_langdict[language_code]["median"], "@median{0.0}"),
+                (_hover_tool_langdict[language_code]["stdev"], "@stdev{0.0}"),
+                (_hover_tool_langdict[language_code]["q1"], "@q1{0.0}"),
+                (_hover_tool_langdict[language_code]["q3"], "@q3{0.0}"),
+                (_hover_tool_langdict[language_code]["iqr"], "@iqr{0.0}"),
+            ]
+        )
+        bk_hover_glyph = bokeh_plot.vspan(
+            x="x", 
+            source=source,
+            line_width=5,
+            line_color="#00000000"
+        )
+        bokeh_plot.add_tools(hover_tool)
+        hover_tool.renderers = [bk_hover_glyph]
+        # final bokeh options
+        bokeh_plot.sizing_mode="stretch_width"
+        bokeh_plot.height=350
+        bokeh_plot.toolbar.autohide = True
+        bokeh_plot.toolbar.logo = None
+        return panel.pane.Bokeh(bokeh_plot)
     
     def get_panel(self, **kwargs):
         # expected kwargs:

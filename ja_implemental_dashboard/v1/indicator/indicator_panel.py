@@ -122,12 +122,14 @@ class IndicatorPanel(object):
 
             }
         """
+        self.tabs_pane = None # used in get_panel method
         # pane element
         self._pane_styles = {
             "margin": "auto",
             "width": "95%",
         }
         self._pane_stylesheet = {}
+        self._pane = None # used in get_panel method
 
     def _get_title_rows(self):
         title_rows = {k : {} for k in self._indicator_names.keys()}
@@ -159,21 +161,14 @@ class IndicatorPanel(object):
         if event.name == "active":
             self._tabs_active_tab_index = event.new
     
-    def _get_tabs_element_dynamic(self, language_code, disease_code, cohort_code: str|None=None):
-        tabs_element = panel.Tabs(
-            *[
-                (tn, t.get_panel(language_code=language_code, disease_code=disease_code, cohort_code=cohort_code)) 
-                for tn, t in zip(self._tab_names[language_code], self._tabs)
-            ],
-            tabs_location="above",
-            active=self._tabs_active_tab_index,
-            design=Material,
-            styles=self._tabs_styles,
-            stylesheets=[self._tabs_stylesheet]
-        )
-        # connect here since we create it dynamically
-        tabs_element.param.watch(self._set_active_tab_index, "active")
-        return tabs_element
+    def _get_tabs_object_list(self, language_code, disease_code, cohort_code: str|None=None):
+        tab_objects_list = [
+            (tn, t.get_panel(language_code=language_code, disease_code=disease_code, cohort_code=cohort_code)) 
+            for tn, t in zip(self._tab_names[language_code], self._tabs)
+        ]
+        return tab_objects_list
+           
+        
     
     def get_panel(self, **kwargs):
         # expected kwargs:
@@ -184,13 +179,27 @@ class IndicatorPanel(object):
         if self._indicator_type == "_evaluation_":
             if cc is None:
                 raise ValueError("Cohort code is mandatory for evaluation indicators")
+        # create or update
         title_row = self._title_rows[lc]
-        tabs_element = self._get_tabs_element_dynamic(language_code=lc, disease_code=dc, cohort_code=cc)
-        pane = panel.Column(
-            title_row,
-            tabs_element,
-            styles=self._pane_styles,
-            stylesheets=[self._pane_stylesheet]
-        )
-        return pane
+        obj_list = self._get_tabs_object_list(lc, dc, cc)
+        if (self.tabs_pane is not None) and (self._pane is not None):
+            self.tabs_pane[:] = obj_list
+            self._pane[:] = [title_row, self.tabs_pane]
+        else:
+            self.tabs_pane = panel.Tabs(
+                *obj_list,
+                tabs_location="above",
+                active=self._tabs_active_tab_index,
+                design=Material,
+                styles=self._tabs_styles,
+                stylesheets=[self._tabs_stylesheet]
+            )
+            self.tabs_pane.param.watch(self._set_active_tab_index, "active")
+            self._pane = panel.Column(
+                title_row,
+                self.tabs_pane,
+                styles=self._pane_styles,
+                stylesheets=[self._pane_stylesheet]
+            )
+        return self._pane
     

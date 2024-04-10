@@ -15,6 +15,8 @@ from .widget_texts import (
     WIDGET_JOB_CONDITION_NAME_LANGDICT, WIDGET_JOB_CONDITION_OPTIONS_LANGDICT
 )
 
+# future: use a WidgetBox it makes more sense
+
 class age_widget(object):
     def __init__(self, language_code: str):
         self._language_code = language_code
@@ -211,7 +213,7 @@ class indicator_widgets(object):
                 color: #3e7d98ff;
                 orientation: ltr;
                 cursor: pointer;
-                background-image: url('data:image/svg+xml;utf8,<svg version="1.1" viewBox="0 0 25 20" xmlns="http://www.w3.org/2000/svg"><path d="M 0,0 25,0 12.5,20 Z" fill="white" /></svg>')
+                background-image: url('data:image/svg+xml;utf8,<svg version="1.1" viewBox="0 0 25 20" xmlns="http://www.w3.org/2000/svg"><path d="M 0,0 25,0 12.5,20 Z" fill="#3e7d98ff" /></svg>')
             }
             option {
                 background: #000000ff;

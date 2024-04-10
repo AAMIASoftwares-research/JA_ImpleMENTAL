@@ -183,6 +183,7 @@ class ma3_tab0(object):
             ]
         )
         plot = bokeh.plotting.figure(
+            sizing_mode="stretch_width",
             height=350,
             title=ma3_code + " - " + ma3_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code],
             x_axis_label=_year_langdict[language_code],
@@ -222,6 +223,8 @@ class ma3_tab0(object):
         plot.add_tools(hover_tool)
         plot.legend.location = "top_left"
         plot.legend.click_policy = "hide"
+        plot.toolbar.autohide = True
+        plot.toolbar.logo = None
         out = panel.pane.Bokeh(plot)
         return out
     

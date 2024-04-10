@@ -25,6 +25,7 @@ class Dispatcher(object):
             "align-items": "center",
         }
         self._pane_stylesheet = ""
+        self._pane = None
 
     def get_panel(self, language_code, disease_code, indicator_type_code, cohort_code):
         # ALL DISEASES
@@ -56,12 +57,17 @@ class Dispatcher(object):
             ]
         else:
             raise ValueError("Indicator type not recognized:", indicator_type_code)
-        pane = panel.Column(
-            *panes_list,
-            styles=self._pane_styles,
-            stylesheets=[self._pane_stylesheet]
-        )
-        return pane
+        if self._pane is not None:
+            # update
+            self._pane[:] = panes_list
+            return self._pane
+        else:
+            self._pane = panel.Column(
+                *panes_list,
+                styles=self._pane_styles,
+                stylesheets=[self._pane_stylesheet]
+            )
+        return self._pane
 
 
 
@@ -190,32 +196,67 @@ ea1_indicator_panel = IndicatorPanel(
     tab_names_langdict=ea1_tab_names_langdict
 )
 
+from .evaluation.a2 import (
+    ea2_code, ea2_name_langdict, ea2_short_desription_langdict,
+    ea2_tab_names_langdict,
+    ea2_tab0, ea2_tab1, ea2_tab2, ea2_tab3
+)
+ea2_tab0_instance = ea2_tab0(__DB__)
+ea2_tab1_instance = ea2_tab1(__DB__)
+ea2_tab2_instance = ea2_tab2(__DB__)
+ea2_tab3_instance = ea2_tab3()
+ea2_indicator_panel = IndicatorPanel(
+    monitoring_or_evaluation="_evaluation_",
+    indicator_code=ea2_code,
+    indicator_name=ea2_name_langdict,
+    indicator_short_description=ea2_short_desription_langdict,
+    tabs=[ea2_tab0_instance, ea2_tab1_instance, ea2_tab2_instance, ea2_tab3_instance],
+    tab_names_langdict=ea2_tab_names_langdict
+)
+
 # fake evaluation
 from .indicator_panel import PlaceholderPanel
 
-ea1_indicator_panel_placeholder = PlaceholderPanel(
+eb1_indicator_panel_placeholder = PlaceholderPanel(
     placeholder_html_string="<h2>EB1 panel goes here</h2>"
 )
 
 eb2_indicator_panel_placeholder = PlaceholderPanel(
     placeholder_html_string="<h2>EB2 panel goes here</h2>"
 )
+eb3_indicator_panel_placeholder = PlaceholderPanel(
+    placeholder_html_string="<h2>EB3 panel goes here</h2>"
+)
+
+# Due to a panel bug, mase sure that the two lists are not of the same length
+# by adding EmptyPanel() to one of the lists in case
+
+monitor_panel_classes_list = [
+    ma1_indicator_panel, 
+    ma2_indicator_panel, 
+    ma3_indicator_panel,
+    mb2_indicator_panel
+]
+
+evaluation_panel_classes_list = [
+    ea1_indicator_panel,
+    ea2_indicator_panel,
+    eb1_indicator_panel_placeholder,
+    eb2_indicator_panel_placeholder,
+    ]
 
 
-# This is to be imported into the main dashboard
+
+
+
+# Leave the rest to the dispatcher, nothing else to do here!
+
+if len(monitor_panel_classes_list) == len(evaluation_panel_classes_list):
+    evaluation_panel_classes_list.append(EmptyPanel(indicator_type="_evaluation_"))
 
 dispatcher_instance = Dispatcher(
-    monitoring_panel_classes=[
-        ma1_indicator_panel, 
-        ma2_indicator_panel, 
-        ma3_indicator_panel,
-        mb2_indicator_panel
-    ],
-    evaluation_panel_classes=[
-        ea1_indicator_panel,
-        ea1_indicator_panel_placeholder,
-        eb2_indicator_panel_placeholder
-    ]
+    monitoring_panel_classes=monitor_panel_classes_list,
+    evaluation_panel_classes=evaluation_panel_classes_list
 )
 
 
