@@ -96,7 +96,7 @@ def ea2(**kwargs):
 
 
 # Indicator display
-ea2_code = "EA2 (nor ready)"
+ea2_code = "EA2"
 ea2_name_langdict = {
     "en": "Access to psychosocial care in the community",
     "it": "Accesso alle cure psicosociali nella comunità",
@@ -602,7 +602,7 @@ class ea2_tab2(object):
               
 #
 
-ea2_tab_names_langdict["en"].append("Help")
+ea2_tab_names_langdict["en"].append("Help (to update)")
 ea2_tab_names_langdict["it"].append("Aiuto")
 ea2_tab_names_langdict["fr"].append("Aide")
 ea2_tab_names_langdict["de"].append("Hilfe")

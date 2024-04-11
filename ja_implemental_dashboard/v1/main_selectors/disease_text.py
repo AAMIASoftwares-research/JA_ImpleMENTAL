@@ -9,7 +9,7 @@ DS_DEFAULT_TITLE_MESSAGE = {
 
 DS_TITLE = {
     "en": {
-        "_all_": "All diseases",
+        "_all_": "Overall Disorders",
         "_depression_": "Major Depression",
         "_schizophrenia_": "Schizophrenia",
         "_bipolar_disorder_": "Bipolar disorder"

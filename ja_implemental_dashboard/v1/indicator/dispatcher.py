@@ -31,7 +31,7 @@ class Dispatcher(object):
         # ALL DISEASES
         if disease_code == "_all_":
             pane = panel.Column(
-                panel.pane.HTML("<h3>Choose a disease</h3>"),
+                panel.pane.HTML("<h3>Choose a disorder</h3>"),
                 styles={
                     "margin": "auto",
                     "height": "250px",
