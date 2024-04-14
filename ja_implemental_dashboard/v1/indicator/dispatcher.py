@@ -214,6 +214,24 @@ ea2_indicator_panel = IndicatorPanel(
     tab_names_langdict=ea2_tab_names_langdict
 )
 
+from .evaluation.a3 import (
+    ea3_code, ea3_name_langdict, ea3_short_desription_langdict,
+    ea3_tab_names_langdict,
+    ea3_tab0, ea3_tab1, ea3_tab2, ea3_tab3
+)
+ea3_tab0_instance = ea3_tab0(__DB__)
+ea3_tab1_instance = ea3_tab1(__DB__)
+ea3_tab2_instance = ea3_tab2(__DB__)
+ea3_tab3_instance = ea3_tab3()
+ea3_indicator_panel = IndicatorPanel(
+    monitoring_or_evaluation="_evaluation_",
+    indicator_code=ea3_code,
+    indicator_name=ea3_name_langdict,
+    indicator_short_description=ea3_short_desription_langdict,
+    tabs=[ea3_tab0_instance, ea3_tab1_instance, ea3_tab2_instance, ea3_tab3_instance],
+    tab_names_langdict=ea3_tab_names_langdict
+)
+
 # fake evaluation
 from .indicator_panel import PlaceholderPanel
 
@@ -241,9 +259,10 @@ monitor_panel_classes_list = [
 evaluation_panel_classes_list = [
     ea1_indicator_panel,
     ea2_indicator_panel,
+    ea3_indicator_panel,
     eb1_indicator_panel_placeholder,
     eb2_indicator_panel_placeholder,
-    ]
+]
 
 
 

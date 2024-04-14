@@ -195,9 +195,14 @@ print("Databases cleaned!")
 
 
 
+#######################################
+# PRINTING
+#######################################
+print("\n\n\n\n\n\n")
+print(DB["demographics"].head(5))
+print(DB["interventions"].head(5))
 
-
-
+quit()
 
 #######################################
 # INDICATORS

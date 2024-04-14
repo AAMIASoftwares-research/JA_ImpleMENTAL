@@ -29,7 +29,7 @@ from ...main_selectors.disease_text import DS_TITLE as DISEASES_LANGDICT
 from ...main_selectors.cohort_text import COHORT_NAMES
 
 # indicator logic
-def ea2(**kwargs):
+def ea3(**kwargs):
     """
     output dict:
     - percentage (float): the indicator, ranage [0; 1]; 
@@ -81,7 +81,7 @@ def ea2(**kwargs):
     condition = pandas.Series(True, index=tables["interventions"].index, name="condition")
     condition = condition & (tables["interventions"]["ID_SUBJECT"].isin(valid_patient_ids))
     condition = condition & (tables["interventions"]["DT_INT"].dt.year == year_of_inclusion)
-    condition = condition & (tables["interventions"]["TYPE_INT"] == "04") # basically same as EA1, but with this condition added
+    condition = condition & (tables["interventions"]["TYPE_INT"] == "01") & (tables["interventions"]["TYPE_INT"] == "06") # almeno una visita psichiatrica E una sessione di psicoterapia
     numerator = tables["interventions"].loc[condition, "ID_SUBJECT"].unique().shape[0]
     # - percentage
     output["percentage"] = numerator / denominator if denominator > 0 else 0.0
@@ -96,22 +96,22 @@ def ea2(**kwargs):
 
 
 # Indicator display
-ea2_code = "EA2"
-ea2_name_langdict = {
-    "en": "Access to psychosocial care in the community",
-    "it": "Accesso alle cure psicosociali nella comunità",
-    "fr": "Accès aux soins psychosociaux dans la communauté",
-    "de": "Zugang zu psychosozialer Versorgung in der Gemeinde",
-    "es": "Acceso a la atención psicosocial en la comunidad",
-    "pt": "Acesso aos cuidados psicossociais na comunidade"
+ea3_code = "EA3"
+ea3_name_langdict = {
+    "en": "Access to psychological care in the community",
+    "it": "Accesso alle cure psicologiche in comunità",
+    "fr": "Accès aux soins psychologiques en communauté",
+    "de": "Zugang zu psychologischer Versorgung in der Gemeinde",
+    "es": "Acceso a la atención psicológica en la comunidad",
+    "pt": "Acesso ao atendimento psicológico na comunidade"
 }
-ea2_short_desription_langdict = {
-    "en": """Percentage of patients with at least one psychosocial intervention.""",
-    "it": """Percentuale di pazienti con almeno un intervento psicosociale.""",
-    "fr": """Pourcentage de patients avec au moins une intervention psychosociale.""",
-    "de": """Prozentsatz der Patienten mit mindestens einem psychosozialen Eingriff.""",
-    "es": """Porcentaje de pacientes con al menos una intervención psicosocial.""",
-    "pt": """Percentagem de pacientes com pelo menos uma intervenção psicossocial."""
+ea3_short_desription_langdict = {
+    "en": """Percentage  of patients who receive psychological care and psychotherapy.""",
+    "it": """Percentuale di pazienti che ricevono cure psicologiche e psicoterapia.""",
+    "fr": """Pourcentage de patients qui reçoivent des soins psychologiques et une psychothérapie.""",
+    "de": """Prozentsatz der Patienten, die psychologische Betreuung und Psychotherapie erhalten.""",
+    "es": """Porcentaje de pacientes que reciben atención psicológica y psicoterapia.""",
+    "pt": """Percentagem de pacientes que recebem cuidados psicológicos e psicoterapia."""
 }
 
 # other useful text
@@ -210,7 +210,7 @@ _hover_tool_langdict = {
 # - tab 2: help
 ####################################################
 
-ea2_tab_names_langdict: dict[str: list[str]] = {
+ea3_tab_names_langdict: dict[str: list[str]] = {
     "en": ["Indicator"],
     "it": ["Indicatore"],
     "fr": ["Indicateur"],
@@ -219,7 +219,7 @@ ea2_tab_names_langdict: dict[str: list[str]] = {
     "pt": ["Indicador"]
 }
 
-class ea2_tab0(object):
+class ea3_tab0(object):
     def __init__(self, dict_of_tables: dict):
         self._language_code = "en"
         self._dict_of_tables = dict_of_tables
@@ -244,9 +244,9 @@ class ea2_tab0(object):
         # logic
         years_to_evaluate = self._dict_of_tables["cohorts"]["YEAR_ENTRY"].unique().tolist()
         years_to_evaluate.sort()
-        ea2_list = []
+        ea3_list = []
         for year in years_to_evaluate:
-            ea2_ = ea2(
+            ea3_ = ea3(
                 dict_of_tables=self._dict_of_tables,
                 disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
                 cohort_db_code=cohort_code,
@@ -257,7 +257,7 @@ class ea2_tab0(object):
                 job_condition=job_condition,
                 educational_level=educational_level
             )
-            ea2_list.append(100*ea2_["percentage"])
+            ea3_list.append(100*ea3_["percentage"])
         # plot - use bokeh because it allows independent zooming
         hover_tool = bokeh.models.HoverTool(
             tooltips=[
@@ -268,7 +268,7 @@ class ea2_tab0(object):
         plot = bokeh.plotting.figure(
             sizing_mode="stretch_width",
             height=350,
-            title=ea2_code + " - " + ea2_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code] + ", " + COHORT_NAMES[language_code][cohort_code],
+            title=ea3_code + " - " + ea3_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code] + ", " + COHORT_NAMES[language_code][cohort_code],
             x_axis_label=_year_langdict[language_code],
             x_range=(years_to_evaluate[0]-0.5, years_to_evaluate[-1]+0.5),
             y_axis_label=_percentage_of_patients_langdict[language_code],
@@ -280,12 +280,12 @@ class ea2_tab0(object):
         plot.xgrid.grid_line_color = None
         plot.yaxis[0].formatter = bokeh.models.PrintfTickFormatter(format="%.0f%%")
         plot.line(
-            years_to_evaluate, ea2_list,
-            line_color="#A0153Eff" # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
+            years_to_evaluate, ea3_list,
+            line_color="#5D0E41ff" # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
         )
         plot.circle(
-            years_to_evaluate, ea2_list,
-            fill_color="#A0153Eff", # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
+            years_to_evaluate, ea3_list,
+            fill_color="#5D0E41ff", # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
             line_width=0,
             size=10
         )
@@ -325,14 +325,14 @@ class ea2_tab0(object):
 
 #
 
-ea2_tab_names_langdict["en"].append("Indicator distribution boxplot")
-ea2_tab_names_langdict["it"].append("Distribuzione dell'indicatore con boxplot")
-ea2_tab_names_langdict["fr"].append("Distribution de l'indicateur avec boxplot")
-ea2_tab_names_langdict["de"].append("Indikatorverteilung Boxplot")
-ea2_tab_names_langdict["es"].append("Distribución del indicador con boxplot")
-ea2_tab_names_langdict["pt"].append("Distribuição do indicador com boxplot")
+ea3_tab_names_langdict["en"].append("Indicator distribution boxplot")
+ea3_tab_names_langdict["it"].append("Distribuzione dell'indicatore con boxplot")
+ea3_tab_names_langdict["fr"].append("Distribution de l'indicateur avec boxplot")
+ea3_tab_names_langdict["de"].append("Indikatorverteilung Boxplot")
+ea3_tab_names_langdict["es"].append("Distribución del indicador con boxplot")
+ea3_tab_names_langdict["pt"].append("Distribuição do indicador com boxplot")
 
-class ea2_tab1(object):
+class ea3_tab1(object):
     def __init__(self, dict_of_tables: dict):
         self._language_code = "en"
         self._dict_of_tables = dict_of_tables
@@ -357,9 +357,9 @@ class ea2_tab1(object):
         # logic
         years_to_evaluate = self._dict_of_tables["cohorts"]["YEAR_ENTRY"].unique().tolist()
         years_to_evaluate.sort()
-        ea2_dist_list = []
+        ea3_dist_list = []
         for year in years_to_evaluate:
-            ea2_ = ea2(
+            ea3_ = ea3(
                 dict_of_tables=self._dict_of_tables,
                 disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
                 cohort_db_code=cohort_code,
@@ -370,8 +370,8 @@ class ea2_tab1(object):
                 job_condition=job_condition,
                 educational_level=educational_level
             )
-            ea2_dist_list.append(
-                ea2_["distribution"]
+            ea3_dist_list.append(
+                ea3_["distribution"]
             )
         # plot: BoxWhisker (not available in Bokeh)
         # make a BoxWhisker plot
@@ -381,9 +381,9 @@ class ea2_tab1(object):
         g_ = []
         v_ = []
         for i, y_ in enumerate(years_to_evaluate):
-            n = len(ea2_dist_list[i])
+            n = len(ea3_dist_list[i])
             g_.extend([y_] * n)
-            v_.extend(ea2_dist_list[i])
+            v_.extend(ea3_dist_list[i])
         plot = holoviews.BoxWhisker(
             (g_, v_), 
             kdims=[("year", _year_langdict[language_code])], 
@@ -391,19 +391,19 @@ class ea2_tab1(object):
         ).opts(
             show_legend=False, 
             box_fill_color="#d3e3fd", 
-            title=ea2_code + " - " + ea2_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code] + ", " + COHORT_NAMES[language_code][cohort_code],
+            title=ea3_code + " - " + ea3_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code] + ", " + COHORT_NAMES[language_code][cohort_code],
         )
         bokeh_plot = holoviews.render(plot)
         # add a transparent Circle plot to show some info with a custom hover tool
         source = bokeh.models.ColumnDataSource({
             "year": [str(i) for i in years_to_evaluate],
-            "median": [numpy.median(ea2_dist_list[i]) for i in range(len(years_to_evaluate))],
-            "mean": [numpy.mean(ea2_dist_list[i]) for i in range(len(years_to_evaluate))],
-            "stdev": [numpy.std(ea2_dist_list[i]) for i in range(len(years_to_evaluate))],
-            "q1": [numpy.percentile(ea2_dist_list[i], 25) for i in range(len(years_to_evaluate))],
-            "q3": [numpy.percentile(ea2_dist_list[i], 75) for i in range(len(years_to_evaluate))],
-            "iqr": [numpy.percentile(ea2_dist_list[i], 75) - numpy.percentile(ea2_dist_list[i], 25) for i in range(len(years_to_evaluate))],
-            "count": [len(ea2_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "median": [numpy.median(ea3_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "mean": [numpy.mean(ea3_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "stdev": [numpy.std(ea3_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "q1": [numpy.percentile(ea3_dist_list[i], 25) for i in range(len(years_to_evaluate))],
+            "q3": [numpy.percentile(ea3_dist_list[i], 75) for i in range(len(years_to_evaluate))],
+            "iqr": [numpy.percentile(ea3_dist_list[i], 75) - numpy.percentile(ea3_dist_list[i], 25) for i in range(len(years_to_evaluate))],
+            "count": [len(ea3_dist_list[i]) for i in range(len(years_to_evaluate))],
         })
         hover_tool = bokeh.models.HoverTool(
             tooltips=[
@@ -463,14 +463,14 @@ class ea2_tab1(object):
 #
     
 
-ea2_tab_names_langdict["en"].append("Indicator distribution violin plot")
-ea2_tab_names_langdict["it"].append("Distribuzione dell'indicatore con violino")
-ea2_tab_names_langdict["fr"].append("Distribution de l'indicateur avec violon")
-ea2_tab_names_langdict["de"].append("Indikatorverteilung Geigenplot")
-ea2_tab_names_langdict["es"].append("Distribución del indicador con violín")
-ea2_tab_names_langdict["pt"].append("Distribuição do indicador com violino")
+ea3_tab_names_langdict["en"].append("Indicator distribution violin plot")
+ea3_tab_names_langdict["it"].append("Distribuzione dell'indicatore con violino")
+ea3_tab_names_langdict["fr"].append("Distribution de l'indicateur avec violon")
+ea3_tab_names_langdict["de"].append("Indikatorverteilung Geigenplot")
+ea3_tab_names_langdict["es"].append("Distribución del indicador con violín")
+ea3_tab_names_langdict["pt"].append("Distribuição do indicador com violino")
 
-class ea2_tab2(object):
+class ea3_tab2(object):
     def __init__(self, dict_of_tables: dict):
         self._language_code = "en"
         self._dict_of_tables = dict_of_tables
@@ -495,9 +495,9 @@ class ea2_tab2(object):
         # logic
         years_to_evaluate = self._dict_of_tables["cohorts"]["YEAR_ENTRY"].unique().tolist()
         years_to_evaluate.sort()
-        ea2_dist_list = []
+        ea3_dist_list = []
         for year in years_to_evaluate:
-            ea2_ = ea2(
+            ea3_ = ea3(
                 dict_of_tables=self._dict_of_tables,
                 disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
                 cohort_db_code=cohort_code,
@@ -508,8 +508,8 @@ class ea2_tab2(object):
                 job_condition=job_condition,
                 educational_level=educational_level
             )
-            ea2_dist_list.append(
-                ea2_["distribution"]
+            ea3_dist_list.append(
+                ea3_["distribution"]
             )
         # plot: BoxWhisker (not available in Bokeh)
         # make a BoxWhisker plot
@@ -519,9 +519,9 @@ class ea2_tab2(object):
         g_ = []
         v_ = []
         for i, y_ in enumerate(years_to_evaluate):
-            n = len(ea2_dist_list[i])
+            n = len(ea3_dist_list[i])
             g_.extend([y_] * n)
-            v_.extend(ea2_dist_list[i])
+            v_.extend(ea3_dist_list[i])
         plot = holoviews.Violin(
             (g_, v_), 
             kdims=[("year", _year_langdict[language_code])], 
@@ -531,19 +531,19 @@ class ea2_tab2(object):
             inner="quartiles",
             bandwidth=0.5,
             violin_color="#d3e3fd", 
-            title=ea2_code + " - " + ea2_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code] + ", " + COHORT_NAMES[language_code][cohort_code],
+            title=ea3_code + " - " + ea3_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code] + ", " + COHORT_NAMES[language_code][cohort_code],
         )
         bokeh_plot = holoviews.render(plot)
         # add a transparent Circle plot to show some info with a custom hover tool
         source = bokeh.models.ColumnDataSource({
             "year": [str(i) for i in years_to_evaluate],
-            "median": [numpy.median(ea2_dist_list[i]) for i in range(len(years_to_evaluate))],
-            "mean": [numpy.mean(ea2_dist_list[i]) for i in range(len(years_to_evaluate))],
-            "stdev": [numpy.std(ea2_dist_list[i]) for i in range(len(years_to_evaluate))],
-            "q1": [numpy.percentile(ea2_dist_list[i], 25) for i in range(len(years_to_evaluate))],
-            "q3": [numpy.percentile(ea2_dist_list[i], 75) for i in range(len(years_to_evaluate))],
-            "iqr": [numpy.percentile(ea2_dist_list[i], 75) - numpy.percentile(ea2_dist_list[i], 25) for i in range(len(years_to_evaluate))],
-            "count": [len(ea2_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "median": [numpy.median(ea3_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "mean": [numpy.mean(ea3_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "stdev": [numpy.std(ea3_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "q1": [numpy.percentile(ea3_dist_list[i], 25) for i in range(len(years_to_evaluate))],
+            "q3": [numpy.percentile(ea3_dist_list[i], 75) for i in range(len(years_to_evaluate))],
+            "iqr": [numpy.percentile(ea3_dist_list[i], 75) - numpy.percentile(ea3_dist_list[i], 25) for i in range(len(years_to_evaluate))],
+            "count": [len(ea3_dist_list[i]) for i in range(len(years_to_evaluate))],
         })
         hover_tool = bokeh.models.HoverTool(
             tooltips=[
@@ -602,15 +602,15 @@ class ea2_tab2(object):
               
 #
 
-ea2_tab_names_langdict["en"].append("Help")
-ea2_tab_names_langdict["it"].append("Aiuto")
-ea2_tab_names_langdict["fr"].append("Aide")
-ea2_tab_names_langdict["de"].append("Hilfe")
-ea2_tab_names_langdict["es"].append("Ayuda")
-ea2_tab_names_langdict["pt"].append("Ajuda")
+ea3_tab_names_langdict["en"].append("Help")
+ea3_tab_names_langdict["it"].append("Aiuto")
+ea3_tab_names_langdict["fr"].append("Aide")
+ea3_tab_names_langdict["de"].append("Hilfe")
+ea3_tab_names_langdict["es"].append("Ayuda")
+ea3_tab_names_langdict["pt"].append("Ajuda")
 
 
-class ea2_tab3(object):
+class ea3_tab3(object):
     def __init__(self):
         self._language_code = "en"
         # pane
@@ -640,7 +640,7 @@ class ea2_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Indicator Calculation</h3>
                     <p style='{p_style}'>
-                    The indicator is calculated as the percentage of patients having at least one outpatient community contact of type PSYCHOSOCIAL INTERVENTION (code "04")
+                    The indicator is calculated as the percentage of patients having at least one intervention of type PSYCHIACTRIC VISIT (code "01") <i>and<i/> PSYCHOTHERAPY SESSION (code "06")
                     in the year of inclusion.
                     The denominator is the number of patients that satisfy the variuos stratification parameters, 
                     and the numerator is the number of patients with at least one intervention in the year that are included in
@@ -666,7 +666,7 @@ class ea2_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Calcolo dell'indicatore</h3>
                     <p style='{p_style}'>
-                    L'indicatore è calcolato come la percentuale di pazienti che hanno almeno un contatto ambulatoriale di tipo INTERVENTO PSICOSOCIALE (codice "04")
+                    L'indicatore è calcolato come la percentuale di pazienti che hanno almeno un contatto ambulatoriale di tipo VISITA PSICHIATRICA (codice "01") <i>e<i/> SESSIONE DI PSICOTERAPIA (codice "06")
                     nell'anno di inclusione.
                     Il denominatore è il numero di pazienti che soddisfano i vari parametri di stratificazione, 
                     e il numeratore è il numero di pazienti con almeno un intervento nell'anno che sono inclusi nel
@@ -691,7 +691,7 @@ class ea2_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Calcul de l'indicateur</h3>
                     <p style='{p_style}'>
-                    L'indicateur est calculé comme le pourcentage de patients ayant au moins un contact communautaire ambulatoire de type INTERVENTION PSYCHOSOCIALE (code "04")
+                    L'indicateur est calculé comme le pourcentage de patients ayant au moins un contact communautaire ambulatoire de type VISITE PSYCHIATRIQUE (code "01") <i>et<i/> SEANCE DE PSYCHOTHERAPIE (code "06")
                     dans l'année d'inclusion.
                     Le dénominateur est le nombre de patients qui satisfont aux différents paramètres de stratification, 
                     et le numérateur est le nombre de patients ayant au moins un intervention dans l'année qui sont inclus dans
@@ -716,7 +716,7 @@ class ea2_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Indikatorberechnung</h3>
                     <p style='{p_style}'>
-                    Der Indikator wird als Prozentsatz der Patienten berechnet, die mindestens einen ambulanten Gemeindekontakt vom Typ PSYCHOSOZIALER EINGRIFF (Code "04") haben
+                    Der Indikator wird als Prozentsatz der Patienten berechnet, die mindestens einen ambulanten Gemeindekontakt vom Typ PSYCHIATRISCHE VISITE (Code "01") <i>und<i/> PSYCHOTHERAPI
                     im Jahr der Aufnahme haben.
                     Der Nenner ist die Anzahl der Patienten, die die verschiedenen Stratifikationsparameter erfüllen, 
                     und der Zähler ist die Anzahl der Patienten mit mindestens einem Eingriff im Jahr, die in
@@ -741,7 +741,7 @@ class ea2_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Cálculo del indicador</h3>
                     <p style='{p_style}'>
-                    El indicador se calcula como el porcentaje de pacientes que tienen al menos un contacto ambulatorio con la comunidad de tipo INTERVENCIÓN PSICOSOCIAL (código "04")
+                    El indicador se calcula como el porcentaje de pacientes que tienen al menos un contacto ambulatorio con la comunidad de tipo VISITA PSIQUIÁTRICA (código "01") <i>y<i/> SESIÓN DE PSICOTERAPIA (código "06")
                     en el año de inclusión.
                     El denominador es el número de pacientes que satisfacen los diversos parámetros de estratificación, 
                     y el numerador es el número de pacientes con al menos un intervención en el año que están incluidos en
@@ -766,7 +766,7 @@ class ea2_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Cálculo do indicador</h3>
                     <p style='{p_style}'>
-                    O indicador é calculado como a percentagem de pacientes que têm pelo menos um contacto ambulatório com a comunidade do tipo INTERVENÇÃO PSICOSSOCIAL (código "04")
+                    O indicador é calculado como a percentagem de pacientes que têm pelo menos um contacto ambulatório com a comunidade do tipo VISITA PSIQUIÁTRICA (código "01") <i>e<i/> SESSÃO DE PSICOTERAPIA (código "06")
                     no ano de inclusão.
                     O denominador é o número de pacientes que satisfazem os vários parâmetros de estratificação, 
                     e o numerador é o número de pacientes com pelo menos uma intervenção no ano que estão incluídos em
