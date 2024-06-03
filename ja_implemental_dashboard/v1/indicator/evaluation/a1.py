@@ -28,6 +28,7 @@ from ..widget import indicator_widgets
 from ...main_selectors.disease_text import DS_TITLE as DISEASES_LANGDICT
 from ...main_selectors.cohort_text import COHORT_NAMES
 
+
 # indicator logic
 def ea1(**kwargs):
     """
@@ -52,7 +53,7 @@ def ea1(**kwargs):
     # percentage (float): the indicator, ranage [0; 1]; 
     # distribution (list): the distribution of number of intervention per patient
     #  if the patient has at least one intervention
-    statistics_keys = ["percentage", "distribution"] 
+    statistics_keys = ["percentage", "distribution"]
     output = {k0: None for k0 in statistics_keys}
     # logic
     # - get a list of patient ids that are compatible with the stratification parameters
