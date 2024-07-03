@@ -7,6 +7,8 @@ from .database import DISEASE_CODE_TO_DB_CODE, COHORT_CODE_TO_DB_CODE, DATETIME_
 from ..indicator.logic_utilities import clean_indicator_getter_input, stratify_demographics
 
 
+import sqlite3
+
 
 # indicator logic
 def ea1(**kwargs):
@@ -72,12 +74,6 @@ def ea1(**kwargs):
         output["distribution"] = [0, 0]
     # return
     return output
-
-
-
-
-import sqlite3
-
 
 
 def stratify_demographics_mysql(demographics: pandas.DataFrame, **kwargs) -> pandas.Series:
@@ -210,7 +206,7 @@ def ea1_mysql(**kwargs):
         job_condition=job_condition,
         educational_level=educational_level
     )
-    return valid_patient_ids #############################################à
+    return valid_patient_ids ##############################################################
     if 0:
         # - stratify patients by disease: from valid_patient_ids, select only the ones that in the cohorts
         # table have at least one entry for the desired disease
@@ -239,6 +235,64 @@ def ea1_mysql(**kwargs):
             output["distribution"] = [0, 0]
         # return
         return output
+
+
+
+# Test open full database and perform an example query
+if __name__ == "__main__" and 0:
+    database_file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia\\DATABASE.db"
+    t0 = time.time()
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+    print("connection time:", time.time() - t0)
+    #
+    #
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    list_of_tables = [a[0] for a in cursor.fetchall()]
+    for table in list_of_tables:
+        cursor.execute(f"PRAGMA table_info({table});")
+        cols = cursor.fetchall()
+        print(f"Table: {table}")
+        print("  -  ", cols)
+    #
+    quit()
+
+
+
+# test patients stratification with sqlite3
+if __name__ == "__main__" and 1:
+    database_file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia\\DATABASE.db"
+    conn = sqlite3.connect(database_file)
+    #
+    from .sqlutils import stratify_demographics_sql
+    """
+    kwargs:
+    - year_of_inclusion: int
+        The year of inclusion of the patients in the cohort.
+    - age: tuple[int, int]
+        (min_age, max_age), min_age included, max_age included
+    - gender: str
+        in ["A", "A-U", "M", "F", "U"]
+    - civil status: str
+        in ["All", "All-Other", "Unmarried", "Married", "Married_no_long", "Other"]
+    - job condition: str
+        in ["All", "All-Unknown", "Employed", "Unemployed", "Pension", "Unknown"]
+    - educational level: str
+        in ["All", "All-Unknown", "0-5", "6-8", "9-13", ">=14", "Unknown"]
+    """
+    t0 = time.time()
+    table_name = stratify_demographics_sql(
+        connection=conn,
+        year_of_inclusion=2015,
+        age=(20, 80),
+        gender="A",
+        civil_status="Married",
+        job_condition="All",
+        educational_level="All"
+    )
+    t1 = time.time()
+    print(table_name)
+    print("time:", t1 - t0)
 
 
 
@@ -328,7 +382,7 @@ if __name__ == "__main__" and 0:
 
 
 # test ea1 function - new with sqlite3
-if __name__ == "__main__":
+if __name__ == "__main__" and 0:
     t0 = time.time()
     conn = sqlite3.connect('EXAMPLE.db')
     cursor = conn.cursor()

@@ -166,3 +166,7 @@ cython_debug/
 
 # Databases
 *.sas7bdat
+*.sqlite
+*.sqlite3
+*.sqlitedb
+*.db
