@@ -24,7 +24,7 @@ import bokeh.plotting
 
 from ...database.database import DISEASE_CODE_TO_DB_CODE
 from ..logic_utilities import clean_indicator_getter_input, stratify_demographics
-from ..widget import indicator_widgets
+from ..widget import indicator_widget
 from ...main_selectors.disease_text import DS_TITLE as DISEASES_LANGDICT
 
 
@@ -269,7 +269,7 @@ class mb2_tab0(object):
     def __init__(self, dict_of_tables: dict):
         self._language_code = "en"
         self._dict_of_tables = dict_of_tables
-        self.widgets_instance = indicator_widgets(
+        self.widgets_instance = indicator_widget(
              language_code=self._language_code,
         )
         # pane row
@@ -413,7 +413,7 @@ class mb2_tab1(object):
     def __init__(self, dict_of_tables: dict):
         self._language_code = "en"
         self._dict_of_tables = dict_of_tables
-        self.widgets_instance = indicator_widgets(
+        self.widgets_instance = indicator_widget(
              language_code=self._language_code,
         )
         # pane row
@@ -621,7 +621,7 @@ class mb2_tab2(object):
     def __init__(self, dict_of_tables: dict):
         self._language_code = "en"
         self._dict_of_tables = dict_of_tables
-        self.widgets_instance = indicator_widgets(
+        self.widgets_instance = indicator_widget(
              language_code=self._language_code,
         )
         # pane row

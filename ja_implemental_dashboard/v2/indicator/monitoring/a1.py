@@ -1,5 +1,6 @@
 import numpy
 import pandas
+import param
 import panel
 from ..._panel_settings import PANEL_EXTENSION, PANEL_TEMPLATE, PANEL_SIZING_MODE
 panel.extension(
@@ -9,10 +10,11 @@ panel.extension(
 )
 import bokeh.models
 import bokeh.plotting
+import holoviews ################################################
 
 from ...database.database import DISEASE_CODE_TO_DB_CODE
 from ..logic_utilities import clean_indicator_getter_input, stratify_demographics
-from ..widget import indicator_widgets
+from ..widget import indicator_widget
 from ...main_selectors.disease_text import DS_TITLE as DISEASES_LANGDICT
 
 # indicator logic
@@ -122,11 +124,13 @@ ma1_tab_names_langdict: dict[str: list[str]] = {
 }
 
 class ma1_tab0(object):
+
     def __init__(self, dict_of_tables: dict):
         self._language_code = "en"
         self._dict_of_tables = dict_of_tables
-        self.widgets_instance = indicator_widgets(
-             language_code=self._language_code,
+        # widgets
+        self.widgets_instance = indicator_widget(
+            language_code=self._language_code
         )
         # pane row
         self._pane_styles = {
@@ -135,13 +139,38 @@ class ma1_tab0(object):
 
     def get_plot(self, **kwargs):
         # inputs
-        language_code = kwargs.get("language_code", "en")
+        language_code = kwargs.get("language_code", self._language_code)
         disease_code = kwargs.get("disease_code", None)
-        age = self.widgets_instance.widget_age_instance.value
-        gender = kwargs.get("gender", None)
-        civil_status = kwargs.get("civil_status", None)
-        job_condition = kwargs.get("job_condition", None)
-        educational_level = kwargs.get("educational_level", None)
+        age_interval = self.widgets_instance.value["age"]            #########################################################
+        ##########################################################################################################################
+        ##########################################################################################################################
+        ##########################################################################################################################
+        ##########################################################################################################################
+        ##########################################################################################################################
+        ##########################################################################################################################
+        min_age = min(
+            [
+                self.widgets_instance.widget_age_instance.age_ranges_to_tuple_dict[a][0]
+                for a in age_interval
+            ]
+        )
+        max_age = max(
+            [
+                self.widgets_instance.widget_age_instance.age_ranges_to_tuple_dict[a][1]
+                for a in age_interval
+            ]
+        )
+        age = (min_age, max_age)
+        ##########################################################################################################################
+        ##########################################################################################################################
+        ##########################################################################################################################
+        ##########################################################################################################################
+        ##########################################################################################################################
+        ##########################################################################################################################
+        gender = self.widgets_instance.value["gender"]
+        civil_status = self.widgets_instance.value["civil_status"]
+        job_condition = self.widgets_instance.value["job_condition"]
+        educational_level = self.widgets_instance.value["educational_level"]
         # logic
         years_to_evaluate = self._dict_of_tables["cohorts"]["YEAR_ENTRY"].unique().tolist()
         years_to_evaluate.sort()
@@ -169,9 +198,10 @@ class ma1_tab0(object):
                 (_number_of_patients_langdict[language_code], "@y")
             ]
         )
+        plt_height = 350
         plot = bokeh.plotting.figure(
             sizing_mode="stretch_width",
-            height=350,
+            height=plt_height,
             title=ma1_code + " - " + ma1_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code],
             x_axis_label=_year_langdict[language_code],
             x_range=(years_to_evaluate[0]-0.5, years_to_evaluate[-1]+0.5),
@@ -182,6 +212,17 @@ class ma1_tab0(object):
         )
         plot.xaxis.ticker = numpy.sort(years_to_evaluate)
         plot.xgrid.grid_line_color = None
+        # # basic: there are always four transparent points
+        # # at the back of the plot to make the plot not collapse
+        # # when the widget changes many times
+        # plot.circle(
+        #     x=[min(years_to_evaluate)-1, max(years_to_evaluate)+1],
+        #     y=[min(ma1_all)-1, max(ma1_all)+1],
+        #     fill_color="#ffffff00",
+        #     line_width=0,
+        #     size=0.001
+        # )
+        # plot of data
         plot.line(
             years_to_evaluate, ma1_all,
             legend_label=DISEASES_LANGDICT[language_code]["_all_"],
@@ -212,7 +253,7 @@ class ma1_tab0(object):
         plot.legend.click_policy = "hide"
         plot.toolbar.autohide = True
         plot.toolbar.logo = None
-        out = panel.pane.Bokeh(plot)
+        out = panel.pane.Bokeh(plot, height=plt_height) # setting the height here solves the bug after first time it happens!!
         return out
     
 
@@ -226,14 +267,7 @@ class ma1_tab0(object):
                 self.get_plot, 
                 language_code=language_code, 
                 disease_code=disease_code,
-                age_temp_1=self.widgets_instance.widget_age_instance.widget_age_all,
-                age_temp_2=self.widgets_instance.widget_age_instance.widget_age_lower,
-                age_temp_3=self.widgets_instance.widget_age_instance.widget_age_upper,
-                age_temp_4=self.widgets_instance.widget_age_instance.widget_age_value,
-                gender=self.widgets_instance.widget_gender,
-                civil_status=self.widgets_instance.widget_civil_status,
-                job_condition=self.widgets_instance.widget_job_condition,
-                educational_level=self.widgets_instance.widget_educational_level
+                indicator_widget_value=self.widgets_instance.param.value,
             ),
             self.widgets_instance.get_panel(language_code=language_code),
             styles=self._pane_styles,
@@ -446,6 +480,7 @@ if __name__ == "__main__":
     )
     app = tab.get_panel(language_code="it", disease_code="_depression_")
     app.show()
+    quit()
 
 
     tab = ma1_tab1()

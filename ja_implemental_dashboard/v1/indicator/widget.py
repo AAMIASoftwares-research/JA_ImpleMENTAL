@@ -602,6 +602,7 @@ if __name__ == "__main__":
     import bokeh.plotting
     import numpy
     plot = bokeh.plotting.figure()
+    plot.title.text = "Event: None"
     data_x = numpy.random.randint(3, 97, (1000))
     data_y = numpy.random.randn(1000)+5
     circ = plot.circle(data_x, data_y, size=5, color="blue")
@@ -619,6 +620,7 @@ if __name__ == "__main__":
                     selected_data_y.append(data_y[i])
                     break
         circ.data_source.data = {"x": selected_data_x, "y": selected_data_y}
+        plot.title.text = f"Event: {event}"
     
     widgets_2_instance.widget_age_instance.param.watch(age_widget_2_plot_callback, "value", precedence=100)
     ###    THIS WORKS! I MADE THE WIDDGET CONTAINER WITH THE SAME FUNCTIONALITY OF THE WIDGETS!!!
