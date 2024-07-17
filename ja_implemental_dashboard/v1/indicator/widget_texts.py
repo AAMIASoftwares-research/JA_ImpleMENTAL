@@ -13,7 +13,7 @@ WIDGET_AGE_NAME_LANGDICT = {
 
 WIDGET_AGE_ALL_AGES_TITLE = {
     "en": "All",
-    "it": "Tutte le età",
+    "it": "Tutti",
     "fr": "Tous",
     "de": "Alle",
     "es": "Todos",

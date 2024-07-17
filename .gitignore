@@ -170,3 +170,5 @@ cython_debug/
 *.sqlite3
 *.sqlitedb
 *.db
+*.sl3
+*.csv

@@ -43,11 +43,14 @@ def convert_sas_datasets_to_sqlite3_db(files_folder: str, file_name_to_table_nam
             file_name_to_table_name_dict[k] = f_without_ext + sas_file_ext
     # load the tables with pandas in chunks
     for table_name, file_name in file_name_to_table_name_dict.items():
+        if "cohort" in table_name.lower():
+            continue
         # keys are the new tables names, values the files names
         f = os.path.join(files_folder, file_name)
         if not os.path.exists(f):
             raise FileNotFoundError(f"{f}")
-        with pandas.read_sas(f, chunksize=20000) as reader:
+        print("Reading file: ", os.path.basename(f))
+        with pandas.read_sas(f, chunksize=10000) as reader:
             for ic, chunk in enumerate(reader):
                 print("Table:", table_name, "chunk", ic, "  |  DB size:", os.path.getsize(output_db_file) / 1024 / 1024, "MB               ", end="\r")
                 # append the chunk to the table
@@ -237,4 +240,72 @@ def stratify_demographics_sql(connection: sqlite3.Connection, **kwargs) -> panda
 # to finish
 
 
+def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclusions_list: list[int]|None=None, age_stratifications: list[tuple]|None=None, command: str="create"):
+    """ Update the age stratification tables to speed up the process of stratifying by age, which is a current bottleneck.
+    Age of patients is computed with respect to the year of inclusion.
+    The created tables only contain the ID_SUBJECT of the patients that are in the age range.
+    The tables are created if they do not exist, otherwise they are replaced.
+
+    Inputs:
+    - connection: sqlite3.Connection
+        The connection to the database.
+        The database must have the following tables:
+            demographics
+            diagnoses
+            interventions
+            pharma
+            physical_exams
+    - year_of_inclusions_list: list[int]
+        The list of years of inclusion for the cohorts.
+    - stratifications: list[tuple]
+        The list of tuples with the stratification parameters.
+        Each tuple has the following structure:
+        (min_age_included, max_age_included)
+    - command: str
+        The command to execute. Can be "create" or "drop".
+        If "create", the tables are created and overwritten if they exist.
+        If "drop", the tables are dropped if they exist and are not created anew.
+    """
+    # check if the database has the necessary tables
+    has_tables, missing_tables = check_database_has_tables(connection)
+    if not has_tables:
+        raise ValueError(f"The database is missing the following tables: {missing_tables}")
+    # check input
+    if age_stratifications is None:
+        age_stratifications = [(0, 14), (15-18), (19-25), (26-40), (41-55), (56-65), (65, 150)]
+    if year_of_inclusions_list is None:
+        year_of_inclusions_list = [int(time.localtime().tm_year)]
+    else:
+        year_of_inclusions_list = [int(y) for y in year_of_inclusions_list]
+    if command not in ["create", "drop"]:
+        raise ValueError("command must be 'create' or 'drop'")
+    # logic
+    cursor = connection.cursor()
+    # drop the tables if they exist
+    all_tables = [a for a in cursor.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
+    for t in all_tables:
+        if t[0].startswith("demographics_"):
+            cursor.execute(f"DROP TABLE IF EXISTS {t[0]};")
+            connection.commit()
+    if command == "drop":
+        cursor.close()
+        return
+    # create the tables:
+    # for each patient in the demographics table, check if the patient is in the age range
+    # for the different years of inclusion
+    # naming convention example: demographics_2018_26_40
+    for year_of_inclusion in year_of_inclusions_list:
+        for age_stratification in age_stratifications:
+            table_name = f"demographics_{int(year_of_inclusion)}_{int(age_stratification[0])}_{int(age_stratification[1])}"
+            # create the table
+            query = f"""
+                CREATE TABLE {table_name} AS
+                    SELECT DISTINCT ID_SUBJECT FROM demographics
+                    WHERE (strftime('%Y', DT_BIRTH) <= {year_of_inclusion - age_stratification[0]} AND strftime('%Y', DT_BIRTH) >= {year_of_inclusion - age_stratification[1]})
+                    AND (strftime('%Y', DT_DEATH) > {year_of_inclusion} OR DT_DEATH IS NULL);
+            """
+            cursor.execute(query)
+            connection.commit()
+    # close the connection
+    cursor.close()
 

@@ -258,15 +258,36 @@ if __name__ == "__main__" and 0:
     quit()
 
 
+# load the tables in the mysql database (create the tables if they do not exist)
+if __name__ == "__main__" and 0:
+    # - connect to the database to load all example tables in it
+    from .database import FILES_FOLDER, DATABASE_FILENAMES_DICT
+    from .sqlutils import convert_sas_datasets_to_sqlite3_db
 
-# test patients stratification with sqlite3
+    # use full database
+    for k, v in DATABASE_FILENAMES_DICT.items():
+        DATABASE_FILENAMES_DICT[k] = v.replace("_restr", "")
+    FILES_FOLDER = FILES_FOLDER.replace(" restricted", "")
+
+    database_file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia\\DATABASE.db"
+    convert_sas_datasets_to_sqlite3_db(
+        files_folder=FILES_FOLDER,
+        file_name_to_table_name_dict=DATABASE_FILENAMES_DICT,
+        output_db_file=database_file
+    )
+    #
+    quit()
+
+
+# test patients stratification with sqlite3     ###############################################    to test
 if __name__ == "__main__" and 1:
     database_file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia\\DATABASE.db"
     conn = sqlite3.connect(database_file)
     #
     from .sqlutils import stratify_demographics_sql
     """
-    kwargs:
+    Stratification parameters:
+
     - year_of_inclusion: int
         The year of inclusion of the patients in the cohort.
     - age: tuple[int, int]
@@ -293,32 +314,68 @@ if __name__ == "__main__" and 1:
     t1 = time.time()
     print(table_name)
     print("time:", t1 - t0)
-
-
-
-
-
-
-if __name__ == "__main__" and 0:
-    # load the tables in the mysql database (create the tables if they do not exist)
-    # - connect to the database to load all example tables in it
-    from .database import FILES_FOLDER
-    conn = sqlite3.connect('EXAMPLE.db')
-    cursor = conn.cursor()
-    # import file names with .csv extension
-    files = os.listdir(FILES_FOLDER)
-    files = [f0 for f0 in files if f0.endswith(".csv")]
-    # load csv data in the database in a tables with the same name as the file
-    for f0 in files:
-        table_name = f0.replace(".csv", "")
-        df = pandas.read_csv(os.path.join(FILES_FOLDER, f0))
-        df.to_sql(table_name, conn, if_exists='replace', index=False)
-    # - close the connection
-    conn.commit()
-    conn.close()
     #
-    quit()
+    # create the demographics age stratification table
+    from .sqlutils import make_age_startification_tables
+    
+    t0 = time.time()
+    make_age_startification_tables(
+        connection=conn,
+        year_of_inclusions_list=[2014, 2015, 2016, 2017, 2018, 2019, 2020],
+        age_stratifications=[(20, 80), (20, 60), (60, 80)],
+        command="create"
+    )
+    print("time:", time.time() - t0)
+    print([a[0] for a in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()])
+    make_age_startification_tables(connection=conn, command="drop")
+    
+    conn.close(); quit()########################################
 
+
+# make an example database to send to the Slovenian team
+if __name__ == "__main__" and 0:
+    # open the database
+    database_file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia\\DATABASE.db"
+    conn = sqlite3.connect(database_file)
+    cursor = conn.cursor()
+    # create a new database, which contains the first 10% of each table in the original database
+    new_database_file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia\\JA_database_example_Slovenia.sl3"
+    if not os.path.exists(new_database_file):
+        new_conn = sqlite3.connect(new_database_file)
+        new_cursor = new_conn.cursor()
+        # get the list of tables
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        list_of_tables = [a[0] for a in cursor.fetchall()]
+        # create the new tables
+        for table in list_of_tables:
+            # get the first 100 rows of the table
+            query = f"SELECT * FROM {table} LIMIT 100;"
+            df = pandas.read_sql_query(query, conn)
+            # change ID_SUBJECT in all tables to be a random combination of number and string (long at max 8 characters)
+            # example: 46g78f4e, 8j4dd43, lllkj908
+            # set ID_SUBJECT to be a random combination of lowercase, uppercase and numbers (max lenght of 12, min of 1)
+            df["ID_SUBJECT"] = [
+                "".join(numpy.random.choice(list("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"), size=numpy.random.randint(1, 13)))
+                for _ in range(df.shape[0])
+            ]
+            # save the table
+            df.to_sql(table, new_conn, if_exists='replace', index=False)
+        # close the connections
+        conn.close()
+    # print all tables in the new database (with table name, columns and first 5 rows)
+    new_cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    list_of_tables = [a[0] for a in new_cursor.fetchall()]
+    for table in list_of_tables:
+        new_cursor.execute(f"PRAGMA table_info({table});")
+        cols = [a[1] for a in new_cursor.fetchall()]
+        print(f"Table: {table}")
+        print("  -  ", cols)
+        new_cursor.execute(f"SELECT * FROM {table} LIMIT 5;")
+        rows = new_cursor.fetchall()
+        for row in rows:
+            print("     ", list(row))
+    # close the connection
+    new_conn.close()
 
 
 
