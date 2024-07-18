@@ -43,12 +43,13 @@ class age_widget(param.Parameterized):
                 font-size: 8pt;
                 font-weight: 600;
                 padding: 4px 6px 4px 6px;
+                transition: background-color 0.4s, color 0.4s;
             }
             :host(.solid) .bk-btn-group .bk-btn.bk-btn-default.bk-active {
                 background-color: #3e7d98;
                 color: white;
                 box-shadow: none;
-                transition: background-color 0.5s, color 0.5s;
+                transition: background-color 0.4s, color 0.4s;
             }
         """
         # widgets
@@ -72,16 +73,16 @@ class age_widget(param.Parameterized):
         )
         # widget value
         self.value = self.panel_widget.value
-        self.panel_widget.param.watch(self._update_age_intervals, "value")
-        self._time_buffer = 0
+        self._panel_widget_selfwatcher = self.panel_widget.param.watch(self._update_age_intervals, "value")
 
     def _update_age_intervals(self, event):
-        if time.time() - self._time_buffer < 0.3:
-            return
-        self._time_buffer = time.time()
+        # first, unwatch the value to avoid infinite loops or many triggers
+        self.panel_widget.param.unwatch(watcher=self._panel_widget_selfwatcher)
+        # logic
         if self.values[0] in event.new and not (self.values[0] in event.old):
             # pressed the all button
             self.value = [self.values[0]]
+            # if i update the value like this, the internal watcher will trigger
             self.panel_widget.value = [self.values[0]]
         elif self.values[0] in event.new and self.values[0] in self.panel_widget.value:
             # pressed the all button again, but it was already on all, so i turn off all and
@@ -92,11 +93,13 @@ class age_widget(param.Parameterized):
             # all ages selected -> turn on all and off everything else
             self.value = [self.values[0]]
             self.panel_widget.value = [self.values[0]]
-        elif len(event.new) != 0: 
+        elif len(event.new) != 0:
             self.value = event.new
         else:
             self.value = [self.values[0]]
             self.panel_widget.value = [self.values[0]]
+        # ok done, reset the watcher
+        self._panel_widget_selfwatcher = self.panel_widget.param.watch(self._update_age_intervals, "value")
     
     def update_language(self, language_code: str) -> None:
         if language_code not in WIDGET_AGE_ALL_AGES_TITLE.keys():
@@ -203,6 +206,7 @@ class indicator_widget(param.Parameterized):
         # since value is a parameter, changing it in any way will trigger the watcher
         self.value = {
             "age": self.widget_age_instance.value,
+            "age_default": [self.widget_age_instance.values[0]],
             "gender": self.widget_gender.value,
             "civil_status": self.widget_civil_status.value,
             "educational_level": self.widget_educational_level.value,

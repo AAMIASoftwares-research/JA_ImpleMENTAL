@@ -1,5 +1,6 @@
 import numpy
 import pandas
+import sqlite3
 import param
 import panel
 from ..._panel_settings import PANEL_EXTENSION, PANEL_TEMPLATE, PANEL_SIZING_MODE
@@ -13,7 +14,8 @@ import bokeh.plotting
 import holoviews ################################################
 
 from ...database.database import DISEASE_CODE_TO_DB_CODE
-from ..logic_utilities import clean_indicator_getter_input, stratify_demographics
+from ...database.database import stratify_demographics, check_database_has_tables
+from ..logic_utilities import clean_indicator_getter_input
 from ..widget import indicator_widget
 from ...main_selectors.disease_text import DS_TITLE as DISEASES_LANGDICT
 
@@ -23,7 +25,7 @@ def ma1(**kwargs):
     """
     # inputs
     kwargs = clean_indicator_getter_input(**kwargs)
-    tables = kwargs.get("dict_of_tables", None)
+    connection: sqlite3.Connection = kwargs.get("connection", None)
     disease_db_code = kwargs.get("disease_db_code", None)
     year_of_inclusion = kwargs.get("year_of_inclusion", None)
     age = kwargs.get("age", None)
@@ -37,9 +39,9 @@ def ma1(**kwargs):
         "selected": None # patients with the selected disease
     }
     # logic
-    # - first find stratified demographics
-    stratified_demographics_patient_ids = stratify_demographics(
-        tables["demographics"],
+    # - first find stratified demographics (delete the table before return)
+    stratified_demographics_table_name = stratify_demographics(
+        connection=connection,
         year_of_inclusion=year_of_inclusion,
         age=age,
         gender=gender,
@@ -47,6 +49,38 @@ def ma1(**kwargs):
         job_condition=job_condition,
         educational_level=educational_level
     )
+    # open a cursor (close it before return)
+    cursor = connection.cursor()
+    #######
+    #######
+    #######    Untill i make the final COHORTS table, I cannot use this function
+    #######
+    ####### just for testing, get some numbers out
+    # count all th eunique ID_SUBJECTS in the stratified demographics table
+    cursor.execute(f"SELECT ID_SUBJECT FROM {stratified_demographics_table_name}")
+    res = cursor.fetchall()
+    stratified_demographics_patient_ids = [r[0] for r in res]
+    print("MA1::\nstratified_demographics_patient_ids")
+    print(len(stratified_demographics_patient_ids))
+    print(stratified_demographics_patient_ids)
+    cursor.execute(f"SELECT COUNT(DISTINCT ID_SUBJECT) FROM {stratified_demographics_table_name}")
+    all_ = int(cursor.fetchone()[0])
+    selected_ = int(all_*0.4*numpy.random.random())
+    ma1["all"] = all_
+    ma1["selected"] = selected_
+    # delete the table of stratified demograpohics
+    cursor.execute(f"DROP TABLE IF EXISTS {stratified_demographics_table_name}")
+    # commit the changes
+    connection.commit()
+    # close the cursor
+    cursor.close()
+    # return
+    return ma1
+
+
+
+
+    # THE FOLLOWING IS GOOD IN PANDAS, ABOVE I WANT TO TRANSLATE IT TO SQL
     # - from the cohort table, find the PREVALENT cohort with YEAR_ENTRY equal to year_of_inclusion
     condition = pandas.Series(numpy.repeat(True, tables["cohorts"].shape[0]))
     condition = condition & (tables["cohorts"]["ID_SUBJECT"].isin(stratified_demographics_patient_ids))
@@ -125,9 +159,9 @@ ma1_tab_names_langdict: dict[str: list[str]] = {
 
 class ma1_tab0(object):
 
-    def __init__(self, dict_of_tables: dict):
+    def __init__(self, db_conn: sqlite3.Connection):
         self._language_code = "en"
-        self._dict_of_tables = dict_of_tables
+        self._db_conn = db_conn
         # widgets
         self.widgets_instance = indicator_widget(
             language_code=self._language_code
@@ -141,47 +175,26 @@ class ma1_tab0(object):
         # inputs
         language_code = kwargs.get("language_code", self._language_code)
         disease_code = kwargs.get("disease_code", None)
-        age_interval = self.widgets_instance.value["age"]            #########################################################
-        ##########################################################################################################################
-        ##########################################################################################################################
-        ##########################################################################################################################
-        ##########################################################################################################################
-        ##########################################################################################################################
-        ##########################################################################################################################
-        min_age = min(
-            [
-                self.widgets_instance.widget_age_instance.age_ranges_to_tuple_dict[a][0]
-                for a in age_interval
-            ]
-        )
-        max_age = max(
-            [
-                self.widgets_instance.widget_age_instance.age_ranges_to_tuple_dict[a][1]
-                for a in age_interval
-            ]
-        )
-        age = (min_age, max_age)
-        ##########################################################################################################################
-        ##########################################################################################################################
-        ##########################################################################################################################
-        ##########################################################################################################################
-        ##########################################################################################################################
-        ##########################################################################################################################
+        age_interval = self.widgets_instance.value["age"]
         gender = self.widgets_instance.value["gender"]
         civil_status = self.widgets_instance.value["civil_status"]
         job_condition = self.widgets_instance.value["job_condition"]
         educational_level = self.widgets_instance.value["educational_level"]
         # logic
-        years_to_evaluate = self._dict_of_tables["cohorts"]["YEAR_ENTRY"].unique().tolist()
-        years_to_evaluate.sort()
+        # get the years of inclusion
+        cursor = self._db_conn.cursor()
+        ######    real logic here. for now_lets just use 5 example years
+        years_to_evaluate = [2018, 2019, 2020, 2021]
+        # get the indicator values (y-axis) for the years of inclusion (x-axis on the plot)
         ma1_all = []
         ma1_selected = []
         for year in years_to_evaluate:
             ma1_ = ma1(
-                dict_of_tables=self._dict_of_tables,
+                connection=self._db_conn,
+                cohorts_required=False, ##### only for debugging
                 disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
                 year_of_inclusion=year,
-                age=age,
+                age=age_interval,
                 gender=gender,
                 civil_status=civil_status,
                 job_condition=job_condition,
@@ -189,6 +202,8 @@ class ma1_tab0(object):
             )
             ma1_all.append(ma1_["all"])
             ma1_selected.append(ma1_["selected"])
+        # close cursor
+        cursor.close()
         # plot - use bokeh because it allows independent zooming
         _y_max_plot = max(max(ma1_all), max(ma1_selected))
         _y_max_plot *= 1.15
@@ -457,26 +472,10 @@ class ma1_tab1(object):
 if __name__ == "__main__":
 
 
-    from ...database.database import FILES_FOLDER, DATABASE_FILENAMES_DICT, read_databases, preprocess_demographics_database, preprocess_interventions_database, preprocess_cohorts_database
-
-    db = read_databases(DATABASE_FILENAMES_DICT, FILES_FOLDER)
-    db["demographics"] = preprocess_demographics_database(db["demographics"])
-    db["interventions"] = preprocess_interventions_database(db["interventions"])
-    db["cohorts"] = preprocess_cohorts_database(db["cohorts"])
-
-    cohorts_rand = db["cohorts"].copy(deep=True)
-    cohorts_rand["YEAR_ENTRY"] = pandas.Series(numpy.random.randint(2013, 2016, cohorts_rand.shape[0]), index=cohorts_rand.index)
-    database_dict = {
-        "demographics": db["demographics"],
-        "diagnoses": db["diagnoses"],
-        "pharma": db["pharma"],
-        "interventions": db["interventions"],
-        "physical_exams": db["physical_exams"],
-        "cohorts": cohorts_rand
-    }
+    from ...database.database import DB
 
     tab = ma1_tab0(
-        dict_of_tables= database_dict  # db
+        db_conn=DB
     )
     app = tab.get_panel(language_code="it", disease_code="_depression_")
     app.show()

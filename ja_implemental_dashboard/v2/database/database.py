@@ -1,16 +1,16 @@
-import os
+import os, time, datetime
 import pandas
 import bokeh.palettes
+import sqlite3
 
-FILES_FOLDER = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia restricted\\"
+DATABASE_FILE = os.path.normpath(
+    "C:/Users/lecca/Desktop/AAMIASoftwares-research/JA_ImpleMENTAL/ExampleData/Dati QUADIM - Standardizzati - Sicilia/DATABASE.db"
+)
 
-DEMOGRAPHICS_DB_FILENAME = "demographics_restr.sas7bdat"
-DIAGNOSES_DB_FILENAME = "diagnoses_restr.sas7bdat"
-INTERVENTIONS_DB_FILENAME = "interventions_restr.sas7bdat"
-PHARMA_DB_FILENAME = "pharma_restr.sas7bdat"
-PHYSICAL_EXAMS_DB_FILENAME = "physical_exams_restr.sas7bdat"
 
-COHORST_DB_FILENAME = "cohorts.sas7bdat"
+
+
+
 
 
 ############
@@ -544,198 +544,403 @@ INTERVENTIONS_CODES_COLOR_DICT = {
 }
 
 
-#################################
-# READ SAS DATABASES WITH PANDAS
-#################################
-
-DATABASE_FILENAMES_DICT = {
-    "demographics": DEMOGRAPHICS_DB_FILENAME,
-    "diagnoses": DIAGNOSES_DB_FILENAME,
-    "interventions": INTERVENTIONS_DB_FILENAME,
-    "pharma": PHARMA_DB_FILENAME,
-    "physical_exams": PHYSICAL_EXAMS_DB_FILENAME,
-    "cohorts": COHORST_DB_FILENAME,
-}
-
-
-def read_databases(databases_dict: dict[str: str], files_folder):
-    """ Read databases from files and return a dictionary with the dataframes in this format:
-    {
-        "demographics": dataframe,
-        "diagnoses": dataframe,
-        "interventions": dataframe,
-        "pharma": dataframe,
-        "physical_exams": dataframe,
-        "cohorts": dataframe,
-    }
-
-    Args:
-        databases_dict (dict[str: str]): A dictionary with the database names as keys and the filenames as values
-        files_folder (str): The folder where the files are stored
-    """
-    allowed_keys = ["demographics", "diagnoses", "interventions", "pharma", "physical_exams", "cohorts"]
-    for k in databases_dict.keys():
-        if k not in allowed_keys:
-            raise ValueError(f"Key {k} of input dict is not allowed. Allowed keys are {allowed_keys}")
-    input_keys_list = list(databases_dict.keys())
-    for k in allowed_keys[:-1]:
-        # cohorts is not strictly required
-        if k not in input_keys_list:
-            raise ValueError(f"Key {k} of input dict is missing. Required keys are {allowed_keys[:-1]}")
-    db = {}
-    for dbkey, f in databases_dict.items():
-        file_path = os.path.normpath(FILES_FOLDER + f)
-        file_path = file_path.replace("\\", "/").replace("//", "/")
-        file_path = os.path.normpath(file_path)
-        # Read and parse file content
-        df = pandas.read_sas(file_path)
-        db[dbkey] = df
-    return db
-
-
-########################
-# REDUCE DATABASES SIZE
-# - Since databases are quite huge, it would be stupid to compute the indicators on the whole database
-# - We need to reduce the size of the databases by selecting only the rows that are compatible with the
-# - problem at hand
-########################
-
-# to do
-
-
 ##################
-# CLEAN DATABASES
+# DATABASE OBJECT
 ##################
 
-class DropNa:
-    """Class that is just used as a flag to drop NA values from the dataframes"""
-    def __init__(self):
-        pass
+DB = sqlite3.connect(DATABASE_FILE)
 
-DATETIME_NAN = pandas.to_datetime("1800-01-01")
 
-def clean_alphanumeric(x: pandas.DataFrame | pandas.Series, fillnan=None) -> pandas.DataFrame | pandas.Series:
+##############
+# UTILITIES
+##############
+
+### NOTE:
+### SQLite stores temporary tables in a separate temp database. 
+### It keeps that database in a separate file on disk, visible only to 
+### the current database connection.
+### The temporary database is deleted automatically as soon as the
+### connection is closed.
+### ->
+### Good to store temporary query tables, and also age stratisfied tables
+
+def check_database_has_tables(connection: sqlite3.Connection, cohorts_required:bool=False) -> tuple[bool, list[str]]:
+    """ Check if the database has the necessary tables.
+    connection: sqlite3.Connection
+        The connection to the database.
+    cohorts_required: bool
+        If True, the 'cohorts' table is required.
+
+    Returns a tuple with two elements:
+    - bool: True if the database has the necessary tables, False otherwise.
+    - list[str]: the list of tables that are missing in the database (if True, empty list).
     """
-    x must be a pandas DataFrame or a pandas Series
-    Alphanumeric
-    if fillnan == DropNa class then drop the rows with NaN values
+    # required tables
+    required_tables = ["demographics", "diagnoses", "interventions", "pharma", "physical_exams"]
+    if cohorts_required:
+        required_tables.append("cohorts")
+    # logic
+    cursor = connection.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    tables = [c[0] for c in cursor.fetchall()]
+    missing_tables = [t for t in required_tables if t not in tables]
+    cursor.close()  # close the cursor
+    return len(missing_tables) == 0, missing_tables
+
+#### incomplete
+def add_cohorts_table(connection: sqlite3.Connection):
+    """ Create the temporary cohorts table in the database.
+    The table is created if it does not exist. If it does, it is replaced.
+    connection: sqlite3.Connection
+        The connection to the database.
+        The database must have the following tables:
+            demographics
+            diagnoses
+            interventions
+            pharma
+            physical_exams
     """
-    x_new = pandas.DataFrame(x)
-    if fillnan is not None:
-        if fillnan == DropNa:
-            x_new.dropna(inplace=True)
-        else:
-            x_new.fillna(fillnan, inplace=True)
-    x_new = (
-        x_new
-        .astype(str)                # from bytes to python strings
-        .map(lambda x: x.strip())   # remove leading and trailing empty spaces
+    # check if the database has the necessary tables
+    has_tables, missing_tables = check_database_has_tables(connection)
+    if not has_tables:
+        raise ValueError(f"The database is missing the following tables: {missing_tables}")
+    # logic
+    cursor = connection.cursor()
+    # drop cohorts table if it exists
+    cursor.execute("DROP TABLE IF EXISTS cohorts;")
+    connection.commit()
+    # create the cohorts table
+    # the table has the following columns:
+    # - ID_SUBJECT: alphanumeric (could be non-unique in the table)
+    # - YEAR_ENTRY: integer
+    # - AGE_ENTRY: integer
+    # - ID_COHORT: string
+    # - ID_DISORDER: string
+    query = """
+        CREATE TEMPORARY TABLE cohorts (
+            ID_SUBJECT TEXT,
+            YEAR_ENTRY INTEGER,
+            AGE_ENTRY INTEGER,
+            ID_COHORT TEXT,
+            ID_DISORDER TEXT
+        );
+    """
+    cursor.execute(query)
+    connection.commit()
+    # fill the table with the data
+    ##################################################################################################################################
+
+
+#### THEN GO BACK AND FIX MA1 AND TAB0 (GET_PLOT)
+#### THEN TRY TO RUN THE DASHBOARD
+#### IF IT WORKS, CORRECT EVERYTHING AND
+#### DE COMMENT IN THE DISPATCHER THE COMMENTED INDICATORS
+
+
+####
+from ..indicator.widget import AGE_WIDGET_INTERVALS
+
+
+def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclusions_list: list[int]|None=None, age_stratifications: dict[str:tuple]|None=None, command: str="create"):
+    """ Update the age stratification tables to speed up the process of stratifying by age.
+        Age of patients is computed with respect to the year of inclusion.
+        The created tables only contain the ID_SUBJECT of the patients that are in the age range.
+        The tables are created if they do not exist, otherwise they are replaced.
+        Tables are temporary, meaning they are deleted when the connection to the database is closed.
+
+        Inputs:
+        - connection: sqlite3.Connection
+            The connection to the database.
+            The database must have the following tables:
+                demographics
+                diagnoses
+                interventions
+                pharma
+                physical_exams
+        - year_of_inclusions_list: list[int]
+            The list of years of inclusion for the cohorts.
+        - age_stratifications: list[tuple[int, int]]
+            A dict of str:tuple[int, int] where the key is the name of the table and the tuple is the age range.
+            The new tables will be called "demographics_<yoi>_<str>", where <yoi> is the year of inclusion (int) and <str> is the key.
+            Each tuple has the following structure:
+            (min_age_included, max_age_included)
+        - command: str
+            The command to execute. Can be "create" or "drop".
+            If "create", the tables are created and overwritten if they exist.
+            If "drop", the tables are dropped if they exist and are not created anew.
+    """
+    # check if the database has the necessary tables
+    has_tables, missing_tables = check_database_has_tables(connection)
+    if not has_tables:
+        raise ValueError(f"The database is missing the following tables: {missing_tables}")
+    # check input
+    if age_stratifications is None:
+        print("\t*** - WARNING - ***\nFunction make_age_startification_tables: age_stratifications is None, using default values.")
+        print("\tThis should be done only fo rdebugging purposes.")
+        print("if this is production use, provide the age_stratifications parameter.")
+        age_stratifications = {
+            "All": (1,150),
+            "18-": (1, 18),
+            "18-65": (18, 65),
+            "65+": (65, 150)
+        }
+    if year_of_inclusions_list is None:
+        year_of_inclusions_list = [int(time.localtime().tm_year)]
+    else:
+        year_of_inclusions_list = [int(y) for y in year_of_inclusions_list]
+        lcy_ = int(time.localtime().tm_year)
+        for y in year_of_inclusions_list:
+            if y > lcy_:
+                raise ValueError(f"year_of_inclusions_list must be in the past, {y} is in the future.")
+    if command not in ["create", "drop"]:
+        raise ValueError("command must be 'create' or 'drop'")
+    # logic
+    cursor = connection.cursor()
+    # drop the tables if they exist
+    all_tables = [a for a in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+    for t in all_tables:
+        if t[0].startswith("demographics_"):
+            cursor.execute(f"DROP TABLE IF EXISTS '{t[0]}'")
+    connection.commit()
+    if command == "drop":
+        cursor.close()
+        return
+    # create the tables:
+    # for each patient in the demographics table, check if the patient is in the age range
+    # for the different years of inclusion
+    # naming convention example: demographics_2018_26_40
+    for year_of_inclusion in year_of_inclusions_list:
+        for age_name, age_tuple in age_stratifications.items():
+            table_name = f"demographics_{int(year_of_inclusion)}_{age_name}"
+            #                                                                                 # if ypu remove '5 <=' it works fine! otherwide, it just takes all the available years...     
+            cursor.execute(f"SELECT DISTINCT strftime('%Y', DT_BIRTH) FROM demographics WHERE (5 <= ({year_of_inclusion} - CAST(strftime('%Y', DT_BIRTH) as INT) ) <= 10)")
+            l = [_[0] for _ in cursor.fetchall()]
+            l.sort()
+            print(year_of_inclusion)
+            print(l)
+            quit()
+
+            # create the table
+                # CREATE TEMPORARY TABLE '{table_name}' AS
+            query = f"""
+                    SELECT
+                        DISTINCT ID_SUBJECT FROM demographics
+                    WHERE 
+                        (? <= ? - CAST(strftime('%Y', DT_BIRTH) as INT) <= ?)
+            """
+                        #     AND
+                        #     (strftime('%Y', DT_DEATH) > ? OR DT_DEATH IS NULL)
+            args = (year_of_inclusion-age_tuple[0], year_of_inclusion-age_tuple[1], year_of_inclusion)
+            args = (age_tuple[0], year_of_inclusion, age_tuple[1]) ##
+            cursor.execute(query, args) ####
+            #######
+            print(args, end=" ")
+            print(len(cursor.fetchall()))
+            print(cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall())
+    connection.commit() # commit at each creation to not overload the memory
+    
+    #######
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    print("before closing the cursor", cursor.fetchall())
+    # close the cursor
+    cursor.close()
+    cursor = connection.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    print("after closing the cursor", cursor.fetchall())
+    cursor.close()
+
+def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
+    """ Given the database with the tables of the available age ranges, stratify the patients according to the kwargs parameters.
+    This function outputs a string, that is the name of the table that stores the IDs of the patients that satisfy the conditions.
+
+    NOTE!!
+    After you are done with the output table, remember to drop it with the following command:
+        cursor = connection.cursor()
+        cursor.execute(f"DROP TABLE IF EXISTS {table_name};")
+        connection.commit() 
+    
+    kwargs:
+    - year_of_inclusion: int
+        The year of inclusion of the patients in the cohort.
+        If none provided, the current year. Must be present in the age-stratified demographics tables.
+    - age: list[str]
+        A list of age range identifiers, such as "14-", "25-45" or "65+".
+        Must be compatible with the age-stratified demographics tables.
+    - gender: str
+        in ["A", "A-U", "M", "F", "U"]
+    - civil status: str
+        in ["All", "All-Other", "Unmarried", "Married", "Married_no_long", "Other"]
+    - job condition: str
+        in ["All", "All-Unknown", "Employed", "Unemployed", "Pension", "Unknown"]
+    - educational level: str
+        in ["All", "All-Unknown", "0-5", "6-8", "9-13", ">=14", "Unknown"]
+    """
+    # inputs
+    year_of_inclusion = kwargs.get("year_of_inclusion", time.localtime().tm_year)
+    year_of_inclusion = int(year_of_inclusion)
+    age_intervals_list = kwargs.get("age", None)
+    if age_intervals_list is None:
+        raise ValueError(f"age must be provided and must be a list of strings choosing from {AGE_WIDGET_INTERVALS.keys()}. Found {age_intervals_list}")
+    if not isinstance(age_intervals_list, list):
+        raise ValueError(f"age must be a list of strings choosing from {AGE_WIDGET_INTERVALS.keys()}. Found {age_intervals_list}")
+    if len(age_intervals_list) == 0:
+        raise ValueError(f"age must be a non-empty list of strings choosing from {AGE_WIDGET_INTERVALS.keys()}. Found {age_intervals_list}")
+    for age_interval in age_intervals_list:
+        if age_interval not in AGE_WIDGET_INTERVALS.keys():
+            raise ValueError(f"age must be a list of strings choosing from {AGE_WIDGET_INTERVALS.keys()}. Found {age_interval}")
+    _available_genders = ["A", "A-U", "M", "F", "U"]
+    gender = kwargs.get("gender", None)
+    if gender is None:
+        raise ValueError("gender must be provided")
+    if gender not in _available_genders:
+        raise ValueError(f"gender must be in {_available_genders}")
+    _available_civil_status = ["All", "All-Other", "Unmarried", "Married", "Married_no_long", "Other"]
+    civil_status = kwargs.get("civil_status", None)
+    if civil_status is None:
+        raise ValueError("civil_status must be provided")
+    if civil_status not in _available_civil_status:
+        raise ValueError(f"civil_status must be in {_available_civil_status}")
+    _available_job_conditions = ["All", "All-Unknown", "Employed", "Unemployed", "Pension", "Unknown"]
+    job_condition = kwargs.get("job_condition", None)
+    if job_condition is None:
+        raise ValueError("job_condition must be provided")
+    if job_condition not in _available_job_conditions:
+        raise ValueError(f"job_condition must be in {_available_job_conditions}")
+    _available_educational_levels = ["All", "All-Unknown", "0-5", "6-8", "9-13", ">=14", "Unknown"]
+    educational_level = kwargs.get("educational_level", None)
+    if educational_level is None:
+        raise ValueError("educational_level must be provided")
+    if educational_level not in _available_educational_levels:
+        raise ValueError(f"educational_level must be in {_available_educational_levels}")
+    # logic
+    cursor = connection.cursor()
+    # check if the database has the necessary tables
+    has_tables, missing_tables = check_database_has_tables(connection, cohorts_required=False)
+    if not has_tables:
+        raise ValueError(f"The database is missing the following tables: {missing_tables}")
+    # create the table of stratified patients ids
+    time_string = datetime.datetime.now().strftime("%H%M%S%f")
+    table_name = "stratified_patients_" + time_string
+    queries = []
+    # QUERY 1: drop the table if it exists
+    queries.append(
+        f"DROP TABLE IF EXISTS {table_name};"
     )
-    return x_new
-
-def clean_numeric(x: pandas.DataFrame | pandas.Series, dtype: type|None = None, fillnan=None) -> pandas.DataFrame | pandas.Series:
-    """
-    x must be a pandas DataFrame or a pandas Series
-    Numeric
-    if fillnan == DropNa class then drop the rows with NaN values
-    """
-    x_new = pandas.DataFrame(x)
-    if fillnan is not None:
-        if fillnan == DropNa:
-            x_new.dropna(inplace=True)
-        else:
-            x_new.fillna(fillnan, inplace=True)
-    if dtype is not None:
-        x_new = x_new.astype(dtype)
-    return x_new
-
-def clean_datetime(x: pandas.DataFrame | pandas.Series) -> pandas.DataFrame | pandas.Series:
-    """
-    x must be a pandas DataFrame or a pandas Series containing datetime information
-    """
-    x_new = pandas.DataFrame(x).fillna(DATETIME_NAN)
-    for cols in x_new.columns:
-        x_new[cols] = pandas.to_datetime(x_new[cols]).astype('datetime64[s]')
-    return x_new
-
-def preprocess_cohorts_database(cohort: list[pandas.DataFrame] | pandas.DataFrame) -> pandas.DataFrame:
-    """
-    Merges and preprocesses the cohorts databases.
-    """
-    # Merge all the cohorts databases
-    if isinstance(cohort, list):
-        new = pandas.concat(cohort, axis=0)
-    elif isinstance(cohort, pandas.DataFrame):
-        new = cohort.copy(deep=True)
+    # QUERY 2: Create a subtable of the whole demographics table (all columns)
+    #          where only the patients with IDS in the age-stratified
+    #          tables are allowed
+    #          This table is to be dropped before committing the changes
+    temp_table_name = "temp_table_" + time_string
+    query = f"""
+        CREATE TEMPORARY TABLE {temp_table_name} AS
+            SELECT * FROM demographics
+            WHERE ID_SUBJECT IN ("""
+    for i, age_interval in enumerate(age_intervals_list):
+        query += f"SELECT ID_SUBJECT FROM 'demographics_{year_of_inclusion}_{age_interval}'"
+        if i < len(age_intervals_list) - 1:
+            query += " UNION "
+    query += ")"
+    ###
+    print("CHECK THE STRATIFIED DEMOGRAPHICS TABLE")   ###################    here is the problemmm
+    cursor.execute(f"SELECT COUNT(*) FROM 'demographics_{year_of_inclusion}_{age_intervals_list[0]}'")
+    print(cursor.fetchall())
+    print("QUERY 2 - stratify_demographics")
+    print(query)
+    cursor.execute(query)
+    cursor.execute(f"SELECT COUNT(*) FROM {temp_table_name}")
+    print(cursor.fetchall())
+    #
+    cursor.close()
+    connection.close()
+    quit()
+    ###
+    queries.append(query)
+    # QUERY 3: Create the final table with the stratified patients ids
+    #          according to the other parameters looking just at the
+    #          patients in the temp_table
+    if gender == "A":
+        gender_selector_statement = "1"
+    elif gender == "A-U":
+        gender_selector_statement = f"(GENDER IS NOT NULL)"
+    elif gender == "U":
+        gender_selector_statement = f"(GENDER IS NULL)"
     else:
-        raise ValueError("cohorts_list must be a list of DataFrame or a DataFrame")
-    # Clean
-    new["ID_SUBJECT"] = clean_alphanumeric(new["ID_SUBJECT"], fillnan=DropNa)
-    new["YEAR_ENTRY"] = clean_numeric(new["YEAR_ENTRY"], dtype=int, fillnan=DropNa)
-    new["PREVALENT"] = clean_alphanumeric(new["PREVALENT"], fillnan=DropNa)
-    new["INCIDENT"] = clean_alphanumeric(new["INCIDENT"], fillnan=DropNa)
-    new["INCIDENT_1825"] = clean_alphanumeric(new["INCIDENT_1825"], fillnan=DropNa)
-    new["SCHIZO"] = clean_alphanumeric(new["SCHIZO"], fillnan="N")
-    new["DEPRE"] = clean_alphanumeric(new["DEPRE"], fillnan="N")
-    new["BIPOLAR"] = clean_alphanumeric(new["BIPOLAR"], fillnan="N")
-    return new
-
-def preprocess_demographics_database(demographics: list[pandas.DataFrame] | pandas.DataFrame) -> pandas.DataFrame:
-    """
-    Preprocesses the demographics database.
-    """
-    # Merge all the demographics databases
-    if isinstance(demographics, list):
-        new = pandas.concat(demographics, axis=0)
-    elif isinstance(demographics, pandas.DataFrame):
-        new = demographics.copy(deep=True)
+        gender_selector_statement = f"(GENDER = '{gender}')"
+    if civil_status == "All":
+        civil_status_selector_statement = "1"
+    elif civil_status == "All-Other":
+        civil_status_selector_statement = f"(CIVIL_STATUS != 'Other')"
     else:
-        raise ValueError("demographics must be a list of DataFrame or a DataFrame")
-    # Clean
-    new["ID_SUBJECT"] = clean_alphanumeric(new["ID_SUBJECT"], fillnan=DropNa)
-    new["DT_BIRTH"] = clean_datetime(new["DT_BIRTH"])
-    new["DT_DEATH"] = clean_datetime(new["DT_DEATH"])
-    new["CAUSE_DEATH_1"] = clean_alphanumeric(new["CAUSE_DEATH_1"], fillnan="Unknown")
-    new["CAUSE_DEATH_2"] = clean_alphanumeric(new["CAUSE_DEATH_2"], fillnan="Unknown")
-    new["DT_START_ASSIST"] = clean_datetime(new["DT_START_ASSIST"])
-    new["DT_END_ASSIST"] = clean_datetime(new["DT_END_ASSIST"])
-    new["GENDER"] = clean_alphanumeric(new["GENDER"], fillnan="U")
-    new["CIVIL_STATUS"] = clean_alphanumeric(new["CIVIL_STATUS"], fillnan="Other")
-    new["JOB_COND"] = clean_alphanumeric(new["JOB_COND"], fillnan="Unknown")
-    new["EDU_LEVEL"] = clean_alphanumeric(new["EDU_LEVEL"], fillnan="Unknown")
-    return new
-
-def preprocess_interventions_database(interventions: list[pandas.DataFrame] | pandas.DataFrame) -> pandas.DataFrame:
-    """
-    Preprocesses the interventions database.
-    """
-    # Merge all the interventions databases
-    if isinstance(interventions, list):
-        new = pandas.concat(interventions, axis=0)
-    elif isinstance(interventions, pandas.DataFrame):
-        new = interventions.copy(deep=True)
+        civil_status_selector_statement = f"(CIVIL_STATUS = '{civil_status}')"
+    if job_condition == "All":
+        job_condition_selector_statement = "1"
+    elif job_condition == "All-Unknown":
+        job_condition_selector_statement = f"(JOB_COND IS NOT NULL)"
+    elif job_condition == "Unknown":
+        job_condition_selector_statement = f"(JOB_COND IS NULL)"
     else:
-        raise ValueError("interventions must be a list of DataFrame or a DataFrame")
-    # Clean
-    new["ID_SUBJECT"] = clean_alphanumeric(new["ID_SUBJECT"], fillnan=DropNa)
-    new["DT_INT"] = clean_datetime(new["DT_INT"])
-    new["TYPE_INT"] = clean_alphanumeric(new["TYPE_INT"], fillnan="Unknown")
-    new["STRUCTURE"] = clean_alphanumeric(new["STRUCTURE"], fillnan="Unknown")
-    new["OPERATOR_1"] = clean_alphanumeric(new["OPERATOR_1"], fillnan="Unknown")
-    new["OPERATOR_2"] = clean_alphanumeric(new["OPERATOR_2"], fillnan="Unknown")
-    new["OPERATOR_3"] = clean_alphanumeric(new["OPERATOR_3"], fillnan="Unknown")
-    return new
-
+        job_condition_selector_statement = f"(JOB_COND = '{job_condition}')"
+    if educational_level == "All":
+        educational_level_selector_statement = "1"
+    elif educational_level == "All-Unknown":
+        educational_level_selector_statement = f"(EDU_LEVEL IS NOT NULL)"
+    elif educational_level == "Unknown":
+        educational_level_selector_statement = f"(EDU_LEVEL IS NULL)"
+    else:
+        educational_level_selector_statement = f"(EDU_LEVEL = '{educational_level}')"
+    query = f"""
+            CREATE TEMPORARY TABLE {table_name} AS
+                SELECT DISTINCT ID_SUBJECT FROM {temp_table_name}
+                WHERE
+                    {gender_selector_statement}
+                    AND
+                    {civil_status_selector_statement}
+                    AND
+                    {job_condition_selector_statement}
+                    AND
+                    {educational_level_selector_statement}
+    """
+    queries.append(query)
+    # QUERY 4: drop the temporary table temp_table
+    queries.append(f"DROP TABLE IF EXISTS {temp_table_name};")
+    # execute the queries
+    for q in queries:
+        cursor.execute(q)
+        connection.commit()
+    # RECAP:
+    # - first, the table is dropped if it exists
+    # - then, a temporary table is created with the patients that are in the age-stratified tables
+    # - finally, the final table is created with the patients that satisfy the other conditions
+    # - table_name contains the IDs of the patients that satisfy the conditions
+    #   under the column named "ID_SUBJECT"
+    # close the cursor
+    cursor.close()
+    # return the table name
+    return table_name
 
 
 
 
 
 if __name__ == "__main__":
-    db = read_databases(DATABASE_FILENAMES_DICT, FILES_FOLDER)
-    db["demographics"] = preprocess_demographics_database(db["demographics"])
-    db["interventions"] = preprocess_interventions_database(db["interventions"])
-    db["cohorts"] = preprocess_cohorts_database(db["cohorts"])
-    print("demographics:\n", db["demographics"].head())
-    print("interventions:\n", db["interventions"].head())
-    print("cohorts:\n", db["cohorts"].head())
+    # test database: read the database table names
+    # and print the first 10 rows of each table
+    # with column names
+    cursor = DB.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = [a[0] for a in cursor.fetchall()]
+    for table in tables:
+        print(f"Table: {table}")
+        columns = cursor.execute(f"PRAGMA table_info({table});").fetchall()
+        for c in columns:
+            print(c[1], end="\t")
+        print()
+        for c in columns:
+            print(c[2], end="\t")
+        print()
+        rows = cursor.execute(f"SELECT * FROM {table} LIMIT 10;").fetchall()
+        for r in rows:
+            for e in r:
+                print(e, end="\t")
+            print()
+        

@@ -17,6 +17,8 @@ from .language_selector import LanguageSelector
 from .header import Header
 from .footer import Footer
 from .main_selectors import DiseaseSelector, IndicatorTypeSelector, CohortSelector
+# database is loaded in the .database.database module, 
+# and imported in the .indicator.dispatcher module.
 from .indicator import dispatcher_instance
 
 
