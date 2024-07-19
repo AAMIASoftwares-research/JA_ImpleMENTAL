@@ -79,6 +79,19 @@ class Dispatcher(object):
 # Load/Connect database here
 #############################
 from ..database.database import DB
+
+
+## test ############################################################################################################
+cursor = DB.cursor()
+# count the number of females ( GENDER field, F value) in the demographics table
+print(cursor.execute("PRAGMA table_info(demographics)").fetchall())
+print(cursor.execute("SELECT GENDER, CAST(GENDER AS BLOB) = CAST('F' AS BLOB) FROM demographics LIMIT 10").fetchall()) ####   works!
+print(cursor.execute("SELECT GENDER, GENDER = CAST('F' AS TEXT) FROM demographics LIMIT 10").fetchall())
+cursor.close()
+DB.close()
+quit()
+####################################################################################################################
+
 # now the database il loaded, DB is the sqlite3 connection object
 # to the database.
 #
@@ -100,16 +113,6 @@ from ..indicator.widget import AGE_WIDGET_INTERVALS
 from ..database.database import make_age_startification_tables
 years_of_inclusion = [2018, 2019, 2020, 2021] # to do after having cohorts, and use function get_years_of_inclusion
 make_age_startification_tables(DB, years_of_inclusion, AGE_WIDGET_INTERVALS)
-
-# test
-cursor = DB.cursor()
-# get all tables names
-cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-print(cursor.fetchall())
-#
-DB.close()
-quit()
-
 
 
 

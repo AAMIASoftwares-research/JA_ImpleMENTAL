@@ -57,12 +57,6 @@ def ma1(**kwargs):
     #######
     ####### just for testing, get some numbers out
     # count all th eunique ID_SUBJECTS in the stratified demographics table
-    cursor.execute(f"SELECT ID_SUBJECT FROM {stratified_demographics_table_name}")
-    res = cursor.fetchall()
-    stratified_demographics_patient_ids = [r[0] for r in res]
-    print("MA1::\nstratified_demographics_patient_ids")
-    print(len(stratified_demographics_patient_ids))
-    print(stratified_demographics_patient_ids)
     cursor.execute(f"SELECT COUNT(DISTINCT ID_SUBJECT) FROM {stratified_demographics_table_name}")
     all_ = int(cursor.fetchone()[0])
     selected_ = int(all_*0.4*numpy.random.random())
@@ -191,7 +185,7 @@ class ma1_tab0(object):
         for year in years_to_evaluate:
             ma1_ = ma1(
                 connection=self._db_conn,
-                cohorts_required=False, ##### only for debugging
+                cohorts_required=False, ##### ################################################################        only for debugging
                 disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
                 year_of_inclusion=year,
                 age=age_interval,
@@ -227,16 +221,6 @@ class ma1_tab0(object):
         )
         plot.xaxis.ticker = numpy.sort(years_to_evaluate)
         plot.xgrid.grid_line_color = None
-        # # basic: there are always four transparent points
-        # # at the back of the plot to make the plot not collapse
-        # # when the widget changes many times
-        # plot.circle(
-        #     x=[min(years_to_evaluate)-1, max(years_to_evaluate)+1],
-        #     y=[min(ma1_all)-1, max(ma1_all)+1],
-        #     fill_color="#ffffff00",
-        #     line_width=0,
-        #     size=0.001
-        # )
         # plot of data
         plot.line(
             years_to_evaluate, ma1_all,
