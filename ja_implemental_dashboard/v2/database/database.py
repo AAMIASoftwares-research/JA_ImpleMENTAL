@@ -550,6 +550,20 @@ INTERVENTIONS_CODES_COLOR_DICT = {
 
 DB = sqlite3.connect(DATABASE_FILE)
 
+#########################
+# DATABASE PREPROCESSING
+#########################
+cursor = DB.cursor()
+queries = []
+# - demographics
+# cast GENDER column in demographics to TEXT  ---      to do
+# apply the queries
+for q in queries:
+    cursor.execute(q)
+DB.commit()
+cursor.close()
+
+
 
 ##############
 # UTILITIES

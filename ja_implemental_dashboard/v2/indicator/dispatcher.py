@@ -80,13 +80,14 @@ class Dispatcher(object):
 #############################
 from ..database.database import DB
 
-
+# see database folder
 ## test ############################################################################################################
 cursor = DB.cursor()
 # count the number of females ( GENDER field, F value) in the demographics table
 print(cursor.execute("PRAGMA table_info(demographics)").fetchall())
 print(cursor.execute("SELECT GENDER, CAST(GENDER AS BLOB) = CAST('F' AS BLOB) FROM demographics LIMIT 10").fetchall()) ####   works!
 print(cursor.execute("SELECT GENDER, GENDER = CAST('F' AS TEXT) FROM demographics LIMIT 10").fetchall())
+print(cursor.execute("SELECT GENDER, CAST(GENDER AS TEXT) = 'F' FROM demographics LIMIT 10").fetchall()) ####   works!
 cursor.close()
 DB.close()
 quit()
