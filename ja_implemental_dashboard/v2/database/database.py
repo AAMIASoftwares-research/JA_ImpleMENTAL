@@ -553,15 +553,20 @@ DB = sqlite3.connect(DATABASE_FILE)
 #########################
 # DATABASE PREPROCESSING
 #########################
-cursor = DB.cursor()
-queries = []
-# - demographics
-# cast GENDER column in demographics to TEXT  ---      to do
-# apply the queries
-for q in queries:
-    cursor.execute(q)
-DB.commit()
-cursor.close()
+# could be useful some preprocessing of the database
+# to check data types
+
+def preprocess_database(connection: sqlite3.Connection):
+    """ Perform preprocessing on all the tables of the database.
+    The preprocessing consists of checking the data types of the columns.
+    Creates a new schema (preprocessed) with the same tables and columns, but with the correct data types (casting).
+
+    connection: sqlite3.Connection
+        The connection to the database.
+    """
+    #########################################
+    pass
+     
 
 
 
@@ -860,13 +865,13 @@ def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
     elif gender == "U":
         gender_selector_statement = f"(GENDER IS NULL)"
     else:
-        gender_selector_statement = f"(GENDER = CAST('{gender}' AS BLOB))" # do not know why, but necessary to make it work
+        gender_selector_statement = f"(CAST(GENDER AS TEXT) = '{gender}')"
     if civil_status == "All":
         civil_status_selector_statement = "1"
     elif civil_status == "All-Other":
-        civil_status_selector_statement = f"(CIVIL_STATUS != 'Other')"
+        civil_status_selector_statement = f"(CAST(CIVIL_STATUS AS TEXT) != 'Other' AND CIVIL_STATUS IS NOT NULL)"
     else:
-        civil_status_selector_statement = f"(CIVIL_STATUS = '{civil_status}')"
+        civil_status_selector_statement = f"(CAST(CIVIL_STATUS AS TEXT) = '{civil_status}')"
     if job_condition == "All":
         job_condition_selector_statement = "1"
     elif job_condition == "All-Unknown":
@@ -874,7 +879,7 @@ def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
     elif job_condition == "Unknown":
         job_condition_selector_statement = f"(JOB_COND IS NULL)"
     else:
-        job_condition_selector_statement = f"(JOB_COND = '{job_condition}')"
+        job_condition_selector_statement = f"(CAST(JOB_COND AS TEXT) = '{job_condition}')"
     if educational_level == "All":
         educational_level_selector_statement = "1"
     elif educational_level == "All-Unknown":
@@ -882,7 +887,7 @@ def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
     elif educational_level == "Unknown":
         educational_level_selector_statement = f"(EDU_LEVEL IS NULL)"
     else:
-        educational_level_selector_statement = f"(EDU_LEVEL = '{educational_level}')"
+        educational_level_selector_statement = f"(CAST(EDU_LEVEL AS TEXT) = '{educational_level}')"
     query = f"""
             CREATE TEMPORARY TABLE {table_name} AS
                 SELECT 

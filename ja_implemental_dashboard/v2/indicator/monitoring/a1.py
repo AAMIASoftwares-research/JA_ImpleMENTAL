@@ -51,6 +51,13 @@ def ma1(**kwargs):
     )
     # open a cursor (close it before return)
     cursor = connection.cursor()
+    # check if table is empty
+    cursor.execute(f"SELECT COUNT(*) FROM {stratified_demographics_table_name}")
+    if cursor.fetchone()[0] == 0:
+        # return
+        ma1["all"] = 0
+        ma1["selected"] = 0
+        return ma1
     #######
     #######
     #######    Untill i make the final COHORTS table, I cannot use this function
