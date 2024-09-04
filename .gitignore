@@ -168,10 +168,11 @@ cython_debug/
 *.sas7bdat
 *.sqlite
 *.sqlite3
+*.sqlite3-journal
 *.sqlitedb
 *.db
 *.sl3
 *.csv
 
 # Cache
-ja_implemental_dashboard/v2/cache/*
+ja_implemental_dashboard/v2/cache/*.cache

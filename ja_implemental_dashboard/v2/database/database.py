@@ -4,12 +4,48 @@ import pandas
 import bokeh.palettes
 import sqlite3
 
-DATABASE_FILE = os.path.normpath(
-    "C:/Users/lecca/Desktop/AAMIASoftwares-research/JA_ImpleMENTAL/ExampleData/Dati QUADIM - Standardizzati - Sicilia/DATABASE.sqlite3"
+
+#############
+# CACHING
+#############
+def get_cache_folder() -> str:
+    """ Get the path to the cache folder.
+    Returns the path to the cache folder.
+    """
+    return os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "cache"))
+
+
+##################################
+# USER SELECTION OF DATABASE PATH
+##################################
+
+# DATABASE_FILE = os.path.normpath(
+#     "C:/Users/lecca/Desktop/AAMIASoftwares-research/JA_ImpleMENTAL/ExampleData/Dati QUADIM - Standardizzati - Sicilia/DATABASE.sqlite3"
+# )
+
+import tkinter
+from tkinter import filedialog
+root = tkinter.Tk()
+root.withdraw()
+
+filedialog_cache_file = os.path.join(get_cache_folder(), "filedialog_last_used_directory.cache")
+if os.path.exists(filedialog_cache_file):
+    with open(filedialog_cache_file, "r") as f:
+        last_used_dir = f.read()
+else:
+    last_used_dir = ""
+if not os.path.exists(last_used_dir):
+    last_used_dir = os.path.expanduser("~")
+
+file_path = filedialog.askopenfilename(
+    defaultextension=".sqlite3", 
+    filetypes=[("SQLite3 database files", "*.sqlite3")],
+    initialdir=last_used_dir,
 )
-
-
-
+DATABASE_FILE = os.path.normpath(file_path)
+with open(filedialog_cache_file, "w") as f:
+    f.write(os.path.dirname(DATABASE_FILE))
+del root, filedialog_cache_file, last_used_dir, file_path
 
 
 
@@ -721,13 +757,13 @@ def get_database_file_hash_folder() -> str:
     """ Get the path to the file that contains the hash of the database file.
     Returns the path to the file.
     """
-    return os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "cache"))
+    return get_cache_folder()
 
 def get_database_hash_file_path() -> str:
     """ Get the path to the file that contains the hash of the database file.
     Returns the path to the file.
     """
-    fname = "db_hash.txt"
+    fname = "db_hash.cache"
     path = os.path.normpath(
         os.path.join(
             get_database_file_hash_folder(),
@@ -820,40 +856,46 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
         n_entries_ = cursor.execute(f"SELECT COUNT({column_names[0]}) FROM {table}").fetchone()[0]
         for cn, ct in zip(column_names, column_types):
             print(f"{table}: {cn} - {ct} ({n_entries_:,d} entries) -> {DATABSE_RECORD_LAYOUT_DATA_TYPES[table][cn]}")
-            quit()
-            ########
-            #######
-            
-
-            if table in DATABSE_RECORD_LAYOUT_DATA_TYPES:
-                if cn in DATABSE_RECORD_LAYOUT_DATA_TYPES[table]:
-                    print("\tupdating...", end="\r")
-                    # we need to copy the data in a new column with the correct type
-                    # and then drop the old column and rename the new column
-                    # create a new column with the correct type
-                    query = f"""
-                        ALTER TABLE {table}
-                        ADD COLUMN {cn}_new {DATABSE_RECORD_LAYOUT_DATA_TYPES[table][cn]}
-                    """
-                    cursor.execute(query)
-                    # copy the data from the old column to the new column
-                    query = f"""
-                        UPDATE {table}
-                        SET {cn}_new = CAST({cn} as {DATABSE_RECORD_LAYOUT_DATA_TYPES[table][cn]})
-                    """
-                    cursor.execute(query)
-                    # drop the old column
-                    query = f"""
-                        ALTER TABLE {table}
-                        DROP COLUMN {cn}
-                    """
-                    cursor.execute(query)
-                    # rename the new column
-                    query = f"""
-                        ALTER TABLE {table}
-                        RENAME COLUMN {cn}_new TO {cn}
-                    """ 
-                    cursor.execute(query)
+            if table in DATABSE_RECORD_LAYOUT_DATA_TYPES and cn in DATABSE_RECORD_LAYOUT_DATA_TYPES[table]:
+                print("\tupdating...", end="\r")
+                # we need to copy the data in a new column with the correct type
+                # and then drop the old column and rename the new column
+                # create a new column with the correct type
+                query = f"""
+                    ALTER TABLE {table}
+                    ADD COLUMN {cn}_new {DATABSE_RECORD_LAYOUT_DATA_TYPES[table][cn]}
+                """
+                cursor.execute(query)
+                # copy the data from the old column to the new column
+                query = f"""
+                    UPDATE {table}
+                    SET {cn}_new = CAST({cn} as {DATABSE_RECORD_LAYOUT_DATA_TYPES[table][cn]})
+                """
+                cursor.execute(query)
+                # drop the old column
+                query = f"""
+                    ALTER TABLE {table}
+                    DROP COLUMN {cn}
+                """
+                cursor.execute(query)
+                # rename the new column
+                query = f"""
+                    ALTER TABLE {table}
+                    RENAME COLUMN {cn}_new TO {cn}
+                """ 
+                cursor.execute(query)
+    # be sure that no columns with the suffix _new exists
+    tables = get_tables(connection)
+    for table in tables:
+        column_names = get_column_names(connection, table)
+        for cn in column_names:
+            if cn.endswith("_new"):
+                # remove the _new column
+                query = f"""
+                    ALTER TABLE {table}
+                    DROP COLUMN {cn}
+                """
+                cursor.execute(query)
     # commit and close
     connection.commit()
     cursor.close()
@@ -865,6 +907,8 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
     hash_file = get_database_hash_file_path()
     with open(hash_file, "w") as f:
         f.write(database_file_hash)
+    print("Database preprocessed.")
+    # done
 
 def slim_down_database(connection: sqlite3.Connection) -> str:
     """  to be run before the preprocessing of the database,
@@ -880,8 +924,125 @@ def slim_down_database(connection: sqlite3.Connection) -> str:
         )
     )
     # check if the database has the necessary tables
+    has_tables, missing_tables = check_database_has_tables(connection)
+    if not has_tables:
+        raise ValueError(f"The database is missing the following tables: {missing_tables}")
     # check if the slim database already exists
-    # insert automatic change check with hash
+    if os.path.exists(new_db_file):
+        # since it exists, check it the original dataset has changed
+        # if it has changed, we need to recreate the slim database
+        # else, we return the path to the slim database
+        if os.path.exists(get_database_hash_file_path()):
+            if not detect_database_has_changed():
+                return new_db_file
+    # we have to slim down the database
+    # specifically, we will first slim down
+    # the pharma table and the diagnoses table.
+    # Then, we slim down the demographics table based on the
+    # slimmed down pharma and diagnoses tables.
+    # The other two tables are by definition and construction already slimmed down.
+    cursor = connection.cursor()
+    # slim down the pharma table
+    cursor.execute("DROP TABLE IF EXISTS pharma_slim")
+    cursor.execute("""
+        CREATE TABLE pharma_slim AS
+        SELECT *
+        FROM pharma
+        WHERE
+            ATC_CHAR LIKE 'N06A%'
+            OR
+            ATC_CHAR LIKE 'N05A%'
+            OR
+            ATC_CHAR = 'N03AX09'
+            OR
+            ATC_CHAR = 'N03AG01'
+            OR
+            ATC_CHAR = 'N03AF01'
+            OR
+            ATC_CHAR = 'N05AH03'
+            OR
+            ATC_CHAR = 'N05AH04'
+            OR
+            ATC_CHAR = 'N05AX12'
+    """)
+    cursor.execute("DROP TABLE pharma")
+    cursor.execute("ALTER TABLE pharma_slim RENAME TO pharma")
+    # slim down the diagnoses table
+    cursor.execute("DROP TABLE IF EXISTS diagnoses_slim")
+    icd9_list_3 = "()"
+    icd10_list_3 = "()"
+    cursor.execute("""
+        CREATE TABLE diagnoses_slim AS
+        SELECT *
+        FROM diagnoses
+        WHERE
+            (
+                CODING_SYSTEM = 'ICD9'
+                AND
+                (
+                    substr(DIAGNOSIS,1,3) IN (
+                                                '311',
+                                                '295', '297',
+                                                'F61', '301'
+                                            )
+                    OR
+                    substr(DIAGNOSIS,1,4) IN (
+                                                '2962', '2963', '2980', '3004', '3090', '3091',
+                                                '2982', '2983', '2984', '2988', '2989',
+                                                '2960', '2961', '2964', '2965', '2966', '2967', '2981',
+                                                '3000', '3001', '3003', '3098', '3083',
+                                                'E950', 'E951', 'E952', 'E953', 'E954', 'E955', 'E956', 'E957', 'E958', 'E959'
+                                            )
+                    OR
+                    substr(DIAGNOSIS,1,5) IN (
+                                                '29680', '29681', '29689', '29699',
+                                                'V6284'
+                                            )
+
+                )
+            )
+            OR
+            (
+                CODING_SYSTEM = 'ICD10'
+                AND
+                (
+                   substr(DIAGNOSIS,1,3) IN ('F20', 'F21', 'F22', 'F23', 'F24', 'F25', 'F28', 'F29')
+                )
+                
+            )
+    """)
+
+    F32.*
+F33.*
+F34.1
+F34.8
+F34.9
+F38.1
+F38.8
+F39.*
+F43.1
+F43.2
+
+F20.*
+F21.*
+F22.*
+F23.*
+F24.*
+F25.*
+F28.*
+F29.*
+
+F30.*
+F31.*
+F34.0
+F38.0
+
+F60.*
+
+F40, F41, F42, F93.0–F93.2
+F43.0, 43.1, 43.8, 43.9    ?????????????????
+
+X60.*-X84.*, Y10.*-Y34.*
 
     return new_db_file
 
