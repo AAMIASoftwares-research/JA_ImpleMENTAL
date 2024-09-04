@@ -35,3 +35,27 @@ def convert_sas_datasets_to_sqlite3_db(files_folder: str, file_name_to_table_nam
                 conn.commit()
     # close the connection
     conn.close()
+
+
+# load the tables in the mysql database (create the tables if they do not exist)
+if __name__ == "__main__":
+    # - connect to the database to load all example tables in it
+    FILES_FOLDER = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia"
+    DATABASE_FILENAMES_DICT = {
+        "demographics": "demographics.sas7bdat",
+        "diagnoses": "diagnoses.sas7bdat",
+        "interventions": "interventions.sas7bdat",
+        "pharma": "pharma.sas7bdat",
+        "physical_exams": "physical_exams.sas7bdat"
+    }
+    database_file = "DATABASE.sqlite3"
+    database_file = os.path.normpath(
+        os.path.join(FILES_FOLDER, database_file)
+    )
+    convert_sas_datasets_to_sqlite3_db(
+        files_folder=FILES_FOLDER,
+        file_name_to_table_name_dict=DATABASE_FILENAMES_DICT,
+        output_db_file=database_file
+    )
+    #
+    quit()

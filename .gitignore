@@ -172,3 +172,6 @@ cython_debug/
 *.db
 *.sl3
 *.csv
+
+# Cache
+ja_implemental_dashboard/v2/cache/*

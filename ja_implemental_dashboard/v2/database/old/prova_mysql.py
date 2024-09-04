@@ -3,8 +3,8 @@ import numpy
 import pandas
 import panel
 
-from .database import DISEASE_CODE_TO_DB_CODE, COHORT_CODE_TO_DB_CODE, DATETIME_NAN
-from ..indicator.logic_utilities import clean_indicator_getter_input, stratify_demographics
+from ..database import DISEASE_CODE_TO_DB_CODE, COHORT_CODE_TO_DB_CODE, DATETIME_NAN
+from ...indicator.logic_utilities import clean_indicator_getter_input, stratify_demographics
 
 
 import sqlite3
@@ -258,33 +258,12 @@ if __name__ == "__main__" and 0:
     quit()
 
 
-# load the tables in the mysql database (create the tables if they do not exist)
-if __name__ == "__main__" and 0:
-    # - connect to the database to load all example tables in it
-    from .database import FILES_FOLDER, DATABASE_FILENAMES_DICT
-    from .sqlutils import convert_sas_datasets_to_sqlite3_db
-
-    # use full database
-    for k, v in DATABASE_FILENAMES_DICT.items():
-        DATABASE_FILENAMES_DICT[k] = v.replace("_restr", "")
-    FILES_FOLDER = FILES_FOLDER.replace(" restricted", "")
-
-    database_file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia\\DATABASE.db"
-    convert_sas_datasets_to_sqlite3_db(
-        files_folder=FILES_FOLDER,
-        file_name_to_table_name_dict=DATABASE_FILENAMES_DICT,
-        output_db_file=database_file
-    )
-    #
-    quit()
-
-
 # test patients stratification with sqlite3     ###############################################    to test
 if __name__ == "__main__" and 1:
     database_file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia\\DATABASE.db"
     conn = sqlite3.connect(database_file)
     #
-    from .sqlutils import stratify_demographics_sql
+    from ..converter.from_sas import stratify_demographics_sql
     """
     Stratification parameters:
 
@@ -316,7 +295,7 @@ if __name__ == "__main__" and 1:
     print("time:", t1 - t0)
     #
     # create the demographics age stratification table
-    from .sqlutils import make_age_startification_tables
+    from ..converter.from_sas import make_age_startification_tables
     
     t0 = time.time()
     make_age_startification_tables(
@@ -383,7 +362,7 @@ if __name__ == "__main__" and 0:
 
 # test ea1 function - old
 if __name__ == "__main__" and 0:
-    from .database import FILES_FOLDER, DATABASE_FILENAMES_DICT, read_databases, preprocess_demographics_database, preprocess_interventions_database, preprocess_cohorts_database
+    from ..database import FILES_FOLDER, DATABASE_FILENAMES_DICT, read_databases, preprocess_demographics_database, preprocess_interventions_database, preprocess_cohorts_database
 
     t0 = time.time()
     db = read_databases(DATABASE_FILENAMES_DICT, FILES_FOLDER)

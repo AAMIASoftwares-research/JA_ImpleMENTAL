@@ -1,10 +1,11 @@
 import os, time, datetime
+import hashlib
 import pandas
 import bokeh.palettes
 import sqlite3
 
 DATABASE_FILE = os.path.normpath(
-    "C:/Users/lecca/Desktop/AAMIASoftwares-research/JA_ImpleMENTAL/ExampleData/Dati QUADIM - Standardizzati - Sicilia/DATABASE.db"
+    "C:/Users/lecca/Desktop/AAMIASoftwares-research/JA_ImpleMENTAL/ExampleData/Dati QUADIM - Standardizzati - Sicilia/DATABASE.sqlite3"
 )
 
 
@@ -16,6 +17,67 @@ DATABASE_FILE = os.path.normpath(
 ############
 # CONSTANTS
 ############
+
+# Each value stored in an SQLite database (or manipulated by the database engine) has one of the following storage classes:
+#   NULL. The value is a NULL value.
+#   INTEGER. The value is a signed integer, stored in 0, 1, 2, 3, 4, 6, or 8 bytes depending on the magnitude of the value.
+#   REAL. The value is a floating point value, stored as an 8-byte IEEE floating point number.
+#   TEXT. The value is a text string, stored using the database encoding (UTF-8, UTF-16BE or UTF-16LE).
+#   BLOB. The value is a blob of data, stored exactly as it was input.
+
+
+DATABSE_RECORD_LAYOUT_DATA_TYPES = {
+    "demographics": {
+        "ID_SUBJECT": "TEXT",
+        "DT_BIRTH": "TEXT",
+        "GENDER": "TEXT",
+        "DT_DEATH": "TEXT",
+        "CAUSE_DEATH_1": "TEXT",
+        "CAUSE_DEATH_2": "TEXT",
+        "DT_START_ASSIST": "TEXT",
+        "DT_END_ASSIST": "TEXT",
+        "CIVIL_STATUS": "TEXT",
+        "JOB_COND": "TEXT",
+        "EDU_LEVEL": "TEXT"
+    },
+    "diagnoses": {
+        "ID_SUBJECT": "TEXT",
+        "DIAGNOSIS": "TEXT",
+        "CODING_SYSTEM": "TEXT",
+        "DATE_DIAG": "TEXT",
+        "MAIN_DIAG": "TEXT",
+        "DATE_DIAG_END": "TEXT",
+        "SETTING": "TEXT",
+        "DATE_ADMISSION": "TEXT",
+        "DATE_DISCHARGE": "TEXT",
+        "HOSPITAL_TYPE": "TEXT",
+        "ADMISSION_TYPE": "TEXT"
+    },
+    "pharma": {
+        "ID_SUBJECT": "TEXT",
+        "DT_PRESCR": "TEXT",
+        "ATC_CHAR": "TEXT",
+        "QTA_NUM": "INTEGER",
+        "DAYS": "INTEGER",
+        "DAYS_TOT": "INTEGER"
+    },
+    "interventions": {
+        "ID_SUBJECT": "TEXT",
+        "DT_INT": "TEXT",
+        "TYPE_INT": "TEXT",
+        "STRUCTURE": "TEXT",
+        "OPERATOR_1": "TEXT",
+        "OPERATOR_2": "TEXT",
+        "OPERATOR_3": "TEXT"
+    },
+    "physical_exams": {
+        "ID_SUBJECT": "TEXT",
+        "DT_INT": "TEXT",
+        "TYPE_INT": "TEXT"
+    }
+}
+
+
 
 DISEASE_CODE_TO_DB_CODE = {
     "_schizophrenia_": "SCHIZO",
@@ -550,38 +612,78 @@ INTERVENTIONS_CODES_COLOR_DICT = {
 
 DB = sqlite3.connect(DATABASE_FILE)
 
-#########################
-# DATABASE PREPROCESSING
-#########################
-# could be useful some preprocessing of the database
-# to check data types
-
-def preprocess_database(connection: sqlite3.Connection):
-    """ Perform preprocessing on all the tables of the database.
-    The preprocessing consists of checking the data types of the columns.
-    Creates a new schema (preprocessed) with the same tables and columns, but with the correct data types (casting).
-
-    connection: sqlite3.Connection
-        The connection to the database.
-    """
-    #########################################
-    pass
-     
-
-
 
 ##############
 # UTILITIES
 ##############
 
-### NOTE:
-### SQLite stores temporary tables in a separate temp database. 
-### It keeps that database in a separate file on disk, visible only to 
-### the current database connection.
-### The temporary database is deleted automatically as soon as the
-### connection is closed.
-### ->
-### Good to store temporary query tables, and also age stratisfied tables
+def get_tables(connection: sqlite3.Connection) -> list[str]:
+    """ Get the names of the tables in the database.
+    connection: sqlite3.Connection
+        The connection to the database.
+    Returns a list of strings, each string is the name of a table in the database.
+    """
+    cursor = connection.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    tables = [c[0] for c in cursor.fetchall()]
+    cursor.close()
+    tables.sort()
+    return tables
+
+def get_temp_tables(connection: sqlite3.Connection) -> list[str]:
+    """ Get the names of the temporary tables in the database.
+    connection: sqlite3.Connection
+        The connection to the database.
+    Returns a list of strings, each string is the name of a temporary table in the database.
+    """
+    cursor = connection.cursor()
+    cursor.execute("SELECT name FROM sqlite_temp_master WHERE type='table'")
+    tables = [c[0] for c in cursor.fetchall()]
+    cursor.close()
+    tables.sort()
+    return tables
+
+def get_column_names(connection: sqlite3.Connection, table: str) -> list[str]:
+    """ Get the names of the columns in a table of the database.
+    connection: sqlite3.Connection
+        The connection to the database.
+    table: str
+        The name of the table.
+    Returns a list of strings, each string is the name of a column in the table.
+    """
+    cursor = connection.cursor()
+    cursor.execute(f"PRAGMA table_info({table})")
+    columns = [c[1] for c in cursor.fetchall()]
+    cursor.close()
+    return columns
+
+def get_column_types(connection: sqlite3.Connection, table: str) -> list[str]:
+    """ Get the types of the columns in a table of the database.
+    connection: sqlite3.Connection
+        The connection to the database.
+    table: str
+        The name of the table.
+    Returns a list of strings, each string is the type of a column in the table.
+    """
+    cursor = connection.cursor()
+    cursor.execute(f"PRAGMA table_info({table})")
+    columns = [c[2] for c in cursor.fetchall()]
+    cursor.close()
+    return columns
+
+def standardize_table_names(connection: sqlite3.Connection) -> None:
+    """All table names should be lowercase, without spaces before or after,
+    and no spaces in between words.
+    """
+    cursor = connection.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    tables = [c[0] for c in cursor.fetchall()]
+    for table in tables:
+        new_table = table.strip().lower().replace(" ", "_")
+        if table != new_table:
+            print(f"Renaming table '{table}' to '{new_table}'")
+            cursor.execute(f"ALTER TABLE {table} RENAME TO {new_table}")
+    cursor.close()
 
 def check_database_has_tables(connection: sqlite3.Connection, cohorts_required:bool=False) -> tuple[bool, list[str]]:
     """ Check if the database has the necessary tables.
@@ -599,17 +701,211 @@ def check_database_has_tables(connection: sqlite3.Connection, cohorts_required:b
     if cohorts_required:
         required_tables.append("cohorts")
     # logic
-    cursor = connection.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    tables = [c[0] for c in cursor.fetchall()]
+    tables = get_tables(connection)
     missing_tables = [t for t in required_tables if t not in tables]
-    cursor.close()  # close the cursor
     return len(missing_tables) == 0, missing_tables
 
+def hash_database_file(file_path: str) -> str:
+    """ Compute the hash of the database file.
+    file_path: str
+        The path to the database file.
+    Returns the hash of the file.
+    """
+    md5 = hashlib.md5()
+    with open(file_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(1048576), b""):
+            md5.update(byte_block)
+    return md5.hexdigest()
+
+def get_database_file_hash_folder() -> str:
+    """ Get the path to the file that contains the hash of the database file.
+    Returns the path to the file.
+    """
+    return os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "cache"))
+
+def get_database_hash_file_path() -> str:
+    """ Get the path to the file that contains the hash of the database file.
+    Returns the path to the file.
+    """
+    fname = "db_hash.txt"
+    path = os.path.normpath(
+        os.path.join(
+            get_database_file_hash_folder(),
+            fname
+        )
+    )
+    return path
+
+def detect_database_has_changed() -> bool:
+    """ Detect if the database file has changed since the last preprocessing.
+    Returns True if the database file has changed, False otherwise.
+    """
+    hash_folder = get_database_file_hash_folder()
+    if not os.path.exists(hash_folder):
+        return True
+    cache_file = get_database_hash_file_path()
+    if not os.path.exists(cache_file):
+        return True
+    with open(cache_file, "r") as f:
+        old_hash = f.read()
+    database_file_hash = hash_database_file(DATABASE_FILE)
+    return old_hash != database_file_hash
+
+
+def write_to_database_hash_file(hash_: str) -> None:
+    """ Write the hash of the database file to a file in the cache folder.
+    hash_: str
+        The hash of the database file.
+    """
+    hash_folder = get_database_file_hash_folder()
+    if not os.path.exists(hash_folder):
+        os.makedirs(hash_folder)
+    cache_file = get_database_hash_file_path()
+    with open(cache_file, "w") as f:
+        f.write(hash_)
+
+def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=False) -> None:
+    """ Perform preprocessing on all the tables of the database.
+    The preprocessing consists of checking the data types of the columns.
+    The preprocessing is done only if the database file has changed since the last preprocessing.
+    The hash of the database file is saved in a file in the cache folder.
+
+    connection: sqlite3.Connection
+        The connection to the database.
+    """
+    # check if the database has the necessary tables
+    has_tables, missing_tables = check_database_has_tables(connection)
+    if not has_tables:
+        raise ValueError(f"The database is missing the following tables: {missing_tables}")
+    # logic
+    cursor = connection.cursor()
+    # first, check if the database was already preprocessed, in which case
+    # we do not need to do anything unless the force is True
+    # if force, just go on, else, check other conditions
+    if not force:
+        # condition 1: the database file must not have changed since the last preprocessing
+        #              we check it by using a hash of the file and save the result
+        #              in a separate file in the same directory as this code is, up one level,
+        #              in folder cache, in file db_hash.txt
+        #              if the file does not exist, we create it and save the hash
+        #              if the file exists, we read the hash and compare it with the current one
+        #              if they are the same, we do not need to preprocess the database
+        #              if they are different, we need to preprocess the database and update the hash
+        #              after the preprocessing
+        print("Detecting changes in the database file, please wait...")
+        if not detect_database_has_changed():
+            print("Database already preprocessed. Use force=True to reprocess.")
+            return
+    print("Database needs to be preprocessed.")
+    # delete table '__preprocessed__' if it exists
+    cursor.execute("DROP TABLE IF EXISTS __preprocessed__")
+    # get the tables names
+    tables = get_tables(connection)
+    # make sure that no column with the _new suffix exist in any table of the database
+    for table in tables:
+        column_names = get_column_names(connection, table)
+        for cn in column_names:
+            if cn.endswith("_new"):
+                # remove the _new column
+                query = f"""
+                    ALTER TABLE {table}
+                    DROP COLUMN {cn}
+                """
+                cursor.execute(query)
+    # for each table, get the columns names and types
+    tables = get_tables(connection)
+    for table in tables:
+        column_names = get_column_names(connection, table)
+        column_types = get_column_types(connection, table)
+        n_entries_ = cursor.execute(f"SELECT COUNT({column_names[0]}) FROM {table}").fetchone()[0]
+        for cn, ct in zip(column_names, column_types):
+            print(f"{table}: {cn} - {ct} ({n_entries_:,d} entries) -> {DATABSE_RECORD_LAYOUT_DATA_TYPES[table][cn]}")
+            quit()
+            ########
+            #######
+            
+
+            if table in DATABSE_RECORD_LAYOUT_DATA_TYPES:
+                if cn in DATABSE_RECORD_LAYOUT_DATA_TYPES[table]:
+                    print("\tupdating...", end="\r")
+                    # we need to copy the data in a new column with the correct type
+                    # and then drop the old column and rename the new column
+                    # create a new column with the correct type
+                    query = f"""
+                        ALTER TABLE {table}
+                        ADD COLUMN {cn}_new {DATABSE_RECORD_LAYOUT_DATA_TYPES[table][cn]}
+                    """
+                    cursor.execute(query)
+                    # copy the data from the old column to the new column
+                    query = f"""
+                        UPDATE {table}
+                        SET {cn}_new = CAST({cn} as {DATABSE_RECORD_LAYOUT_DATA_TYPES[table][cn]})
+                    """
+                    cursor.execute(query)
+                    # drop the old column
+                    query = f"""
+                        ALTER TABLE {table}
+                        DROP COLUMN {cn}
+                    """
+                    cursor.execute(query)
+                    # rename the new column
+                    query = f"""
+                        ALTER TABLE {table}
+                        RENAME COLUMN {cn}_new TO {cn}
+                    """ 
+                    cursor.execute(query)
+    # commit and close
+    connection.commit()
+    cursor.close()
+    # save the hash of the database file
+    database_file_hash = hash_database_file(DATABASE_FILE)
+    hash_folder = get_database_file_hash_folder()
+    if not os.path.exists(hash_folder):
+        os.makedirs(hash_folder)
+    hash_file = get_database_hash_file_path()
+    with open(hash_file, "w") as f:
+        f.write(database_file_hash)
+
+def slim_down_database(connection: sqlite3.Connection) -> str:
+    """  to be run before the preprocessing of the database,
+    to slim down the database and make it faster to process.
+
+    BEWARE: This modifies the database, so it's better to make this
+    function work on a copy of the original database.
+    """
+    new_db_file = os.path.normpath(
+        os.path.join(
+            os.path.dirname(DATABASE_FILE),
+            f"slim_{os.path.basename(DATABASE_FILE)}"
+        )
+    )
+    # check if the database has the necessary tables
+    # check if the slim database already exists
+    # insert automatic change check with hash
+
+    return new_db_file
+
+
+
 #### incomplete
+####  https://www.sqlitetutorial.net/sqlite-glob/
 def add_cohorts_table(connection: sqlite3.Connection):
     """ Create the temporary cohorts table in the database.
-    The table is created if it does not exist. If it does, it is replaced.
+
+    Table columns:
+    - ID_SUBJECT: alphanumeric (could be non-unique in the table)
+    - YEAR_ENTRY: integer, the year considered for the inclusion in the cohort
+    - AGE_ENTRY: integer, the age of the patient at the year of inclusion
+    - ID_DISORDER: string, the disorder of the patient
+    - ID_COHORT: string, the cohort of the patient
+        - "SCHIZO", stands for Schizophrenic Disorder
+        - "DEPRE", stands for Depression
+        - "BIPOLAR", stands for Bipolar Disorder
+    - ID_COHORT: string, the cohort of the patient
+        - "A", stands for INCIDENT
+        - "B", stands for PREVALENT
+        - "C", stands for INCIDENT for age 18-25
+
     connection: sqlite3.Connection
         The connection to the database.
         The database must have the following tables:
@@ -625,29 +921,77 @@ def add_cohorts_table(connection: sqlite3.Connection):
         raise ValueError(f"The database is missing the following tables: {missing_tables}")
     # logic
     cursor = connection.cursor()
-    # drop cohorts table if it exists
-    cursor.execute("DROP TABLE IF EXISTS cohorts;")
-    connection.commit()
-    # create the cohorts table
-    # the table has the following columns:
-    # - ID_SUBJECT: alphanumeric (could be non-unique in the table)
-    # - YEAR_ENTRY: integer
-    # - AGE_ENTRY: integer
-    # - ID_COHORT: string
-    # - ID_DISORDER: string
+    # create the cohorts table (temporary, will be deleted when the connection is closed)
     query = """
         CREATE TEMPORARY TABLE cohorts (
             ID_SUBJECT TEXT,
-            YEAR_ENTRY INTEGER,
-            AGE_ENTRY INTEGER,
-            ID_COHORT TEXT,
+            YEAR_INCLUSION INTEGER,
+            AGE_AT_YEAR_INCLUSION INTEGER,
             ID_DISORDER TEXT
+            ID_COHORT TEXT,
         );
     """
     cursor.execute(query)
     connection.commit()
-    # fill the table with the data
-    ##################################################################################################################################
+    # get current year
+    current_year = int(time.localtime().tm_year)
+    # #######
+    # SCHIZO
+    # #######
+    # - Prevalent
+    #   patients with a diagnosis of Schizophrenic Disorder at the year of inclusion
+    #   or before, with date of death after 01/01/year_of_inclusion or null.
+    #   - select all ID_SUBJECT, DATE_DIAG from diagnoses where there is a diagnosis
+    #     of Schizophrenic Disorder
+    #     I obtain a table of subjects and since when they have the disease
+    cursor.execute("""
+        CREATE TEMPORARY TABLE a AS
+        SELECT ID_SUBJECT, DATE_DIAG FROM diagnoses
+        WHERE
+            DATE_DIAG IS NOT NULL
+            AND
+            (   
+                (  
+                    CODING_SYSTEM = ICD9
+                    AND
+                    (
+                        substr(DIAGNOSIS,1,3) IN ('295', '297') 
+                        OR 
+                        substr(DIAGNOSIS,1,4) IN ('2982', '2983', '2984', '2988', '2989')
+                    )
+                )
+                OR
+                (
+                    CODING_SYSTEM = ICD10
+                    AND 
+                    substr(DIAGNOSIS,1,3) IN ('F20', 'F21', 'F22', 'F23', 'F24', 'F25', 'F28', 'F29')
+                )
+            )
+    """)
+    #   - Now, it means that that subject will be in the prevalent cohort from the year of the diagnosis
+    #     until the year of inclusion or the year of death included
+    #     Cycle among the subjects (rows of the table a) and for each subject, cycle among the years
+    #     from the year of the diagnosis to the year of inclusion or the year of death included
+    #     and insert the subject with related info in the cohort table
+    
+     
+    #   
+    # DEPRE
+    # BIPOLAR
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -865,13 +1209,13 @@ def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
     elif gender == "U":
         gender_selector_statement = f"(GENDER IS NULL)"
     else:
-        gender_selector_statement = f"(CAST(GENDER AS TEXT) = '{gender}')"
+        gender_selector_statement = f"(GENDER = '{gender}')"
     if civil_status == "All":
         civil_status_selector_statement = "1"
     elif civil_status == "All-Other":
-        civil_status_selector_statement = f"(CAST(CIVIL_STATUS AS TEXT) != 'Other' AND CIVIL_STATUS IS NOT NULL)"
+        civil_status_selector_statement = f"(CIVIL_STATUS != 'Other' AND CIVIL_STATUS IS NOT NULL)"
     else:
-        civil_status_selector_statement = f"(CAST(CIVIL_STATUS AS TEXT) = '{civil_status}')"
+        civil_status_selector_statement = f"(CIVIL_STATUS = '{civil_status}')"
     if job_condition == "All":
         job_condition_selector_statement = "1"
     elif job_condition == "All-Unknown":
@@ -879,7 +1223,7 @@ def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
     elif job_condition == "Unknown":
         job_condition_selector_statement = f"(JOB_COND IS NULL)"
     else:
-        job_condition_selector_statement = f"(CAST(JOB_COND AS TEXT) = '{job_condition}')"
+        job_condition_selector_statement = f"(JOB_COND = '{job_condition}')"
     if educational_level == "All":
         educational_level_selector_statement = "1"
     elif educational_level == "All-Unknown":
@@ -887,7 +1231,7 @@ def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
     elif educational_level == "Unknown":
         educational_level_selector_statement = f"(EDU_LEVEL IS NULL)"
     else:
-        educational_level_selector_statement = f"(CAST(EDU_LEVEL AS TEXT) = '{educational_level}')"
+        educational_level_selector_statement = f"(EDU_LEVEL = '{educational_level}')"
     query = f"""
             CREATE TEMPORARY TABLE {table_name} AS
                 SELECT 
