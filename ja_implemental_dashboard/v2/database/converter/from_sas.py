@@ -52,6 +52,36 @@ if __name__ == "__main__":
     database_file = os.path.normpath(
         os.path.join(FILES_FOLDER, database_file)
     )
+    ##############
+    if 0:
+        print("TEMPORARY: IF THIS APPEARS GO INTO SOURCE CODE AND PUT 'if 0' on line 57 or close to it.")
+        db_sicilia_orig = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia\\DATABASE.original_from_sas.mod.sqlite3"
+        db = sqlite3.connect(db_sicilia_orig)
+        # goal: alter the demographics table to replace the EDU_LEVEL intervals from a TEXT based code
+        #       to a numerical one, which are the ISCED levels from 0 to 8.
+        #       Original educational levels are:
+        #       - Null or None -> ISCED 9 (no educational level)
+        #       - "0-5" -> ISCED 1 (primary education)
+        #       - "6-8" -> ISCED 2 (lower secondary education)
+        #       - "9-13" -> ISCED 3 (upper secondary education)
+        #       - ">=14" -> ISCED 5 (after upper secondary education, could be 4, 6, 7, or 8)
+        cursor = db.cursor()
+        # how to alter values in a column
+        # cursor.execute("UPDATE demographics SET EDU_LEVEL = '9-13' WHERE EDU_LEVEL = '6-8'")
+        cursor.execute("UPDATE demographics SET EDU_LEVEL = '1' WHERE EDU_LEVEL LIKE '%0-5%'")
+        cursor.execute("UPDATE demographics SET EDU_LEVEL = '2' WHERE EDU_LEVEL LIKE '%6-8%'")
+        cursor.execute("UPDATE demographics SET EDU_LEVEL = '3' WHERE EDU_LEVEL LIKE '%9-13%'")
+        cursor.execute("UPDATE demographics SET EDU_LEVEL = '5' WHERE EDU_LEVEL LIKE '%>=14%'")
+        cursor.execute("UPDATE demographics SET EDU_LEVEL = '9' WHERE EDU_LEVEL IS NULL")
+        cursor.execute("ALTER TABLE demographics ADD COLUMN EDU_LEVEL_NUM INTEGER")
+        cursor.execute("UPDATE demographics SET EDU_LEVEL_NUM = CAST(EDU_LEVEL AS INTEGER)")
+        cursor.execute("ALTER TABLE demographics DROP COLUMN EDU_LEVEL")
+        cursor.execute("ALTER TABLE demographics RENAME COLUMN EDU_LEVEL_NUM TO EDU_LEVEL")
+        db.commit()
+        print(cursor.execute("SELECT EDU_LEVEL FROM demographics LIMIT 100").fetchall())
+        db.close()
+        exit()
+    ##############
     convert_sas_datasets_to_sqlite3_db(
         files_folder=FILES_FOLDER,
         file_name_to_table_name_dict=DATABASE_FILENAMES_DICT,

@@ -42,6 +42,9 @@ file_path = filedialog.askopenfilename(
     filetypes=[("SQLite3 database files", "*.sqlite3")],
     initialdir=last_used_dir,
 )
+if file_path == "":
+    print("No file selected. Exiting.")
+    exit()
 DATABASE_FILE = os.path.normpath(file_path)
 with open(filedialog_cache_file, "w") as f:
     f.write(os.path.dirname(DATABASE_FILE))
@@ -74,7 +77,7 @@ DATABSE_RECORD_LAYOUT_DATA_TYPES = {
         "DT_END_ASSIST": "TEXT",
         "CIVIL_STATUS": "TEXT",
         "JOB_COND": "TEXT",
-        "EDU_LEVEL": "TEXT"
+        "EDU_LEVEL": "INTEGER"
     },
     "diagnoses": {
         "ID_SUBJECT": "TEXT",
@@ -753,33 +756,34 @@ def hash_database_file(file_path: str) -> str:
             md5.update(byte_block)
     return md5.hexdigest()
 
-def get_database_file_hash_folder() -> str:
-    """ Get the path to the file that contains the hash of the database file.
+def get_original_database_hash_file_path() -> str:
+    """ Get the path to the file that contains the hash of the original database file.
     Returns the path to the file.
     """
-    return get_cache_folder()
-
-def get_database_hash_file_path() -> str:
-    """ Get the path to the file that contains the hash of the database file.
-    Returns the path to the file.
-    """
-    fname = "db_hash.cache"
+    fname = "db_hash_original.cache"
     path = os.path.normpath(
-        os.path.join(
-            get_database_file_hash_folder(),
-            fname
-        )
+        os.path.join(get_cache_folder(), fname)
     )
     return path
 
-def detect_database_has_changed() -> bool:
+def get_slim_database_hash_file_path() -> str:
+    """ Get the path to the file that contains the hash of the slim database file.
+    Returns the path to the file.
+    """
+    fname = "db_hash_slim.cache"
+    path = os.path.normpath(
+        os.path.join(get_cache_folder(), fname)
+    )
+    return path
+
+def detect_original_database_has_changed() -> bool:
     """ Detect if the database file has changed since the last preprocessing.
     Returns True if the database file has changed, False otherwise.
     """
-    hash_folder = get_database_file_hash_folder()
+    hash_folder = get_cache_folder()
     if not os.path.exists(hash_folder):
         return True
-    cache_file = get_database_hash_file_path()
+    cache_file = get_original_database_hash_file_path()
     if not os.path.exists(cache_file):
         return True
     with open(cache_file, "r") as f:
@@ -787,18 +791,214 @@ def detect_database_has_changed() -> bool:
     database_file_hash = hash_database_file(DATABASE_FILE)
     return old_hash != database_file_hash
 
+def get_slim_database_filepath() -> str:
+    """ Get the path to the slim database file.
+    Returns the path to the slim database file.
+    """
+    return os.path.normpath(
+        os.path.join(
+            os.path.dirname(DATABASE_FILE),
+            f"{os.path.basename(DATABASE_FILE).replace('.sqlite3', '.jasqlite3')}"
+        )
+    )
 
-def write_to_database_hash_file(hash_: str) -> None:
+def detect_slim_database_has_changed() -> bool:
+    """ Detect if the slim database file has changed since the last preprocessing.
+    Returns True if the slim database file has changed, False otherwise.
+    """
+    hash_folder = get_cache_folder()
+    if not os.path.exists(hash_folder):
+        return True
+    cache_file = get_slim_database_hash_file_path()
+    if not os.path.exists(cache_file):
+        return True
+    with open(cache_file, "r") as f:
+        old_hash = f.read()
+    slim_database_file = get_slim_database_filepath()
+    if not os.path.exists(slim_database_file):
+        return True
+    slim_database_file_hash = hash_database_file(slim_database_file)
+    return old_hash != slim_database_file_hash
+
+def write_to_original_database_hash_file(hash_: str) -> None:
     """ Write the hash of the database file to a file in the cache folder.
     hash_: str
         The hash of the database file.
     """
-    hash_folder = get_database_file_hash_folder()
+    hash_folder = get_cache_folder()
     if not os.path.exists(hash_folder):
         os.makedirs(hash_folder)
-    cache_file = get_database_hash_file_path()
+    cache_file = get_original_database_hash_file_path()
     with open(cache_file, "w") as f:
         f.write(hash_)
+
+def write_to_slim_database_hash_file(hash_: str) -> None:
+    """ Write the hash of the slim database file to a file in the cache folder.
+    hash_: str
+        The hash of the slim database file.
+    """
+    hash_folder = get_cache_folder()
+    if not os.path.exists(hash_folder):
+        os.makedirs(hash_folder)
+    cache_file = get_slim_database_hash_file_path()
+    with open(cache_file, "w") as f:
+        f.write(hash_)
+
+def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
+    """To be run before the preprocessing of the database,
+    to slim down the database and make it faster to process
+    and discard useless data.
+
+    A new database file is created named 'slim_<original_file_name>'.
+    The process is applied only if it is the first time that the original database is accessed,
+    if the original database has changed since the first time it was accessed,
+    or if the slim database is not found or has changed since the last time it was created.
+    To detect these changes, cached hashes of the original database file and the slim database file
+    are stored in the cache folder and used as reference.
+
+    Returns the file name of the slim database and a boolean indicating if the process was applied.
+    The original database file, the one the user selects, is not modified in any way.
+    """
+    new_db_file = get_slim_database_filepath()
+    # check if the database has the necessary tables
+    has_tables, missing_tables = check_database_has_tables(connection)
+    if not has_tables:
+        raise ValueError(f"The database is missing the following tables: {missing_tables}")
+    # check if the process has to run
+    print("Detecting changes in the databases...", end=" ")
+    # conditions to not run the process (to exit this function):
+    # - the slim database file does not exist
+    condition_1 = os.path.exists(new_db_file)
+    # - the original database file has changed
+    condition_2 = not detect_original_database_has_changed()
+    # - the slim database file has changed
+    condition_3 = not detect_slim_database_has_changed()
+    # - decide
+    if condition_1 and condition_2 and condition_3:
+        print("none found!")
+        return new_db_file, False
+    print("changes found! Processing...", end=" ")
+    # apply the process
+    cursor = connection.cursor()
+    # save the hash of the original database file for next time
+    write_to_original_database_hash_file(hash_database_file(DATABASE_FILE))
+    # permanently delete the slim database file if it exists
+    if os.path.exists(new_db_file):
+        os.remove(new_db_file)
+    # create the new slim database file
+    cursor.execute(f"ATTACH DATABASE '{new_db_file}' AS slim")
+    # slim down the pharma table
+    cursor.execute("""
+        CREATE TABLE slim.pharma AS
+        SELECT *
+        FROM pharma
+        WHERE
+            ATC_CHAR LIKE 'N06A%' /* Antidepressants */
+            OR
+            ATC_CHAR LIKE 'N05A%' /* Antipsycotics Agents (I and II generations) and Lithium (N05AN%) */
+            OR
+            ATC_CHAR = 'N03AX09' /* Lamotrigine */
+            OR
+            ATC_CHAR = 'N03AG01' /* Valproic acid */
+            OR
+            ATC_CHAR = 'N03AF01' /* Carbamazepine */
+            /* Here, casting is not necessary because pattern-matching with LIKE also */
+            /* works wether ATC_CHAR is BLOB or TEXT independently */
+    """)
+    # slim down the diagnoses table
+    cursor.execute("""
+        CREATE TABLE slim.diagnoses AS
+        SELECT *
+        FROM diagnoses
+        WHERE
+            (
+                cast(CODING_SYSTEM AS TEXT) = 'ICD9'
+                AND
+                (
+                    substr(cast(DIAGNOSIS AS TEXT),1,3) IN (
+                                                '311', /* Depression */
+                                                '295', '297', /* Schizophrenic Disorder */
+                                                /* Bipolar Disorder */
+                                                '301' /* Personality Disorder */
+                                                /* Anxiety Disorders */
+                                                /* Suicidal Behaviour */
+                                            )
+                    OR
+                    substr(cast(DIAGNOSIS AS TEXT),1,4) IN (
+                                                '2962', '2963', '2980', '3004', '3090', '3091', /* Depression */
+                                                '2982', '2983', '2984', '2988', '2989', /* Schizophrenic Disorder */
+                                                '2960', '2961', '2964', '2965', '2966', '2967', '2981', /* Bipolar Disorder */
+                                                /* Personality Disorder */
+                                                '3000', '3001', '3003', '3098', '3083', /* Anxiety Disorders */
+                                                'E950', 'E951', 'E952', 'E953', 'E954', 'E955', 'E956', 'E957', 'E958', 'E959' /* Suicidal Behaviour */
+                                            )
+                    OR
+                    substr(cast(DIAGNOSIS AS TEXT),1,5) IN (
+                                                /* Depression */
+                                                /* Schizophrenic Disorder */
+                                                '29680', '29681', '29689', '29699', /* Bipolar Disorder */
+                                                /* Personality Disorder */
+                                                /* Anxiety Disorders */
+                                                'V6284' /* Suicidal Behaviour */
+                                            )
+                )
+            )
+            OR
+            (
+                cast(CODING_SYSTEM AS TEXT) = 'ICD10'
+                AND
+                (
+                   substr(cast(DIAGNOSIS AS TEXT),1,3) IN (
+                                                'F32', 'F33', 'F39', /* Depression */
+                                                'F20', 'F21', 'F22', 'F23', 'F24', 'F25', 'F28', 'F29', /* Schizophrenic Disorder */
+                                                'F30', 'F31', /* Bipolar Disorder */
+                                                'F60', 'F61', /* Personality Disorder */
+                                                'F40', 'F41', 'F42', /* Anxiety Disorders */
+                                                'X60', 'X61', 'X62', 'X63', 'X64', 'X65', 'X66', 'X67', 'X68', 'X69', 'X70', 'X71', 'X72', 'X73', 'X74', 'X75', 'X76', 'X77', 'X78', 'X79', 'X80', 'X81', 'X82', 'X83', 'X84', 'Y10', 'Y11', 'Y12', 'Y13', 'Y14', 'Y15', 'Y16', 'Y17', 'Y18', 'Y19', 'Y20', 'Y21', 'Y22', 'Y23', 'Y24', 'Y25', 'Y26', 'Y27', 'Y28', 'Y29', 'Y30', 'Y31', 'Y32', 'Y33', 'Y34' /* Suicidal Behaviour */
+                                            )
+                    OR
+                    substr(cast(DIAGNOSIS AS TEXT),1,4) IN (
+                                                'F341', 'F348', 'F349', 'F381', 'F388', 'F431', 'F432', /* Depression */
+                                                /* Schizophrenic Disorder */
+                                                'F340', 'F380', /* Bipolar Disorder */
+                                                /* Personality Disorder */
+                                                'F930', 'F931', 'F932', 'F430', 'F431', 'F438', 'F439' /* Anxiety Disorders */
+                                                /* Suicidal Behaviour */
+                                            )
+                )
+            )
+    """)
+    # tables 'interventions' and 'physical_exams' are by construction already fine
+    cursor.execute("CREATE TABLE slim.physical_exams AS SELECT * FROM physical_exams")
+    cursor.execute("CREATE TABLE slim.interventions AS SELECT * FROM interventions")
+    # slim down the demographics table
+    # to do so, find all the subjects that are in the slimmed down pharma and diagnoses tables
+    # as well as in the interventions and physical_exams tables
+    # create a unique set of subjects
+    # then, create a new demographics table with only the subjects that appear in the unique set
+    cursor.execute("""
+        CREATE TABLE slim.demographics AS
+        SELECT *
+        FROM demographics
+        WHERE ID_SUBJECT IN
+        (
+            SELECT DISTINCT ID_SUBJECT FROM slim.pharma
+            UNION
+            SELECT DISTINCT ID_SUBJECT FROM slim.diagnoses
+            UNION
+            SELECT DISTINCT ID_SUBJECT FROM slim.interventions
+            UNION
+            SELECT DISTINCT ID_SUBJECT FROM slim.physical_exams
+        )
+    """)
+    # commit changes and close
+    connection.commit()
+    cursor.close()
+    # save the hash of the slim database file for next time
+    write_to_slim_database_hash_file(hash_database_file(new_db_file))
+    print("done!")
+    return new_db_file, True
+
 
 def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=False) -> None:
     # Note: this function depends of the global variable DATABSE_RECORD_LAYOUT_DATA_TYPES
@@ -808,13 +1008,16 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
     #       which might be more efficient in storing short textual data.
     #       If changed to BLOB, it would be necessary to change all the comparisons
     #       in the code that use the data in the database.
-    """ Perform preprocessing on all the tables of the database.
+    """ Perform preprocessing on all the tables of the ja dashboard database (the one that went throught the process of slimming down).
+    Note: the input connection must be to the slimmed down database.
     The preprocessing consists of checking the data types of the columns.
-    The preprocessing is done only if the database file has changed since the last preprocessing.
+    The preprocessing is done only if the original database file has changed since the last preprocessing
+    or the slimmed down database file has changed since the last preprocessing, or if the force is True.
     The hash of the database file is saved in a file in the cache folder.
-
+    Consider using force=True to force the preprocessing if the slim down process was applied.
+    
     connection: sqlite3.Connection
-        The connection to the database.
+        The connection to the ja_dashboard database.
     """
     # check if the database has the necessary tables
     has_tables, missing_tables = check_database_has_tables(connection)
@@ -826,22 +1029,20 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
     # we do not need to do anything unless the force is True
     # if force, just go on, else, check other conditions
     if not force:
-        # condition 1: the database file must not have changed since the last preprocessing
-        #              we check it by using a hash of the file and save the result
-        #              in a separate file in the same directory as this code is, up one level,
-        #              in folder cache, in file db_hash.cache
-        #              if the file does not exist, we create it and save the hash
-        #              if the file exists, we read the hash and compare it with the current one
-        #              if they are the same, we do not need to preprocess the database
-        #              if they are different, we need to preprocess the database and update the hash
-        #              after the preprocessing
-        print("Detecting changes in the database file, please wait...")
-        if not detect_database_has_changed():
-            print("Database already preprocessed. Use force=True to reprocess.")
+        print("Detecting changes in the internal database, please wait...")
+        # conditions to not apply this preprocessing (to exit this function):
+        # - the original database file must not have changed since the last preprocessing
+        condition_1 = not detect_original_database_has_changed()
+        # - the slim database file must not have changed since the last preprocessing
+        #   (this condition can be misleading as the hash file is saved after the slimming
+        #    down process, that is why it is necessary to force execution if the slimming
+        #    down process was applied)
+        condition_2 = not detect_slim_database_has_changed()
+        # - decide
+        if condition_1 and condition_2:
+            print("None found!")
             return
-    print("Database needs to be preprocessed.")
-    # delete table '__preprocessed__' if it exists
-    cursor.execute("DROP TABLE IF EXISTS __preprocessed__")
+    print("Preprocessing internal database...")
     # get the tables names
     tables = get_tables(connection)
     # make sure that no column with the _new suffix exist in any table of the database
@@ -907,160 +1108,9 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
     connection.commit()
     cursor.close()
     # save the hash of the database file
-    database_file_hash = hash_database_file(DATABASE_FILE)
-    hash_folder = get_database_file_hash_folder()
-    if not os.path.exists(hash_folder):
-        os.makedirs(hash_folder)
-    hash_file = get_database_hash_file_path()
-    with open(hash_file, "w") as f:
-        f.write(database_file_hash)
+    write_to_slim_database_hash_file(hash_database_file(get_slim_database_filepath()))
     print("Database preprocessed.")
     # done
-
-def slim_down_database(connection: sqlite3.Connection) -> str:
-    """To be run before the preprocessing of the database,
-    to slim down the database and make it faster to process.
-
-    BEWARE: This modifies the database, so it's better to make this
-    function work on a copy of the original database.
-    """
-    new_db_file = os.path.normpath(
-        os.path.join(
-            os.path.dirname(DATABASE_FILE),
-            f"slim_{os.path.basename(DATABASE_FILE)}"
-        )
-    )
-    # check if the database has the necessary tables
-    has_tables, missing_tables = check_database_has_tables(connection)
-    if not has_tables:
-        raise ValueError(f"The database is missing the following tables: {missing_tables}")
-    # check if the slim database already exists
-    if os.path.exists(new_db_file):
-        # since it exists, check it the original dataset has changed
-        # if it has changed, we need to recreate the slim database
-        # else, we return the path to the slim database
-        if os.path.exists(get_database_hash_file_path()):
-            if not detect_database_has_changed():
-                return new_db_file
-    # we have to slim down the database
-    # specifically, we will first slim down
-    # the pharma table and the diagnoses table.
-    # Then, we slim down the demographics table based on the
-    # slimmed down pharma and diagnoses tables.
-    # The other two tables are by definition and construction already slimmed down.
-    cursor = connection.cursor()
-    # slim down the pharma table
-    # cursor.execute("DROP TABLE IF EXISTS pharma_slim")
-    # cursor.execute("""
-    #     CREATE TABLE pharma_slim AS
-    #     SELECT *
-    #     FROM pharma
-    #     WHERE
-    #         ATC_CHAR LIKE 'N06A%' /* Antidepressants */
-    #         OR
-    #         ATC_CHAR LIKE 'N05A%' /* Antipsycotics Agents (I and II generations) and Lithium (N05AN%) */
-    #         OR
-    #         ATC_CHAR = 'N03AX09' /* Lamotrigine */
-    #         OR
-    #         ATC_CHAR = 'N03AG01' /* Valproic acid */
-    #         OR
-    #         ATC_CHAR = 'N03AF01' /* Carbamazepine */
-    # """)
-    # cursor.execute("DROP TABLE pharma")
-    # cursor.execute("ALTER TABLE pharma_slim RENAME TO pharma")
-    # slim down the diagnoses table
-    cursor.execute("DROP TABLE IF EXISTS diagnoses_slim")
-    cursor.execute("""
-        CREATE TABLE diagnoses_slim AS
-        SELECT *
-        FROM diagnoses
-        WHERE
-            (
-                CODING_SYSTEM = 'ICD9'
-                AND
-                (
-                    substr(DIAGNOSIS,1,3) IN (
-                                                '311', /* Depression */
-                                                '295', '297', /* Schizophrenic Disorder */
-                                                /* Bipolar Disorder */
-                                                '301' /* Personality Disorder */
-                                                /* Anxiety Disorders */
-                                                /* Suicidal Behaviour */
-                                            )
-                    OR
-                    substr(DIAGNOSIS,1,4) IN (
-                                                '2962', '2963', '2980', '3004', '3090', '3091', /* Depression */
-                                                '2982', '2983', '2984', '2988', '2989', /* Schizophrenic Disorder */
-                                                '2960', '2961', '2964', '2965', '2966', '2967', '2981', /* Bipolar Disorder */
-                                                /* Personality Disorder */
-                                                '3000', '3001', '3003', '3098', '3083', /* Anxiety Disorders */
-                                                'E950', 'E951', 'E952', 'E953', 'E954', 'E955', 'E956', 'E957', 'E958', 'E959' /* Suicidal Behaviour */
-                                            )
-                    OR
-                    substr(DIAGNOSIS,1,5) IN (
-                                                /* Depression */
-                                                /* Schizophrenic Disorder */
-                                                '29680', '29681', '29689', '29699', /* Bipolar Disorder */
-                                                /* Personality Disorder */
-                                                /* Anxiety Disorders */
-                                                'V6284' /* Suicidal Behaviour */
-                                            )
-                )
-            )
-            OR
-            (
-                CODING_SYSTEM = 'ICD10'
-                AND
-                (
-                   substr(DIAGNOSIS,1,3) IN (
-                                                'F32', 'F33', 'F39', /* Depression */
-                                                'F20', 'F21', 'F22', 'F23', 'F24', 'F25', 'F28', 'F29', /* Schizophrenic Disorder */
-                                                'F30', 'F31', /* Bipolar Disorder */
-                                                'F60', 'F61', /* Personality Disorder */
-                                                'F40', 'F41', 'F42', /* Anxiety Disorders */
-                                                'X60', 'X61', 'X62', 'X63', 'X64', 'X65', 'X66', 'X67', 'X68', 'X69', 'X70', 'X71', 'X72', 'X73', 'X74', 'X75', 'X76', 'X77', 'X78', 'X79', 'X80', 'X81', 'X82', 'X83', 'X84', 'Y10', 'Y11', 'Y12', 'Y13', 'Y14', 'Y15', 'Y16', 'Y17', 'Y18', 'Y19', 'Y20', 'Y21', 'Y22', 'Y23', 'Y24', 'Y25', 'Y26', 'Y27', 'Y28', 'Y29', 'Y30', 'Y31', 'Y32', 'Y33', 'Y34' /* Suicidal Behaviour */
-                                            )
-                    OR
-                    substr(DIAGNOSIS,1,4) IN (
-                                                'F341', 'F348', 'F349', 'F381', 'F388', 'F431', 'F432', /* Depression */
-                                                /* Schizophrenic Disorder */
-                                                'F340', 'F380', /* Bipolar Disorder */
-                                                /* Personality Disorder */
-                                                'F930', 'F931', 'F932', 'F430', 'F431', 'F438', 'F439' /* Anxiety Disorders */
-                                                /* Suicidal Behaviour */
-                                            )
-                )
-            )
-    """)
-    cursor.execute("DROP TABLE diagnoses")
-    cursor.execute("ALTER TABLE diagnoses_slim RENAME TO diagnoses")
-    # tables 'interventions' and 'physical_exams' are by construction already slimmed down
-    # slim down the demographics table
-    # to do so, find all the subjects that are in the slimmed down pharma and diagnoses tables
-    # as well as in the interventions and physical_exams tables
-    # create a unique set of subjects
-    # then, create a new demographics table with only the subjects that appear in the unique set
-    cursor.execute("DROP TABLE IF EXISTS demographics_slim")
-    cursor.execute("""
-        CREATE TABLE demographics_slim AS
-        SELECT *
-        FROM demographics
-        WHERE ID_SUBJECT IN DISTINCT (
-            SELECT DISTINCT ID_SUBJECT FROM pharma
-            UNION
-            SELECT DISTINCT ID_SUBJECT FROM diagnoses
-            UNION
-            SELECT DISTINCT ID_SUBJECT FROM interventions
-            UNION
-            SELECT DISTINCT ID_SUBJECT FROM physical_exams       
-        )
-    """)
-    cursor.execute("DROP TABLE demographics")
-    cursor.execute("ALTER TABLE demographics_slim RENAME TO demographics")
-    # commit changes and close
-    connection.commit()
-    cursor.close()
-    return new_db_file
 
 
 
@@ -1441,6 +1491,76 @@ def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
     cursor.close()
     # return the table name
     return table_name
+
+def get_tables_dimensions(connection: sqlite3.Connection) -> dict[str:int]:
+    cursor = connection.cursor()
+    tables = get_tables(connection)
+    tables_dimensions = {}
+    for table in tables:
+        cursor.execute(f"SELECT COUNT(*) FROM {table}")
+        tables_dimensions[table] = cursor.fetchone()[0]
+    cursor.close()
+    return tables_dimensions
+
+def print_tables_dimensions(connection: sqlite3.Connection):
+    tables_dimensions = get_tables_dimensions(connection)
+    for table, dim in tables_dimensions.items():
+        print(f"Table {table} has {dim:,d} rows")
+
+
+
+
+
+
+#########################################
+# DATABASE PREPARATION FOR THE DASHBOARD
+#########################################
+
+# Standardize tables names
+standardize_table_names(DB)
+
+# Check if the database has the necessary tables
+is_ok, missing = check_database_has_tables(DB)
+if not is_ok:
+    raise ValueError("The database is missing the following tables which are required:", missing)
+
+# Preprocess the database: create a second database file (that will be used for the dashboard)
+#                          containing only patients
+#                          that are mental health patients of some sort, to exclude
+#                          every other medical condition not of interest of the dashboard
+new_db_path, has_been_slimmed = slim_down_database(DB)
+DB.close()
+DB = sqlite3.connect(new_db_path)
+
+# Preprocess the ja database: fix data types
+preprocess_database_data_types(DB, force=has_been_slimmed)
+
+###
+DB.close()
+print("Database is ready!")
+quit()
+###
+
+#
+# Create the Cohorts table
+from ..database.database import add_cohorts_table
+# .......  TO DO ...........
+# add_cohorts_temporary_table(DB)
+
+
+# Create the stratified demographics table
+from ..indicator.widget import AGE_WIDGET_INTERVALS
+from ..database.database import make_age_startification_tables
+years_of_inclusion = [2018, 2019, 2020, 2021] ########################### to do after having cohorts, and use function get_years_of_inclusion
+make_age_startification_tables(DB, years_of_inclusion, AGE_WIDGET_INTERVALS)
+
+
+
+
+
+
+
+
 
 
 

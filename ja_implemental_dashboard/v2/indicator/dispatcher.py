@@ -71,73 +71,8 @@ class Dispatcher(object):
         return self._pane
 
 
-
-
-
-
-
-
-# Load/Connect database here
-#############################
-# the database is loaded, DB is the sqlite3 connection object
-# to the database.
-from ..database.database import DB
-
-# Standardize tables names
-from ..database.database import standardize_table_names
-standardize_table_names(DB)
-
-# Check if the database has the necessary tables
-from ..database.database import check_database_has_tables
-is_ok, missing = check_database_has_tables(DB)
-if not is_ok:
-    raise ValueError("The database is missing the following tables which are required:", missing)
-
-# Preprocess the database: fix data types
-from ..database.database import preprocess_database_data_types, slim_down_database
-preprocess_database_data_types(DB)
-
-# Preprocess the database: create a second database file containing only patients
-#                          that are mental health patients of some sort, to exclude
-#                          every other medical condition
-#
-#          .................. TO DO .......................
-#          forse non serve perche dovrebbero essere gia scremati,
-#          ma per evitare errori, meglio fare un controllo
-#          la scrematura maggiore puo avvenire a livello della tabella pharma
-#          e demographics, perche le altre sono abbastanza specifiche
-# new_db_path = slim_down_database(DB)
-# DB.close()
-# DB = sqlite3.connect(new_db_path)
-
-print("Slimmed database file path:", slim_down_database(DB))
-
-
-print("Database is ready!")
-quit()
-
-
-#
-# Create the Cohorts table
-from ..database.database import add_cohorts_table
-# .......  TO DO ...........
-# add_cohorts_temporary_table(DB)
-
-
-# Create the stratified demographics table
-from ..indicator.widget import AGE_WIDGET_INTERVALS
-from ..database.database import make_age_startification_tables
-years_of_inclusion = [2018, 2019, 2020, 2021] ########################### to do after having cohorts, and use function get_years_of_inclusion
-make_age_startification_tables(DB, years_of_inclusion, AGE_WIDGET_INTERVALS)
-
-
-
-
-
-
-
-
 # Make all indicator panels to be displayed in the dashboard
+from ..database.database import DB
 
 # Monitoring indicators
 
