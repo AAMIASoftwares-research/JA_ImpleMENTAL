@@ -801,6 +801,13 @@ def write_to_database_hash_file(hash_: str) -> None:
         f.write(hash_)
 
 def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=False) -> None:
+    # Note: this function depends of the global variable DATABSE_RECORD_LAYOUT_DATA_TYPES
+    #       From experiments it came out that the current configuration takes up
+    #       much more space than the "original", unprocessed database.
+    #       I think this might be due to the use of TEXT data types instead of BLOB
+    #       which might be more efficient in storing short textual data.
+    #       If changed to BLOB, it would be necessary to change all the comparisons
+    #       in the code that use the data in the database.
     """ Perform preprocessing on all the tables of the database.
     The preprocessing consists of checking the data types of the columns.
     The preprocessing is done only if the database file has changed since the last preprocessing.
@@ -822,7 +829,7 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
         # condition 1: the database file must not have changed since the last preprocessing
         #              we check it by using a hash of the file and save the result
         #              in a separate file in the same directory as this code is, up one level,
-        #              in folder cache, in file db_hash.txt
+        #              in folder cache, in file db_hash.cache
         #              if the file does not exist, we create it and save the hash
         #              if the file exists, we read the hash and compare it with the current one
         #              if they are the same, we do not need to preprocess the database
@@ -911,7 +918,7 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
     # done
 
 def slim_down_database(connection: sqlite3.Connection) -> str:
-    """  to be run before the preprocessing of the database,
+    """To be run before the preprocessing of the database,
     to slim down the database and make it faster to process.
 
     BEWARE: This modifies the database, so it's better to make this
@@ -943,34 +950,45 @@ def slim_down_database(connection: sqlite3.Connection) -> str:
     # The other two tables are by definition and construction already slimmed down.
     cursor = connection.cursor()
     # slim down the pharma table
+    ###
+    print("TEST running...")
+    cursor.execute("""
+        SELECT COUNT(ATC_CHAR)
+        FROM pharma
+        WHERE
+            ATC_CHAR LIKE 'N06A%' /* Antidepressants */
+            OR
+            ATC_CHAR LIKE 'N05A%' /* Antipsycotics Agents (I and II generations) and Lithium (N05AN%) */
+            OR
+            ATC_CHAR = 'N03AX09' /* Lamotrigine */
+            OR
+            ATC_CHAR = 'N03AG01' /* Valproic acid */
+            OR
+            ATC_CHAR = 'N03AF01' /* Carbamazepine */
+    """)
+    print("N entries in selected pharma", cursor.fetchall()[0])
+    return new_db_file
+    ###
     cursor.execute("DROP TABLE IF EXISTS pharma_slim")
     cursor.execute("""
         CREATE TABLE pharma_slim AS
         SELECT *
         FROM pharma
         WHERE
-            ATC_CHAR LIKE 'N06A%'
+            ATC_CHAR LIKE 'N06A%' /* Antidepressants */
             OR
-            ATC_CHAR LIKE 'N05A%'
+            ATC_CHAR LIKE 'N05A%' /* Antipsycotics Agents (I and II generations) and Lithium (N05AN%) */
             OR
-            ATC_CHAR = 'N03AX09'
+            ATC_CHAR = 'N03AX09' /* Lamotrigine */
             OR
-            ATC_CHAR = 'N03AG01'
+            ATC_CHAR = 'N03AG01' /* Valproic acid */
             OR
-            ATC_CHAR = 'N03AF01'
-            OR
-            ATC_CHAR = 'N05AH03'
-            OR
-            ATC_CHAR = 'N05AH04'
-            OR
-            ATC_CHAR = 'N05AX12'
+            ATC_CHAR = 'N03AF01' /* Carbamazepine */
     """)
     cursor.execute("DROP TABLE pharma")
     cursor.execute("ALTER TABLE pharma_slim RENAME TO pharma")
     # slim down the diagnoses table
     cursor.execute("DROP TABLE IF EXISTS diagnoses_slim")
-    icd9_list_3 = "()"
-    icd10_list_3 = "()"
     cursor.execute("""
         CREATE TABLE diagnoses_slim AS
         SELECT *
@@ -981,22 +999,30 @@ def slim_down_database(connection: sqlite3.Connection) -> str:
                 AND
                 (
                     substr(DIAGNOSIS,1,3) IN (
-                                                '311',
-                                                '295', '297',
-                                                'F61', '301'
+                                                '311', /* Depression */
+                                                '295', '297', /* Schizophrenic Disorder */
+                                                /* Bipolar Disorder */
+                                                '301' /* Personality Disorder */
+                                                /* Anxiety Disorders */
+                                                /* Suicidal Behaviour */
                                             )
                     OR
                     substr(DIAGNOSIS,1,4) IN (
-                                                '2962', '2963', '2980', '3004', '3090', '3091',
-                                                '2982', '2983', '2984', '2988', '2989',
-                                                '2960', '2961', '2964', '2965', '2966', '2967', '2981',
-                                                '3000', '3001', '3003', '3098', '3083',
-                                                'E950', 'E951', 'E952', 'E953', 'E954', 'E955', 'E956', 'E957', 'E958', 'E959'
+                                                '2962', '2963', '2980', '3004', '3090', '3091', /* Depression */
+                                                '2982', '2983', '2984', '2988', '2989', /* Schizophrenic Disorder */
+                                                '2960', '2961', '2964', '2965', '2966', '2967', '2981', /* Bipolar Disorder */
+                                                /* Personality Disorder */
+                                                '3000', '3001', '3003', '3098', '3083', /* Anxiety Disorders */
+                                                'E950', 'E951', 'E952', 'E953', 'E954', 'E955', 'E956', 'E957', 'E958', 'E959' /* Suicidal Behaviour */
                                             )
                     OR
                     substr(DIAGNOSIS,1,5) IN (
-                                                '29680', '29681', '29689', '29699',
-                                                'V6284'
+                                                /* Depression */
+                                                /* Schizophrenic Disorder */
+                                                '29680', '29681', '29689', '29699', /* Bipolar Disorder */
+                                                /* Personality Disorder */
+                                                /* Anxiety Disorders */
+                                                'V6284' /* Suicidal Behaviour */
                                             )
 
                 )
@@ -1006,46 +1032,67 @@ def slim_down_database(connection: sqlite3.Connection) -> str:
                 CODING_SYSTEM = 'ICD10'
                 AND
                 (
-                   substr(DIAGNOSIS,1,3) IN ('F20', 'F21', 'F22', 'F23', 'F24', 'F25', 'F28', 'F29')
-                )
-                
+                   substr(DIAGNOSIS,1,3) IN (
+                                                'F32', 'F33', 'F39', /* Depression */
+                                                'F20', 'F21', 'F22', 'F23', 'F24', 'F25', 'F28', 'F29', /* Schizophrenic Disorder */
+                                                'F30', 'F31', /* Bipolar Disorder */
+                                                'F60', 'F61', /* Personality Disorder */
+                                                'F40', 'F41', 'F42', /* Anxiety Disorders */
+                                                'X60', 'X61', 'X62', 'X63', 'X64', 'X65', 'X66', 'X67', 'X68', 'X69', 'X70', 'X71', 'X72', 'X73', 'X74', 'X75', 'X76', 'X77', 'X78', 'X79', 'X80', 'X81', 'X82', 'X83', 'X84', 'Y10', 'Y11', 'Y12', 'Y13', 'Y14', 'Y15', 'Y16', 'Y17', 'Y18', 'Y19', 'Y20', 'Y21', 'Y22', 'Y23', 'Y24', 'Y25', 'Y26', 'Y27', 'Y28', 'Y29', 'Y30', 'Y31', 'Y32', 'Y33', 'Y34' /* Suicidal Behaviour */
+                                            )
+                    OR
+                    substr(DIAGNOSIS,1,4) IN (
+                                                'F341', 'F348', 'F349', 'F381', 'F388', 'F431', 'F432', /* Depression */
+                                                /* Schizophrenic Disorder */
+                                                'F340', 'F380', /* Bipolar Disorder */
+                                                /* Personality Disorder */
+                                                'F930', 'F931', 'F932', 'F430', 'F431', 'F438', 'F439' /* Anxiety Disorders */
+                                                /* Suicidal Behaviour */
+                                            )
             )
+    /* Depression */
+    /* Schizophrenic Disorder */
+    /* Bipolar Disorder */
+    /* Personality Disorder */
+    /* Anxiety Disorders */
+    /* Suicidal Behaviour */
     """)
 
-    F32.*
-F33.*
-F34.1
-F34.8
-F34.9
-F38.1
-F38.8
-F39.*
-F43.1
-F43.2
+    """
+        F32.*
+    F33.*
+    F34.1
+    F34.8
+    F34.9
+    F38.1
+    F38.8
+    F39.*
+    F43.1
+    F43.2
 
-F20.*
-F21.*
-F22.*
-F23.*
-F24.*
-F25.*
-F28.*
-F29.*
+    F20.*
+    F21.*
+    F22.*
+    F23.*
+    F24.*
+    F25.*
+    F28.*
+    F29.*
 
-F30.*
-F31.*
-F34.0
-F38.0
+    F30.*
+    F31.*
+    F34.0
+    F38.0
 
-F60.*
+    F60.*
 
-F40, F41, F42, F93.0–F93.2
-F43.0, 43.1, 43.8, 43.9    ?????????????????
+    F40, F41, F42, F93.0–F93.2
+    F43.0, 43.1, 43.8, 43.9    ?????????????????
 
-X60.*-X84.*, Y10.*-Y34.*
+    X60.*-X84.*, Y10.*-Y34.*
 
-errores on purpose
-
+    errores on purpose
+    """
     return new_db_file
 
 

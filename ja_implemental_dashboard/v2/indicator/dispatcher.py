@@ -109,6 +109,7 @@ preprocess_database_data_types(DB)
 # new_db_path = slim_down_database(DB)
 # DB.close()
 # DB = sqlite3.connect(new_db_path)
+
 print("Slimmed database file path:", slim_down_database(DB))
 
 
