@@ -669,6 +669,16 @@ def get_tables(connection: sqlite3.Connection) -> list[str]:
     tables.sort()
     return tables
 
+def get_all_tables(connection: sqlite3.Connection) -> list[str]:
+    main_tables = get_tables(connection)
+    cursor = connection.cursor()
+    cursor.execute("SELECT name FROM sqlite_temp_master WHERE type='table'")
+    temp_tables = [c[0] for c in cursor.fetchall()]
+    cursor.close()
+    temp_tables.sort()
+    main_tables.extend(temp_tables)
+    return main_tables
+
 def get_temp_tables(connection: sqlite3.Connection) -> list[str]:
     """ Get the names of the temporary tables in the database.
     connection: sqlite3.Connection
@@ -1232,28 +1242,38 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
             )
         GROUP BY ID_SUBJECT
     """)
-    print(get_tables(connection=connection))
-    quit()
     cursor.execute("""
         INSERT INTO t_pharma (ID_SUBJECT, MIN_YEAR)
-        SELECT ID_SUBJECT, MAX(CAST(strftime('%Y', DT_PRESCR) AS INTEGER))
+        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_PRESCR) AS INTEGER))
         FROM pharma
         WHERE
             ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses)
             AND
             ATC_CHAR IS NOT NULL AND ATC_CHAR LIKE 'N05A%' AND ATC_CHAR NOT LIKE 'N05AN%'
             AND
-            pharma.DT_PRESCR IS NOT NULL AND CAST(strftime('%Y', pharma.DT_PRESCR) AS INTEGER) <= t_diagnoses.MIN_YEAR
+            pharma.DT_PRESCR IS NOT NULL
+            AND
+            CAST(strftime('%Y', pharma.DT_PRESCR) AS INTEGER) 
+                BETWEEN
+                    ( SELECT MIN_YEAR FROM t_diagnoses WHERE t_diagnoses.ID_SUBJECT = pharma.ID_SUBJECT ) - {WASHOUT_YEARS}
+                    AND
+                    ( SELECT MIN_YEAR FROM t_diagnoses WHERE t_diagnoses.ID_SUBJECT = pharma.ID_SUBJECT )
         GROUP BY ID_SUBJECT
     """)
     cursor.execute("""
         INSERT INTO t_interventions (ID_SUBJECT, MIN_YEAR)
-        SELECT ID_SUBJECT, MAX(CAST(strftime('%Y', DT_INT) AS INTEGER))
+        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_INT) AS INTEGER))
         FROM interventions 
         WHERE
             ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses)
             AND
-            interventions.DT_INT IS NOT NULL AND CAST(strftime('%Y', interventions.DT_INT) AS INTEGER) <= t_diagnoses.MIN_YEAR
+            interventions.DT_INT IS NOT NULL
+            AND 
+            CAST(strftime('%Y', interventions.DT_INT) AS INTEGER)
+                BETWEEN
+                    ( SELECT MIN_YEAR FROM t_diagnoses WHERE t_diagnoses.ID_SUBJECT = interventions.ID_SUBJECT ) - {WASHOUT_YEARS}
+                    AND
+                    ( SELECT MIN_YEAR FROM t_diagnoses WHERE t_diagnoses.ID_SUBJECT = interventions.ID_SUBJECT )
         GROUP BY ID_SUBJECT
     """)
     # Insert in cohorst all the subjects that have a diagnosis
@@ -1290,23 +1310,9 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
             )
         )
         WHERE
-            /*
-            Select for possible modifications:
-            - Only the one with the disorder
-            - Only the ones with a diagnosis (so, that appear in t_diagnoses
-            - Only the ones with a record of pharma or interventions in the previous WASHOUT_YEARS years inclusive
-            */
-            ID_SUBJECT IN (
-                SELECT ID_SUBJECT
-                FROM cohorts
-                WHERE ID_DISORDER = 'SCHIZO'
-            )
+            ID_DISORDER = 'SCHIZO'
             AND
             (
-                /* 
-                Selection of year inside of washout period is already done
-                while creating the tables t_pharma and t_interventions
-                */
                 ID_SUBJECT IN ( SELECT ID_SUBJECT FROM t_pharma )
                 OR
                 ID_SUBJECT IN ( SELECT ID_SUBJECT FROM t_interventions )     
@@ -1327,6 +1333,12 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
     # commit changes and close
     connection.commit()
     cursor.close()
+    # hash and save hash
+    write_to_slim_database_hash_file(
+        hash_database_file(
+            get_slim_database_filepath()
+        )
+    )
 
 
 
@@ -1686,20 +1698,29 @@ DB = sqlite3.connect(new_db_path)
 preprocess_database_data_types(DB, force=has_been_slimmed)
 
 # Create the Cohorts table
-print("Creating the cohorts table...")
-
 add_cohorts_table(DB, force=True)
 
+###
+###
 ###
 columns = get_column_names(DB, "cohorts")
 print(columns)
 cursor = DB.cursor()
-cursor.execute("SELECT * FROM cohorts LIMIT 20;")
+cursor.execute("SELECT * FROM cohorts LIMIT 10;")
 res = cursor.fetchall()
 for r in res:
     for e in r:
         print(e, end="\t")
     print()
+print("Number of rows in the cohorts table:",
+    cursor.execute("SELECT COUNT(*) FROM cohorts;").fetchone()[0]
+)
+print("Min SCHIZO year of onset:",
+    cursor.execute("SELECT MIN(YEAR_OF_ONSET) FROM cohorts WHERE ID_DISORDER = 'SCHIZO';").fetchone()[0]
+)
+print("Max SCHIZO year of onset:",
+    cursor.execute("SELECT MAX(YEAR_OF_ONSET) FROM cohorts WHERE ID_DISORDER = 'SCHIZO';").fetchone()[0]
+)
 DB.close()
 
 print("Database is ready!")

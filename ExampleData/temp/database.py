@@ -19,6 +19,9 @@ for i in range(1000):
 print("total rows: ", cursor.execute('SELECT COUNT(*) FROM data').fetchone()[0])
 print("distinct id_subject: ", cursor.execute('SELECT COUNT(DISTINCT ID_SUBJECT) FROM data').fetchone()[0])
 
+# print 30 random rows
+print("30 random rows: ", cursor.execute("SELECT CAST(strftime('%Y', DATE_DIAG) AS INTEGER) FROM data WHERE CAST(strftime('%Y', DATE_DIAG) AS INTEGER) BETWEEN 2016 AND 2019 LIMIT 30").fetchall())
+
 
 # select, for each individual subject, the minimum date of diagnosis (only the year)
 cursor.execute('CREATE TABLE IF NOT EXISTS min_date (ID_SUBJECT TEXT, MIN_DATE INTEGER, NUM_OCCURRENCES INTEGER)')
