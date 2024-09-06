@@ -968,8 +968,7 @@ def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
                 )
             )
     """)
-    # tables 'interventions' and 'physical_exams' are by construction already fine
-    cursor.execute("CREATE TABLE slim.physical_exams AS SELECT * FROM physical_exams")
+    # tables 'interventions' is by construction already fine
     cursor.execute("CREATE TABLE slim.interventions AS SELECT * FROM interventions")
     # slim down the demographics table
     # to do so, find all the subjects that are in the slimmed down pharma and diagnoses tables
@@ -987,8 +986,16 @@ def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
             SELECT DISTINCT ID_SUBJECT FROM slim.diagnoses
             UNION
             SELECT DISTINCT ID_SUBJECT FROM slim.interventions
-            UNION
-            SELECT DISTINCT ID_SUBJECT FROM slim.physical_exams
+        )
+    """)
+    # slim down the physical_exams table from the unique set of subjects in the demographics table
+    cursor.execute("""
+        CREATE TABLE slim.physical_exams AS
+        SELECT *
+        FROM physical_exams
+        WHERE ID_SUBJECT IN
+        (
+            SELECT DISTINCT ID_SUBJECT FROM slim.demographics
         )
     """)
     # commit changes and close
@@ -1116,7 +1123,8 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
 
 #### incomplete
 ####  https://www.sqlitetutorial.net/sqlite-glob/
-def add_cohorts_table(connection: sqlite3.Connection):
+
+def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None:
     """ Create the temporary cohorts table in the database.
 
     Table columns:
@@ -1133,6 +1141,11 @@ def add_cohorts_table(connection: sqlite3.Connection):
         - "B", stands for PREVALENT
         - "C", stands for INCIDENT for age 18-25
 
+    cohorts is kept into the jasqlite3 database as a table.
+    Use force=True if any previous preprocessing has happened.
+    This function will do its job only if the cohorts table is not found in the database
+    or if force is True.
+
     connection: sqlite3.Connection
         The connection to the database.
         The database must have the following tables:
@@ -1146,65 +1159,174 @@ def add_cohorts_table(connection: sqlite3.Connection):
     has_tables, missing_tables = check_database_has_tables(connection)
     if not has_tables:
         raise ValueError(f"The database is missing the following tables: {missing_tables}")
+    # check if the process has to run or not
+    has_cohorts_table = "cohorts" in get_tables(connection)
+    if has_cohorts_table and not force:
+        print("The cohorts table is already in the database.")
+        return
+    print("Creating the cohorts table...", end=" ")
     # logic
     cursor = connection.cursor()
-    # create the cohorts table (temporary, will be deleted when the connection is closed)
-    query = """
-        CREATE TEMPORARY TABLE cohorts (
+    WASHOUT_YEARS = 3
+    # create the cohorts table
+    cursor.execute("DROP TABLE IF EXISTS cohorts")
+    cursor.execute("""
+        CREATE TABLE cohorts (
             ID_SUBJECT TEXT,
-            YEAR_INCLUSION INTEGER,
-            AGE_AT_YEAR_INCLUSION INTEGER,
-            ID_DISORDER TEXT
-            ID_COHORT TEXT,
-        );
-    """
-    cursor.execute(query)
-    connection.commit()
-    # get current year
-    current_year = int(time.localtime().tm_year)
+            ID_DISORDER TEXT,
+            YEAR_OF_ONSET INTEGER /* Not the year of the diagnosis, but the year of the first doubt which is afterward confirmed by a diagnosis */
+        )
+    """)
+    # create the three temporary tables that are needed for there calculations
+    def create_temp_tables(cursor: sqlite3.Cursor) -> None:
+        # clear the temporary tables if they exist and recreate them
+        cursor.execute("DROP TABLE IF EXISTS temp.t_pharma")
+        cursor.execute("DROP TABLE IF EXISTS temp.t_diagnoses")
+        cursor.execute("DROP TABLE IF EXISTS temp.t_interventions")
+        cursor.execute("CREATE TEMP TABLE IF NOT EXISTS t_pharma (ID_SUBJECT TEXT, MIN_YEAR INTEGER)")
+        cursor.execute("CREATE TEMP TABLE IF NOT EXISTS t_diagnoses (ID_SUBJECT TEXT, MIN_YEAR INTEGER)")
+        cursor.execute("CREATE TEMP TABLE IF NOT EXISTS t_interventions (ID_SUBJECT TEXT, MIN_YEAR INTEGER)")
+        cursor.execute("DELETE FROM t_pharma")
+        cursor.execute("DELETE FROM t_diagnoses")
+        cursor.execute("DELETE FROM t_interventions")
     # #######
     # SCHIZO
     # #######
-    # - Prevalent
-    #   patients with a diagnosis of Schizophrenic Disorder at the year of inclusion
-    #   or before, with date of death after 01/01/year_of_inclusion or null.
-    #   - select all ID_SUBJECT, DATE_DIAG from diagnoses where there is a diagnosis
-    #     of Schizophrenic Disorder
-    #     I obtain a table of subjects and since when they have the disease
+    # - Get the year of first doubt of disorder for each subject.
+    #   There has to be a diagnosis of the disorder in the diagnoses table.
+    #   If, proior to the diagnosis (max 3 years), there is any pharma related to the disorder
+    #   or any intervention (we do not look physical_exams), 
+    #   the year of the first doubt is the year of the first.
+    create_temp_tables(cursor)
     cursor.execute("""
-        CREATE TEMPORARY TABLE a AS
-        SELECT ID_SUBJECT, DATE_DIAG FROM diagnoses
+        INSERT INTO t_diagnoses (ID_SUBJECT, MIN_YEAR)
+        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DATE_DIAG) AS INTEGER))
+        FROM diagnoses
         WHERE
-            DATE_DIAG IS NOT NULL
+            CODING_SYSTEM IS NOT NULL
             AND
-            (   
-                (  
-                    CODING_SYSTEM = ICD9
+            DIAGNOSIS IS NOT NULL
+            AND
+            (
+                (
+                    CODING_SYSTEM = 'ICD9'
                     AND
                     (
-                        substr(DIAGNOSIS,1,3) IN ('295', '297') 
-                        OR 
-                        substr(DIAGNOSIS,1,4) IN ('2982', '2983', '2984', '2988', '2989')
+                        substr(DIAGNOSIS,1,3) IN ('295', '297')
+                        OR
+                        substr(DIAGNOSIS,1,4) IN ('2980', '3004', '3090', '3091')
+                        OR
+                        substr(DIAGNOSIS,1,5) IN ('2962', '2963', '2964', '2965', '2966', '2967', '2981')
                     )
                 )
                 OR
                 (
-                    CODING_SYSTEM = ICD10
-                    AND 
-                    substr(DIAGNOSIS,1,3) IN ('F20', 'F21', 'F22', 'F23', 'F24', 'F25', 'F28', 'F29')
+                    CODING_SYSTEM = 'ICD10'
+                    AND
+                    (   
+                        substr(DIAGNOSIS,1,3) IN ('F20', 'F21', 'F22', 'F23', 'F24', 'F25', 'F28', 'F29')
+                        OR
+                        substr(DIAGNOSIS,1,4) IN ('F340', 'F380')
+                    )
                 )
             )
+        GROUP BY ID_SUBJECT
     """)
-    #   - Now, it means that that subject will be in the prevalent cohort from the year of the diagnosis
-    #     until the year of inclusion or the year of death included
-    #     Cycle among the subjects (rows of the table a) and for each subject, cycle among the years
-    #     from the year of the diagnosis to the year of inclusion or the year of death included
-    #     and insert the subject with related info in the cohort table
-    
-     
-    #   
+    print(get_tables(connection=connection))
+    quit()
+    cursor.execute("""
+        INSERT INTO t_pharma (ID_SUBJECT, MIN_YEAR)
+        SELECT ID_SUBJECT, MAX(CAST(strftime('%Y', DT_PRESCR) AS INTEGER))
+        FROM pharma
+        WHERE
+            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses)
+            AND
+            ATC_CHAR IS NOT NULL AND ATC_CHAR LIKE 'N05A%' AND ATC_CHAR NOT LIKE 'N05AN%'
+            AND
+            pharma.DT_PRESCR IS NOT NULL AND CAST(strftime('%Y', pharma.DT_PRESCR) AS INTEGER) <= t_diagnoses.MIN_YEAR
+        GROUP BY ID_SUBJECT
+    """)
+    cursor.execute("""
+        INSERT INTO t_interventions (ID_SUBJECT, MIN_YEAR)
+        SELECT ID_SUBJECT, MAX(CAST(strftime('%Y', DT_INT) AS INTEGER))
+        FROM interventions 
+        WHERE
+            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses)
+            AND
+            interventions.DT_INT IS NOT NULL AND CAST(strftime('%Y', interventions.DT_INT) AS INTEGER) <= t_diagnoses.MIN_YEAR
+        GROUP BY ID_SUBJECT
+    """)
+    # Insert in cohorst all the subjects that have a diagnosis
+    # As the year of onset, use the min date from the diagnosis if no previous record
+    # of pharma and interventions is found in the previous 3 years inclusive.
+    # If it is found, use the min of the previous records.
+    cursor.execute("""
+        INSERT INTO cohorts (ID_SUBJECT, ID_DISORDER, YEAR_OF_ONSET)
+        SELECT 
+            ID_SUBJECT, 
+            'SCHIZO', 
+            MIN_YEAR
+        FROM t_diagnoses
+        /* by selecting from this table, I know that the subject was diagnosed */
+        /* I can use this to select the subjects that have a record of pharma or interventions */
+        /* before the diagnosis but after the year of diagnosis - WASHOUT_YEARS */
+    """)
+    cursor.execute(f"""
+        UPDATE cohorts
+        SET YEAR_OF_ONSET = (
+            /*
+            If i'm setting, it means that one of the two conditions in the WHERE is true:
+            So I can take the minimum of MIN_YEAR between the two tables that lies in the previous 3 years inclusive
+            as the new YEAR_OF_ONSET.
+            It is possible that the subjects in diagnosis have no record in pharma or interventions.
+            */
+            SELECT MIN(MIN_YEAR)
+            FROM (
+                SELECT YEAR_OF_ONSET AS MIN_YEAR FROM cohorts WHERE ID_SUBJECT = cohorts.ID_SUBJECT
+                UNION
+                SELECT MIN_YEAR FROM t_pharma WHERE ID_SUBJECT = cohorts.ID_SUBJECT
+                UNION
+                SELECT MIN_YEAR FROM t_interventions WHERE ID_SUBJECT = cohorts.ID_SUBJECT
+            )
+        )
+        WHERE
+            /*
+            Select for possible modifications:
+            - Only the one with the disorder
+            - Only the ones with a diagnosis (so, that appear in t_diagnoses
+            - Only the ones with a record of pharma or interventions in the previous WASHOUT_YEARS years inclusive
+            */
+            ID_SUBJECT IN (
+                SELECT ID_SUBJECT
+                FROM cohorts
+                WHERE ID_DISORDER = 'SCHIZO'
+            )
+            AND
+            (
+                /* 
+                Selection of year inside of washout period is already done
+                while creating the tables t_pharma and t_interventions
+                */
+                ID_SUBJECT IN ( SELECT ID_SUBJECT FROM t_pharma )
+                OR
+                ID_SUBJECT IN ( SELECT ID_SUBJECT FROM t_interventions )     
+            )
+    """)
+    return
     # DEPRE
+    
     # BIPOLAR
+
+
+
+
+    # delete the temporary tables
+    cursor.execute("DROP TEMPORARY TABLE IF EXISTS t_pharma")
+    cursor.execute("DROP TEMPORARY TABLE IF EXISTS t_diagnoses")
+    cursor.execute("DROP TEMPORARY TABLE IF EXISTS t_interventions")
+    # commit changes and close
+    connection.commit()
+    cursor.close()
 
 
 
@@ -1492,6 +1614,9 @@ def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
     # return the table name
     return table_name
 
+
+# other utilities
+
 def get_tables_dimensions(connection: sqlite3.Connection) -> dict[str:int]:
     cursor = connection.cursor()
     tables = get_tables(connection)
@@ -1523,6 +1648,31 @@ standardize_table_names(DB)
 is_ok, missing = check_database_has_tables(DB)
 if not is_ok:
     raise ValueError("The database is missing the following tables which are required:", missing)
+#
+#
+#
+#
+#
+#
+#
+print("DEBUG *************   LINE 1660")
+db2_ = sqlite3.connect(get_slim_database_filepath())
+cursor = db2_.cursor()
+print("Tables *** : ", get_tables(db2_))
+cursor.execute("DROP TABLE IF EXISTS cohorts")
+print("Tables *** : ", get_tables(db2_))
+cursor.close()
+write_to_slim_database_hash_file(hash_=hash_database_file(get_slim_database_filepath()))
+db2_.close()
+#
+#
+#
+#
+#
+#
+#
+#
+#
 
 # Preprocess the database: create a second database file (that will be used for the dashboard)
 #                          containing only patients
@@ -1535,27 +1685,37 @@ DB = sqlite3.connect(new_db_path)
 # Preprocess the ja database: fix data types
 preprocess_database_data_types(DB, force=has_been_slimmed)
 
+# Create the Cohorts table
+print("Creating the cohorts table...")
+
+add_cohorts_table(DB, force=True)
+
 ###
+columns = get_column_names(DB, "cohorts")
+print(columns)
+cursor = DB.cursor()
+cursor.execute("SELECT * FROM cohorts LIMIT 20;")
+res = cursor.fetchall()
+for r in res:
+    for e in r:
+        print(e, end="\t")
+    print()
 DB.close()
+
 print("Database is ready!")
 quit()
+
+
+
 ###
-
-#
-# Create the Cohorts table
-from ..database.database import add_cohorts_table
-# .......  TO DO ...........
-# add_cohorts_temporary_table(DB)
-
-
 # Create the stratified demographics table
 from ..indicator.widget import AGE_WIDGET_INTERVALS
 from ..database.database import make_age_startification_tables
 years_of_inclusion = [2018, 2019, 2020, 2021] ########################### to do after having cohorts, and use function get_years_of_inclusion
-make_age_startification_tables(DB, years_of_inclusion, AGE_WIDGET_INTERVALS)
+make_age_startification_tables(DB, AGE_WIDGET_INTERVALS)
 
 
-
+# AGE STRAT TABLES? MAKE EM TEMPORARY
 
 
 
