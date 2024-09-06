@@ -1177,7 +1177,7 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
     print("Creating the cohorts table...", end=" ")
     # logic
     cursor = connection.cursor()
-    WASHOUT_YEARS = 3
+    WASHOUT_YEARS: int = 3
     # create the cohorts table
     cursor.execute("DROP TABLE IF EXISTS cohorts")
     cursor.execute("""
@@ -1242,7 +1242,7 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
             )
         GROUP BY ID_SUBJECT
     """)
-    cursor.execute("""
+    cursor.execute(f"""
         INSERT INTO t_pharma (ID_SUBJECT, MIN_YEAR)
         SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_PRESCR) AS INTEGER))
         FROM pharma
@@ -1260,7 +1260,7 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
                     ( SELECT MIN_YEAR FROM t_diagnoses WHERE t_diagnoses.ID_SUBJECT = pharma.ID_SUBJECT )
         GROUP BY ID_SUBJECT
     """)
-    cursor.execute("""
+    cursor.execute(f"""
         INSERT INTO t_interventions (ID_SUBJECT, MIN_YEAR)
         SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_INT) AS INTEGER))
         FROM interventions 
