@@ -669,15 +669,6 @@ def get_tables(connection: sqlite3.Connection) -> list[str]:
     tables.sort()
     return tables
 
-def get_all_tables(connection: sqlite3.Connection) -> list[str]:
-    main_tables = get_tables(connection)
-    cursor = connection.cursor()
-    cursor.execute("SELECT name FROM sqlite_temp_master WHERE type='table'")
-    temp_tables = [c[0] for c in cursor.fetchall()]
-    cursor.close()
-    temp_tables.sort()
-    main_tables.extend(temp_tables)
-    return main_tables
 
 def get_temp_tables(connection: sqlite3.Connection) -> list[str]:
     """ Get the names of the temporary tables in the database.
@@ -691,6 +682,26 @@ def get_temp_tables(connection: sqlite3.Connection) -> list[str]:
     cursor.close()
     tables.sort()
     return tables
+
+def get_all_tables(connection: sqlite3.Connection) -> list[str]:
+    main_tables = get_tables(connection)
+    temp_tables = get_temp_tables(connection)
+    main_tables.extend(temp_tables)
+    return main_tables
+
+def get_table_num_rows(connection: sqlite3.Connection, table: str) -> int:
+    """ Get the number of rows in a table of the database.
+    connection: sqlite3.Connection
+        The connection to the database.
+    table: str
+        The name of the table.
+    Returns the number of rows in the table.
+    """
+    cursor = connection.cursor()
+    cursor.execute(f"SELECT COUNT(*) FROM {table}")
+    num_rows = int(cursor.fetchone()[0])
+    cursor.close()
+    return num_rows
 
 def get_column_names(connection: sqlite3.Connection, table: str) -> list[str]:
     """ Get the names of the columns in a table of the database.
@@ -887,7 +898,15 @@ def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
     if condition_1 and condition_2 and condition_3:
         print("none found!")
         return new_db_file, False
-    print("changes found! Processing...", end=" ")
+    if condition_1:
+        s_ = "ja database not found"
+    elif not condition_2 and not condition_3:
+        s_ = "both databases changed"
+    elif not condition_2:
+        s_ = "original database changed"
+    elif not condition_3:
+        s_ = "ja database changed"
+    print(f"changes found! ({s_}) Processing...", end=" ")
     # apply the process
     cursor = connection.cursor()
     # save the hash of the original database file for next time
@@ -989,13 +1008,15 @@ def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
         CREATE TABLE slim.demographics AS
         SELECT *
         FROM demographics
-        WHERE ID_SUBJECT IN
-        (
-            SELECT DISTINCT ID_SUBJECT FROM slim.pharma
+        WHERE ID_SUBJECT IN (
+            /* I want to keep every subject that has something
+               either in the pharma, diagnoses, interventions tables 
+            */
+            SELECT ID_SUBJECT FROM slim.pharma
             UNION
-            SELECT DISTINCT ID_SUBJECT FROM slim.diagnoses
+            SELECT ID_SUBJECT FROM slim.diagnoses
             UNION
-            SELECT DISTINCT ID_SUBJECT FROM slim.interventions
+            SELECT ID_SUBJECT FROM slim.interventions
         )
     """)
     # slim down the physical_exams table from the unique set of subjects in the demographics table
@@ -1003,9 +1024,8 @@ def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
         CREATE TABLE slim.physical_exams AS
         SELECT *
         FROM physical_exams
-        WHERE ID_SUBJECT IN
-        (
-            SELECT DISTINCT ID_SUBJECT FROM slim.demographics
+        WHERE ID_SUBJECT IN (
+            SELECT ID_SUBJECT FROM slim.demographics
         )
     """)
     # commit changes and close
@@ -1016,8 +1036,25 @@ def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
     print("done!")
     return new_db_file, True
 
+def create_indices_on_ja_database(connection: sqlite3.Connection, force=False) -> None:
+    """ Create indices on the tables of the ja dashboard database.
+    Runs only if force is True.
+    """
+    if not force:
+        return
+    cursor = connection.cursor()
+    cursor.execute("CREATE INDEX idx_demographics_id_subject ON demographics(ID_SUBJECT)")
+    cursor.execute("CREATE INDEX idx_diagnoses_id_subject ON diagnoses(ID_SUBJECT)")
+    cursor.execute("CREATE INDEX idx_interventions_id_subject ON interventions(ID_SUBJECT)")
+    cursor.execute("CREATE INDEX idx_pharma_id_subject ON pharma(ID_SUBJECT)")
+    cursor.execute("CREATE INDEX idx_physical_exams_id_subject ON physical_exams(ID_SUBJECT)")
+    # done
+    connection.commit()
+    cursor.close()
+    write_to_slim_database_hash_file(hash_database_file(get_slim_database_filepath()))
 
 def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=False) -> None:
+    _dbg = False
     # Note: this function depends of the global variable DATABSE_RECORD_LAYOUT_DATA_TYPES
     #       From experiments it came out that the current configuration takes up
     #       much more space than the "original", unprocessed database.
@@ -1059,7 +1096,7 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
         if condition_1 and condition_2:
             print("None found!")
             return
-    print("Preprocessing internal database...")
+    print("Fixing internal database data types...")
     # get the tables names
     tables = get_tables(connection)
     # make sure that no column with the _new suffix exist in any table of the database
@@ -1078,11 +1115,13 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
     for table in tables:
         column_names = get_column_names(connection, table)
         column_types = get_column_types(connection, table)
-        n_entries_ = cursor.execute(f"SELECT COUNT({column_names[0]}) FROM {table}").fetchone()[0]
         for cn, ct in zip(column_names, column_types):
-            print(f"{table}: {cn} - {ct} ({n_entries_:,d} entries) -> {DATABSE_RECORD_LAYOUT_DATA_TYPES[table][cn]}")
+            if _dbg:
+                n_entries_ = get_table_num_rows(connection, table)
+                print(f"{table}: {cn} - {ct} ({n_entries_:,d} entries) -> {DATABSE_RECORD_LAYOUT_DATA_TYPES[table][cn]}")
             if table in DATABSE_RECORD_LAYOUT_DATA_TYPES and cn in DATABSE_RECORD_LAYOUT_DATA_TYPES[table]:
-                print("\tupdating...", end="\r")
+                if _dbg:
+                    print("\tupdating...", end="\r")
                 # we need to copy the data in a new column with the correct type
                 # and then drop the old column and rename the new column
                 # create a new column with the correct type
@@ -1129,10 +1168,67 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
     print("Database preprocessed.")
     # done
 
+def preprocess_database_datetimes(connection: sqlite3.Connection, force: bool=False) -> None:
+    """ Perform preprocessing on all the datetime columns of the ja dashboard database.
+    
+    This runs only if force is True.
+    """
+    if not force:
+        return
+    print("Preprocessing date-time columns of the internal database...", end=" ")
+    DATETIME_COLUMNS_REQUIRED = {
+        "demographics": ["DT_BIRTH"],
+        "diagnoses": ["DATE_DIAG"],
+        "interventions": ["DT_INT"],
+        "pharma": ["DT_PRESCR"],
+        "physical_exams": ["DT_INT"]
+    }
+    DATETIME_COLUMNS_NOT_REQUIRED = {
+        "demographics": ["DT_DEATH", "DT_START_ASSIST", "DT_END_ASSIST"],
+        "diagnoses": ["DATE_DIAG_END", "DATE_ADMISSION", "DATE_DISCHARGE"],
+        "interventions": [],
+        "pharma": [],
+        "physical_exams": []
+    }
+    pairs = [(k, v, True) for k, v in DATETIME_COLUMNS_REQUIRED.items()]
+    pairs.extend([(k, v, False) for k, v in DATETIME_COLUMNS_NOT_REQUIRED.items()])
+    cursor = connection.cursor()
+    for table, columns, required in pairs:
+        for column in columns:
+            # first, drop rows that are not compliant with either:
+            # - ISO 8601 format: 'YYYY-MM-DD HH:MM:SS' or 'YYYY-MM-DD'
+            # - YYMMDD10 format: 'YYYY/MM/DD'
+            # - wrong YYMMDD10 formats: 'DD/MM/YYYY' or 'YYMMDD' or 'YYMMDD10'
+            cursor.execute(f"""
+                UPDATE {table}
+                SET {column} = (
+                    CASE
+                        /* Shorten datetime to date */
+                        WHEN ({column} GLOB '????-??-??*' AND LENGTH({column} > 10)) THEN substr({column},1,10)
+                        /* Convert correct YYMMDD10 to ISO 8601 */
+                        WHEN {column} GLOB '????/??/??*' THEN substr({column},1,4) ||'-'|| substr({column},6,2) ||'-'|| substr({column},9,2)
+                        /* Convert wrong YYMMDD10 to ISO 8601 */
+                        WHEN {column} GLOB '??/??/????*' THEN substr({column},7,4) ||'-'|| substr({column},4,2) ||'-'|| substr({column},1,2)
+                        /* Convert YYYYMMDD to ISO 8601 (or DDMMYYYY but it will get it wrong) */
+                        WHEN {column} GLOB '????????*' THEN substr({column},1,4) ||'-'|| substr({column},5,2) ||'-'|| substr({column},7,2)
+                        /* 'YYMMDD' or 'YYMMDD10' cannot be addressed: how do you know if 19YY or 20YY? */
+                        ELSE NULL
+                    END
+                )
+            """)
+            # remove rows with NULL values in column
+            if required:
+                cursor.execute(f"""
+                    DELETE FROM {table}
+                    WHERE {column} IS NULL
+                """)
+    # commit changes and close
+    connection.commit()
+    cursor.close()
+    # save the hash of the database file
+    write_to_slim_database_hash_file(hash_database_file(get_slim_database_filepath()))
+    print("done!")
 
-
-#### incomplete
-####  https://www.sqlitetutorial.net/sqlite-glob/
 
 def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None:
     """ Create the temporary cohorts table in the database.
@@ -1199,24 +1295,27 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
         cursor.execute("DELETE FROM t_pharma")
         cursor.execute("DELETE FROM t_diagnoses")
         cursor.execute("DELETE FROM t_interventions")
+    # Print out an estimation of the time it will take to process the data
+    n_diagnoses = get_table_num_rows(connection, "diagnoses")
+    entries_per_second_diagnoses = 111500.0
+    n_pharma = get_table_num_rows(connection, "pharma")
+    entries_per_second_pharma = 29500.0
+    n_interventions = get_table_num_rows(connection, "interventions")
+    entries_per_second_interventions = 7600.0
+    overhead_seconds = 10.0
+    tot_seconds = n_diagnoses/entries_per_second_diagnoses + n_pharma/entries_per_second_pharma + n_interventions/entries_per_second_interventions + overhead_seconds
+    tot_seconds *= 3 # three mental disorders considered
+    hours, minutes, seconds = tot_seconds//3600, (tot_seconds//60)%60, tot_seconds%60
+    print(f"Estimated time: {hours:.0f}h {minutes:.0f}m {seconds:.0f}s")
     # #######
     # SCHIZO
     # #######
-    # - Get the year of first doubt of disorder for each subject.
-    #   There has to be a diagnosis of the disorder in the diagnoses table.
-    #   If, proior to the diagnosis (max 3 years), there is any pharma related to the disorder
-    #   or any intervention (we do not look physical_exams), 
-    #   the year of the first doubt is the year of the first.
     create_temp_tables(cursor)
     cursor.execute("""
         INSERT INTO t_diagnoses (ID_SUBJECT, MIN_YEAR)
         SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DATE_DIAG) AS INTEGER))
         FROM diagnoses
         WHERE
-            CODING_SYSTEM IS NOT NULL
-            AND
-            DIAGNOSIS IS NOT NULL
-            AND
             (
                 (
                     CODING_SYSTEM = 'ICD9'
@@ -1224,9 +1323,7 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
                     (
                         substr(DIAGNOSIS,1,3) IN ('295', '297')
                         OR
-                        substr(DIAGNOSIS,1,4) IN ('2980', '3004', '3090', '3091')
-                        OR
-                        substr(DIAGNOSIS,1,5) IN ('2962', '2963', '2964', '2965', '2966', '2967', '2981')
+                        substr(DIAGNOSIS,1,4) IN ('2982', '2983', '2984', '2988', '2989')
                     )
                 )
                 OR
@@ -1235,8 +1332,6 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
                     AND
                     (   
                         substr(DIAGNOSIS,1,3) IN ('F20', 'F21', 'F22', 'F23', 'F24', 'F25', 'F28', 'F29')
-                        OR
-                        substr(DIAGNOSIS,1,4) IN ('F340', 'F380')
                     )
                 )
             )
@@ -1245,41 +1340,27 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
     cursor.execute(f"""
         INSERT INTO t_pharma (ID_SUBJECT, MIN_YEAR)
         SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_PRESCR) AS INTEGER))
-        FROM pharma
+        FROM pharma    
         WHERE
-            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses)
+            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses) /* for some reason, way faster than using INNER JOIN */
             AND
-            ATC_CHAR IS NOT NULL AND ATC_CHAR LIKE 'N05A%' AND ATC_CHAR NOT LIKE 'N05AN%'
+            ATC_CHAR LIKE 'N05A%' AND ATC_CHAR NOT LIKE 'N05AN%'
             AND
-            pharma.DT_PRESCR IS NOT NULL
-            AND
-            CAST(strftime('%Y', pharma.DT_PRESCR) AS INTEGER) 
-                BETWEEN
-                    ( SELECT MIN_YEAR FROM t_diagnoses WHERE t_diagnoses.ID_SUBJECT = pharma.ID_SUBJECT ) - {WASHOUT_YEARS}
-                    AND
-                    ( SELECT MIN_YEAR FROM t_diagnoses WHERE t_diagnoses.ID_SUBJECT = pharma.ID_SUBJECT )
+            CAST(strftime('%Y', DT_PRESCR) AS INTEGER) - ( SELECT MIN_YEAR FROM t_diagnoses WHERE ID_SUBJECT = pharma.ID_SUBJECT LIMIT 1)
+                BETWEEN -{WASHOUT_YEARS} AND 0
         GROUP BY ID_SUBJECT
     """)
     cursor.execute(f"""
         INSERT INTO t_interventions (ID_SUBJECT, MIN_YEAR)
         SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_INT) AS INTEGER))
-        FROM interventions 
+        FROM interventions
         WHERE
-            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses)
+            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses) /* for some reason, way faster than using INNER JOIN */
             AND
-            interventions.DT_INT IS NOT NULL
-            AND 
-            CAST(strftime('%Y', interventions.DT_INT) AS INTEGER)
-                BETWEEN
-                    ( SELECT MIN_YEAR FROM t_diagnoses WHERE t_diagnoses.ID_SUBJECT = interventions.ID_SUBJECT ) - {WASHOUT_YEARS}
-                    AND
-                    ( SELECT MIN_YEAR FROM t_diagnoses WHERE t_diagnoses.ID_SUBJECT = interventions.ID_SUBJECT )
+            CAST(strftime('%Y', DT_INT) AS INTEGER) - ( SELECT MIN_YEAR FROM t_diagnoses WHERE ID_SUBJECT = interventions.ID_SUBJECT LIMIT 1)
+                BETWEEN -{WASHOUT_YEARS} AND 0
         GROUP BY ID_SUBJECT
     """)
-    # Insert in cohorst all the subjects that have a diagnosis
-    # As the year of onset, use the min date from the diagnosis if no previous record
-    # of pharma and interventions is found in the previous 3 years inclusive.
-    # If it is found, use the min of the previous records.
     cursor.execute("""
         INSERT INTO cohorts (ID_SUBJECT, ID_DISORDER, YEAR_OF_ONSET)
         SELECT 
@@ -1302,34 +1383,197 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
             */
             SELECT MIN(MIN_YEAR)
             FROM (
-                SELECT YEAR_OF_ONSET AS MIN_YEAR FROM cohorts WHERE ID_SUBJECT = cohorts.ID_SUBJECT
+                SELECT MIN_YEAR FROM (SELECT YEAR_OF_ONSET AS MIN_YEAR FROM cohorts WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
                 UNION
-                SELECT MIN_YEAR FROM t_pharma WHERE ID_SUBJECT = cohorts.ID_SUBJECT
+                SELECT MIN_YEAR FROM (SELECT MIN_YEAR FROM t_pharma WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
                 UNION
-                SELECT MIN_YEAR FROM t_interventions WHERE ID_SUBJECT = cohorts.ID_SUBJECT
+                SELECT MIN_YEAR FROM (SELECT MIN_YEAR FROM t_interventions WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
             )
         )
         WHERE
             ID_DISORDER = 'SCHIZO'
             AND
-            (
-                ID_SUBJECT IN ( SELECT ID_SUBJECT FROM t_pharma )
-                OR
-                ID_SUBJECT IN ( SELECT ID_SUBJECT FROM t_interventions )     
-            )
+            ID_SUBJECT IN (
+                SELECT ID_SUBJECT FROM t_pharma
+                UNION
+                SELECT ID_SUBJECT FROM t_interventions
+                )
     """)
-    return
+    ########
     # DEPRE
-    
+    ########
+    create_temp_tables(cursor)
+    cursor.execute("""
+        INSERT INTO t_diagnoses (ID_SUBJECT, MIN_YEAR)
+        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DATE_DIAG) AS INTEGER))
+        FROM diagnoses
+        WHERE
+            (
+                (
+                    CODING_SYSTEM = 'ICD9'
+                    AND
+                    (
+                        substr(DIAGNOSIS,1,3) IN ('311')
+                        OR
+                        substr(DIAGNOSIS,1,4) IN ('2962', '2963', '2980', '3004', '3090', '3091')
+                    )
+                )
+                OR
+                (
+                    CODING_SYSTEM = 'ICD10'
+                    AND
+                    (   
+                        substr(DIAGNOSIS,1,3) IN ('F32', 'F33', 'F39')
+                        OR
+                        substr(DIAGNOSIS,1,4) IN ('F341', 'F348', 'F349', 'F381', 'F388', 'F431', 'F432')
+                    )
+                )
+            )
+        GROUP BY ID_SUBJECT
+    """)
+    cursor.execute(f"""
+        INSERT INTO t_pharma (ID_SUBJECT, MIN_YEAR)
+        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_PRESCR) AS INTEGER))
+        FROM pharma    
+        WHERE
+            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses) /* for some reason, way faster than using INNER JOIN */
+            AND
+            ATC_CHAR LIKE 'N06A%'
+            AND
+            CAST(strftime('%Y', DT_PRESCR) AS INTEGER) - ( SELECT MIN_YEAR FROM t_diagnoses WHERE ID_SUBJECT = pharma.ID_SUBJECT LIMIT 1)
+                BETWEEN -{WASHOUT_YEARS} AND 0
+        GROUP BY ID_SUBJECT
+    """)
+    cursor.execute(f"""
+        INSERT INTO t_interventions (ID_SUBJECT, MIN_YEAR)
+        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_INT) AS INTEGER))
+        FROM interventions
+        WHERE
+            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses) /* for some reason, way faster than using INNER JOIN */
+            AND
+            CAST(strftime('%Y', DT_INT) AS INTEGER) - ( SELECT MIN_YEAR FROM t_diagnoses WHERE ID_SUBJECT = interventions.ID_SUBJECT LIMIT 1)
+                BETWEEN -{WASHOUT_YEARS} AND 0
+        GROUP BY ID_SUBJECT
+    """)
+    cursor.execute("""
+        INSERT INTO cohorts (ID_SUBJECT, ID_DISORDER, YEAR_OF_ONSET)
+        SELECT 
+            ID_SUBJECT, 
+            'DEPRE', 
+            MIN_YEAR
+        FROM t_diagnoses
+    """)
+    cursor.execute(f"""
+        UPDATE cohorts
+        SET YEAR_OF_ONSET = (
+            SELECT MIN(MIN_YEAR)
+            FROM (
+                SELECT MIN_YEAR FROM (SELECT YEAR_OF_ONSET AS MIN_YEAR FROM cohorts WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
+                UNION
+                SELECT MIN_YEAR FROM (SELECT MIN_YEAR FROM t_pharma WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
+                UNION
+                SELECT MIN_YEAR FROM (SELECT MIN_YEAR FROM t_interventions WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
+            )
+        )
+        WHERE
+            ID_DISORDER = 'DEPRE'
+            AND
+            ID_SUBJECT IN (
+                SELECT ID_SUBJECT FROM t_pharma
+                UNION
+                SELECT ID_SUBJECT FROM t_interventions
+                )
+    """)
     # BIPOLAR
-
-
-
-
+    create_temp_tables(cursor)
+    cursor.execute("""
+        INSERT INTO t_diagnoses (ID_SUBJECT, MIN_YEAR)
+        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DATE_DIAG) AS INTEGER))
+        FROM diagnoses
+        WHERE
+            (
+                (
+                    CODING_SYSTEM = 'ICD9'
+                    AND
+                    (
+                        substr(DIAGNOSIS,1,4) IN ('2960', '2961', '2964', '2965', '2966', '2967', '2981')
+                        OR
+                        substr(DIAGNOSIS,1,5) IN ('29680', '29681', '29689', '29699')
+                    )
+                )
+                OR
+                (
+                    CODING_SYSTEM = 'ICD10'
+                    AND
+                    (   
+                        substr(DIAGNOSIS,1,3) IN ('F30', 'F31')
+                        OR
+                        substr(DIAGNOSIS,1,4) IN ('F340', 'F380')
+                    )
+                )
+            )
+        GROUP BY ID_SUBJECT
+    """)
+    cursor.execute(f"""
+        INSERT INTO t_pharma (ID_SUBJECT, MIN_YEAR)
+        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_PRESCR) AS INTEGER))
+        FROM pharma    
+        WHERE
+            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses) /* for some reason, way faster than using INNER JOIN */
+            /*Bipolar has no contraints on the pharma, except it must be a mental health related pharma */
+            /* Since pahrma is already filtered for mental health, no need to filter further */
+            AND
+            CAST(strftime('%Y', DT_PRESCR) AS INTEGER) - ( SELECT MIN_YEAR FROM t_diagnoses WHERE ID_SUBJECT = pharma.ID_SUBJECT LIMIT 1)
+                BETWEEN -{WASHOUT_YEARS} AND 0
+        GROUP BY ID_SUBJECT
+    """)
+    cursor.execute(f"""
+        INSERT INTO t_interventions (ID_SUBJECT, MIN_YEAR)
+        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_INT) AS INTEGER))
+        FROM interventions
+        WHERE
+            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses) /* for some reason, way faster than using INNER JOIN */
+            AND
+            CAST(strftime('%Y', DT_INT) AS INTEGER) - ( SELECT MIN_YEAR FROM t_diagnoses WHERE ID_SUBJECT = interventions.ID_SUBJECT LIMIT 1)
+                BETWEEN -{WASHOUT_YEARS} AND 0
+        GROUP BY ID_SUBJECT
+    """)
+    cursor.execute("""
+        INSERT INTO cohorts (ID_SUBJECT, ID_DISORDER, YEAR_OF_ONSET)
+        SELECT 
+            ID_SUBJECT, 
+            'BIPO', 
+            MIN_YEAR
+        FROM t_diagnoses
+    """)
+    cursor.execute(f"""
+        UPDATE cohorts
+        SET YEAR_OF_ONSET = (
+            SELECT MIN(MIN_YEAR)
+            FROM (
+                SELECT MIN_YEAR FROM (SELECT YEAR_OF_ONSET AS MIN_YEAR FROM cohorts WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
+                UNION
+                SELECT MIN_YEAR FROM (SELECT MIN_YEAR FROM t_pharma WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
+                UNION
+                SELECT MIN_YEAR FROM (SELECT MIN_YEAR FROM t_interventions WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
+            )
+        )
+        WHERE
+            ID_DISORDER = 'BIPO'
+            AND
+            ID_SUBJECT IN (
+                SELECT ID_SUBJECT FROM t_pharma
+                UNION
+                SELECT ID_SUBJECT FROM t_interventions
+                )
+    """)
     # delete the temporary tables
-    cursor.execute("DROP TEMPORARY TABLE IF EXISTS t_pharma")
-    cursor.execute("DROP TEMPORARY TABLE IF EXISTS t_diagnoses")
-    cursor.execute("DROP TEMPORARY TABLE IF EXISTS t_interventions")
+    cursor.execute("DROP TABLE IF EXISTS temp.t_pharma")
+    cursor.execute("DROP TABLE IF EXISTS temp.t_diagnoses")
+    cursor.execute("DROP TABLE IF EXISTS temp.t_interventions")
+    # This table will be queried a lot since it will be used for stratification (read only from here on)
+    # so we need to create an index on ID_SUBJECT, ID_DISORDER, YEAR_OF_ONSET to speed up the process
+    cursor.execute("CREATE INDEX idx_cohorts ON cohorts (ID_SUBJECT, ID_DISORDER, YEAR_OF_ONSET)")
     # commit changes and close
     connection.commit()
     cursor.close()
@@ -1660,31 +1904,6 @@ standardize_table_names(DB)
 is_ok, missing = check_database_has_tables(DB)
 if not is_ok:
     raise ValueError("The database is missing the following tables which are required:", missing)
-#
-#
-#
-#
-#
-#
-#
-print("DEBUG *************   LINE 1660")
-db2_ = sqlite3.connect(get_slim_database_filepath())
-cursor = db2_.cursor()
-print("Tables *** : ", get_tables(db2_))
-cursor.execute("DROP TABLE IF EXISTS cohorts")
-print("Tables *** : ", get_tables(db2_))
-cursor.close()
-write_to_slim_database_hash_file(hash_=hash_database_file(get_slim_database_filepath()))
-db2_.close()
-#
-#
-#
-#
-#
-#
-#
-#
-#
 
 # Preprocess the database: create a second database file (that will be used for the dashboard)
 #                          containing only patients
@@ -1695,48 +1914,65 @@ DB.close()
 DB = sqlite3.connect(new_db_path)
 
 # Preprocess the ja database: fix data types
+# This comes after the slimming down process just for speed
 preprocess_database_data_types(DB, force=has_been_slimmed)
 
+# Create indices on the tables of the slimmed down database
+create_indices_on_ja_database(DB, force=has_been_slimmed)
+
+# Preprocess the ja database: fix datetime columns
+preprocess_database_datetimes(DB, force=has_been_slimmed)
+
 # Create the Cohorts table
-add_cohorts_table(DB, force=True)
+add_cohorts_table(DB, force=has_been_slimmed)
 
-###
-###
-###
-columns = get_column_names(DB, "cohorts")
-print(columns)
-cursor = DB.cursor()
-cursor.execute("SELECT * FROM cohorts LIMIT 10;")
-res = cursor.fetchall()
-for r in res:
-    for e in r:
-        print(e, end="\t")
-    print()
+
+#######################
+print("Dataset has main tables:")
+print(get_tables(DB))
+print("Dataset has temp tables:")
+print(get_temp_tables(DB))
+
 print("Number of rows in the cohorts table:",
-    cursor.execute("SELECT COUNT(*) FROM cohorts;").fetchone()[0]
+    get_table_num_rows(DB, "cohorts")
 )
-print("Min SCHIZO year of onset:",
-    cursor.execute("SELECT MIN(YEAR_OF_ONSET) FROM cohorts WHERE ID_DISORDER = 'SCHIZO';").fetchone()[0]
+cursor = DB.cursor()
+print("Unique ID_DISORDER values in the cohorts table:", 
+    cursor.execute("SELECT DISTINCT ID_DISORDER FROM cohorts;").fetchall()
 )
-print("Max SCHIZO year of onset:",
-    cursor.execute("SELECT MAX(YEAR_OF_ONSET) FROM cohorts WHERE ID_DISORDER = 'SCHIZO';").fetchone()[0]
+print("Unique YEAR_OF_ONSET values in the cohorts table:",
+    cursor.execute("SELECT DISTINCT YEAR_OF_ONSET FROM cohorts;").fetchall()
 )
-DB.close()
 
-print("Database is ready!")
-quit()
 
 
 
 ###
 # Create the stratified demographics table
 from ..indicator.widget import AGE_WIDGET_INTERVALS
-from ..database.database import make_age_startification_tables
-years_of_inclusion = [2018, 2019, 2020, 2021] ########################### to do after having cohorts, and use function get_years_of_inclusion
+def get_all_years_of_inclusion(connection: sqlite3.Connection) -> list[int]:
+    m, l = check_database_has_tables(connection, cohorts_required=True)
+    if not m:
+        raise ValueError("The database is missing the following tables: ", l)
+    cursor = connection.cursor()
+    cursor.execute("SELECT DISTINCT YEAR_OF_ONSET FROM cohorts;")
+    y_ = [a[0] for a in cursor.fetchall()]
+    years_of_inclusion = range(min(y_), max(y_)+1) # range is inclusive
+    cursor.close()
+    return years_of_inclusion
+
+years_of_inclusion = get_all_years_of_inclusion(DB)
+
+##########
+print("Years of inclusion:", years_of_inclusion)
+DB.close()
+quit()
+##########
+
+# add hash, force argument, check logic
 make_age_startification_tables(DB, AGE_WIDGET_INTERVALS)
 
 
-# AGE STRAT TABLES? MAKE EM TEMPORARY
 
 
 
