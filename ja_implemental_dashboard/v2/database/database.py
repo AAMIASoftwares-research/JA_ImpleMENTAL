@@ -1585,41 +1585,54 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
     )
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 from ..indicator.widget import AGE_WIDGET_INTERVALS
 
-def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclusions_list: list[int]|None=None, age_stratifications: dict[str:tuple]|None=None, command: str="create"):
-    """ Update the age stratification views to speed up the process of stratifying by age.
-        Age of patients is computed with respect to the year of inclusion.
-        The created temporary tables contain the ID_SUBJECT of the patients that are in the age range for the year of inclusion.
-        The temporary tables are created if they do not exist, otherwise they are replaced.
-        Temporary tables are used to speed up the process of stratifying by age, and will be automatically deleted
-        when the connection is closed.
+def get_all_years_of_inclusion(connection: sqlite3.Connection) -> list[int]:
+    m, l = check_database_has_tables(connection, cohorts_required=True)
+    if not m:
+        raise ValueError("The database is missing the following tables: ", l)
+    cursor = connection.cursor()
+    cursor.execute("SELECT MIN(DISTINCT YEAR_OF_ONSET) FROM cohorts;")
+    y_min = cursor.fetchone()[0]
+    y_now = int(time.localtime().tm_year)
+    years_of_inclusion = [y for y in range(y_min, y_now+1)] # range is inclusive
+    cursor.close()
+    return years_of_inclusion
 
-        Temporary tables do not appear in the SQLITE_SCHEMA table.
-        Temporary tables and their indices and triggers occur in another special table named SQLITE_TEMP_SCHEMA. 
-        SQLITE_TEMP_SCHEMA works just like SQLITE_SCHEMA except that it is only visible to the application that 
-        created the temporary tables. To get a list of all tables, both permanent and temporary,
-        one can use a command similar to the following:
+def get_age_stratification_column(year_of_inclusion: int, ages: tuple[int, int]) -> str:
+    """ Return the name of the column in the age stratification table.
+    The column name is constructed as follows:
+    ast_<year_of_inclusion_yyyy>_<age_start>_<age_end>, for example 'ast_2010_18_65'.
+    
+    Input ages must be a tuple of two integers, the first one being the start of the age interval
+    and the second one being the end of the age interval.
+    """
+    return f"ast_{year_of_inclusion}_{ages[0]}_{ages[1]}"
 
-        SELECT name FROM 
-        (SELECT * FROM sqlite_schema UNION ALL SELECT * FROM sqlite_temp_schema)
-        WHERE type='table'
-        ORDER BY name
+def get_age_stratification_column_all(year_of_inclusion_list: list[int], age_intervals: list[tuple[int, int]]) -> list[str]:
+    """ Return a list of all the column names for the age stratification table.
+    The column names are constructed as follows:
+    ast_<year_of_inclusion_yyyy>_<age_start>_<age_end>, for example 'ast_2010_18_65'.
+    
+    Input ages must be a tuple of two integers, the first one being the start of the age interval
+    and the second one being the end of the age interval.
+    """
+    return [get_age_stratification_column(yoi, ai) for yoi in year_of_inclusion_list for ai in age_intervals]
+
+
+
+def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclusions_list: list[int]|None=None, age_stratifications: dict[str:tuple]|None=None, force: bool=True):
+    #########   to completely review
+    """ Age of all patients in demographics is computed with respect to each year of inclusion.
+        By convention, the age is computed as the difference between the year of inclusion and the year of birth,
+        not accounting for the month and day of birth.
+
+        The created tables are stored permanentrly in the ja database in table 'age_stratification'.
+        The process runs only if force is True, which means that the tables are created anew.
+        Each table has num_unique_ID_SUBJECT_in_demographics rows and num_age_intervals columns,
+        and columns are named following the convention 'ast_<year_of_inclusion_yyyy>_<age_start>_<age_end>'.
+        Both age_start and age_end are inclusive.
+        Each column is of type TEXT and holds either ID_SUBJECT data or NULL.
 
         Inputs:
         - connection: sqlite3.Connection
@@ -1633,85 +1646,117 @@ def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclu
         - year_of_inclusions_list: list[int]
             The list of years of inclusion for the cohorts.
         - age_stratifications: list[tuple[int, int]]
-            A dict of str:tuple[int, int] where the key is the name of the table and the tuple is the age range.
-            The new temporary views will be called "demographics_<yoi>_<str>", where <yoi> is the year of inclusion (int) and <str> is the key.
+            A list of tuples that define the age stratification intervals.
             Each tuple has the following structure:
             (min_age_included, max_age_included)
-        - command: str
-            The command to execute. Can be "create" or "drop".
-            If "create", the temporary tables are created and overwritten if they exist.
-            If "drop", the temporary tables are dropped if they exist and are not created anew.
+        - force: bool
+            If True, the process will run even if the table already exist.
     """
     # check if the database has the necessary tables
-    has_tables, missing_tables = check_database_has_tables(connection)
+    has_tables, missing_tables = check_database_has_tables(connection, cohorts_required=True)
     if not has_tables:
         raise ValueError(f"The database is missing the following tables: {missing_tables}")
     # check input
     if age_stratifications is None:
         print("\t*** - WARNING - ***\nFunction make_age_startification_tables: age_stratifications is None, using default values.")
-        print("\tThis should be done only fo rdebugging purposes.")
-        print("if this is production use, provide the age_stratifications parameter.")
-        age_stratifications = {
-            "All": (1,150),
-            "18-": (1, 18),
-            "18-65": (18, 65),
-            "65+": (65, 150)
-        }
+        age_stratifications = [
+            (1,150),
+            (1, 18),
+            (18, 65),
+            (65, 150)
+        ]
     if year_of_inclusions_list is None:
-        year_of_inclusions_list = [int(time.localtime().tm_year)]
+        print("\t*** - WARNING - ***\nFunction make_age_startification_tables: year_of_inclusions_list is None, using default values.")
+        year_of_inclusions_list = get_all_years_of_inclusion(connection)
     else:
         year_of_inclusions_list = [int(y) for y in year_of_inclusions_list]
         lcy_ = int(time.localtime().tm_year)
         for y in year_of_inclusions_list:
             if y > lcy_:
                 raise ValueError(f"year_of_inclusions_list must be in the past, {y} is in the future.")
-    if command not in ["create", "drop"]:
-        raise ValueError("command must be 'create' or 'drop'")
+    tables = get_all_tables(connection)
+    if not force:
+        if "age_stratification" in tables:
+            print("The age stratification tables already exist.")
+            return
+    print("Creating age stratification tables...", end=" ")
     # logic
     cursor = connection.cursor()
-    # drop the views if they exist (get all tables and views names, both permanent and temporary)
-    all_tables = [a for a in cursor.execute(
-        "SELECT name FROM sqlite_temp_schema").fetchall()
-    ]
-    for t in all_tables:
-        if t[0].startswith("demographics_"):
-            cursor.execute(f"DROP TABLE IF EXISTS '{t[0]}'")
-    connection.commit()
-    if command == "drop":
-        cursor.close()
-        return
-    # create the tables:
-    # for each patient in the demographics table, check if the patient is in the age range
-    # for the different years of inclusion
-    # naming convention example: demographics_2018_26_40
-    i_ = 0
-    for year_of_inclusion in year_of_inclusions_list:
-        for age_name, age_tuple in age_stratifications.items():
-            print(f"Creating temporary tables for age stratification... {100*i_/(len(year_of_inclusions_list)*len(age_stratifications)): 4.1f}%", end="\r")
-            i_ += 1
-            # create the table
-            temp_view_name = f"demographics_{int(year_of_inclusion)}_{age_name}"
-            query = f"""
-                CREATE TEMPORARY TABLE '{temp_view_name}' AS
-                    SELECT
-                        DISTINCT ID_SUBJECT
-                    FROM
-                        demographics
-                    WHERE 
-                        ({year_of_inclusion} - CAST(strftime('%Y', DT_BIRTH) as INT) BETWEEN {age_tuple[0]} AND {age_tuple[1]})
+    # each columns in the table is filled with the ID_SUBJECT of the patients that satisfy the conditions
+    # since the number of rows is the same for all columns, if a column has less rows than the others, it
+    # will be filled with null values.
+    table_columns = get_age_stratification_column_all(year_of_inclusions_list, age_stratifications)
+    table_num_rows = int(cursor.execute("SELECT COUNT(DISTINCT ID_SUBJECT) FROM demographics").fetchone()[0])
+    # create the new table (discard old one if it exists)
+    cursor.execute("DROP TABLE IF EXISTS age_stratification")
+    table_creation_string = ", ".join([f"{col} TEXT DEFAULT NULL" for col in table_columns])
+    cursor.execute(f"CREATE TABLE age_stratification ({table_creation_string})")
+    # fill the tables
+    # first fill table with NULL values for as many rows as there are in demographics' DISTINCT ID_SUBJECT
+    for _ in range(table_num_rows):
+        cursor.execute(f"""INSERT INTO age_stratification DEFAULT VALUES""")
+    # to update the table, we need a temporary table where to store the unique, sorted ID_SUBJECT
+    cursor.execute("CREATE TEMP TABLE buffer(ID_SUBJECT TEXT)")
+    for yoi in year_of_inclusions_list:
+        for ys, ye in age_stratifications:
+            column_name = get_age_stratification_column(yoi, (ys, ye))
+            # fill the temp table with the ID_SUBJECT of patients that satisfy the conditions
+            cursor.execute("DELETE FROM buffer")
+            cursor.execute(f"""
+                INSERT INTO buffer
+                SELECT DISTINCT ID_SUBJECT
+                FROM demographics
+                WHERE
+                    (
+                        /* at the year of inclusion, the patient must be alive (birth < yoi, death > yoi or null)*/
+                        /* at the year of inclusion, the patient must fall into the inclusive age range */
+                        ({yoi} - CAST(strftime('%Y', DT_BIRTH) as INT) BETWEEN {ys} AND {ye})
                         AND
                         (
-                            (CAST(strftime('%Y', DT_DEATH) as INT) > {year_of_inclusion})
+                            (CAST(strftime('%Y', DT_DEATH) as INT) > {yoi})
                             OR
                             (DT_DEATH IS NULL)
                         )
-            """
-            cursor.execute(query)
-    print(" "*70, end="\r")
+                        /* Also, since I will work only with the subjects that appear in COHORTS, I can filter out the rest 
+                           When cohorts will consider every possible mental disorter, this condition will no nothing.
+                           Else, it will filter out the subjects that do not have a record in the cohort table.
+                        */
+                        AND
+                        ID_SUBJECT IN (SELECT DISTINCT ID_SUBJECT FROM cohorts)
+                    )
+                ORDER BY ID_SUBJECT
+            """)
+            # update the age_stratification table
+            len_buffer = cursor.execute("SELECT COUNT(*) FROM buffer").fetchone()[0]
+            if len_buffer > 0:
+                cursor.execute(f"""
+                    UPDATE age_stratification SET {column_name} = (
+                        SELECT ID_SUBJECT
+                        FROM buffer
+                        WHERE rowid = age_stratification.rowid
+                    )
+                """)
+    # get rid of the temporary table
+    cursor.execute("DROP TABLE temp.buffer")
+    # commit changes and close
     connection.commit()
-    # close the cursor
     cursor.close()
+    # hash and save hash
+    write_to_slim_database_hash_file(
+        hash_database_file(
+            get_slim_database_filepath()
+        )
+    )
+    print("done!")
 
+            
+
+
+
+
+
+# main utility that will be imported from other 
+#############     to redo - check also edu levels and logic
 def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
     """ Given the database with the tables of the available age ranges, stratify the patients according to the kwargs parameters.
     This function outputs a string, that is the name of the table that stores the IDs of the patients that satisfy the conditions.
@@ -1926,56 +1971,45 @@ preprocess_database_datetimes(DB, force=has_been_slimmed)
 # Create the Cohorts table
 add_cohorts_table(DB, force=has_been_slimmed)
 
+# Create the stratified demographics table
+from ..indicator.widget import AGE_WIDGET_INTERVALS
 
-#######################
+
+years_of_inclusion = get_all_years_of_inclusion(DB)
+age_stratifications_list = [v for v in AGE_WIDGET_INTERVALS.values()]
+
+
+
+# add hash, force argument, check logic
+make_age_startification_tables(
+    DB,
+    year_of_inclusions_list=years_of_inclusion,
+    age_stratifications=age_stratifications_list,
+    force=True
+)
+
+
+
+
+##########
 print("Dataset has main tables:")
 print(get_tables(DB))
 print("Dataset has temp tables:")
 print(get_temp_tables(DB))
-
-print("Number of rows in the cohorts table:",
-    get_table_num_rows(DB, "cohorts")
-)
-cursor = DB.cursor()
-print("Unique ID_DISORDER values in the cohorts table:", 
-    cursor.execute("SELECT DISTINCT ID_DISORDER FROM cohorts;").fetchall()
-)
-print("Unique YEAR_OF_ONSET values in the cohorts table:",
-    cursor.execute("SELECT DISTINCT YEAR_OF_ONSET FROM cohorts;").fetchall()
-)
-
-
-
-
-###
-# Create the stratified demographics table
-from ..indicator.widget import AGE_WIDGET_INTERVALS
-def get_all_years_of_inclusion(connection: sqlite3.Connection) -> list[int]:
-    m, l = check_database_has_tables(connection, cohorts_required=True)
-    if not m:
-        raise ValueError("The database is missing the following tables: ", l)
-    cursor = connection.cursor()
-    cursor.execute("SELECT DISTINCT YEAR_OF_ONSET FROM cohorts;")
-    y_ = [a[0] for a in cursor.fetchall()]
-    years_of_inclusion = range(min(y_), max(y_)+1) # range is inclusive
-    cursor.close()
-    return years_of_inclusion
-
-years_of_inclusion = get_all_years_of_inclusion(DB)
-
-##########
 print("Years of inclusion:", years_of_inclusion)
+###
+# get the number or non null values in each column of the age stratification table
+cursor = DB.cursor()
+cols = get_column_names(DB, "age_stratification")
+for col in cols:
+    print(
+        col, ":",
+        f"{cursor.execute(f'SELECT COUNT(*) FROM age_stratification WHERE {col} IS NOT NULL').fetchone()[0]:,d}"
+    )
+###
 DB.close()
 quit()
 ##########
-
-# add hash, force argument, check logic
-make_age_startification_tables(DB, AGE_WIDGET_INTERVALS)
-
-
-
-
-
 
 
 
