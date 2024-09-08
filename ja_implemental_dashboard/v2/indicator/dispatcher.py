@@ -72,7 +72,10 @@ class Dispatcher(object):
 
 
 # Make all indicator panels to be displayed in the dashboard
-from ..database.database import DB
+# This line will trigger the loading of the database from the user
+# and the preprocessing of it.
+# Check out load_database for the whole process
+from ..database.load_database import DB
 
 # Monitoring indicators
 
@@ -99,7 +102,7 @@ if 0:
         ma2_tab_names_langdict,
         ma2_tab0, ma2_tab1
     )
-    ma2_tab0_instance = ma2_tab0(__DB__)
+    ma2_tab0_instance = ma2_tab0(DB)
     ma2_tab1_instance = ma2_tab1()
     ma2_indicator_panel = IndicatorPanel(
         monitoring_or_evaluation="_monitoring_",
@@ -115,7 +118,7 @@ if 0:
         ma3_tab_names_langdict,
         ma3_tab0, ma3_tab1
     )
-    ma3_tab0_instance = ma3_tab0(__DB__)
+    ma3_tab0_instance = ma3_tab0(DB)
     ma3_tab1_instance = ma3_tab1()
     ma3_indicator_panel = IndicatorPanel(
         monitoring_or_evaluation="_monitoring_",
@@ -131,9 +134,9 @@ if 0:
         mb2_tab_names_langdict,
         mb2_tab0, mb2_tab1, mb2_tab2, mb2_tab3
     )
-    mb2_tab0_instance = mb2_tab0(__DB__)
-    mb2_tab1_instance = mb2_tab1(__DB__)
-    mb2_tab2_instance = mb2_tab2(__DB__)
+    mb2_tab0_instance = mb2_tab0(DB)
+    mb2_tab1_instance = mb2_tab1(DB)
+    mb2_tab2_instance = mb2_tab2(DB)
     mb2_tab3_instance = mb2_tab3()
 
     mb2_indicator_panel = IndicatorPanel(
@@ -152,9 +155,9 @@ if 0:
         ea1_tab_names_langdict,
         ea1_tab0, ea1_tab1, ea1_tab2, ea1_tab3
     )
-    ea1_tab0_instance = ea1_tab0(__DB__)
-    ea1_tab1_instance = ea1_tab1(__DB__)
-    ea1_tab2_instance = ea1_tab2(__DB__)
+    ea1_tab0_instance = ea1_tab0(DB)
+    ea1_tab1_instance = ea1_tab1(DB)
+    ea1_tab2_instance = ea1_tab2(DB)
     ea1_tab3_instance = ea1_tab3()
 
     ea1_indicator_panel = IndicatorPanel(
@@ -171,9 +174,9 @@ if 0:
         ea2_tab_names_langdict,
         ea2_tab0, ea2_tab1, ea2_tab2, ea2_tab3
     )
-    ea2_tab0_instance = ea2_tab0(__DB__)
-    ea2_tab1_instance = ea2_tab1(__DB__)
-    ea2_tab2_instance = ea2_tab2(__DB__)
+    ea2_tab0_instance = ea2_tab0(DB)
+    ea2_tab1_instance = ea2_tab1(DB)
+    ea2_tab2_instance = ea2_tab2(DB)
     ea2_tab3_instance = ea2_tab3()
     ea2_indicator_panel = IndicatorPanel(
         monitoring_or_evaluation="_evaluation_",
@@ -189,9 +192,9 @@ if 0:
         ea3_tab_names_langdict,
         ea3_tab0, ea3_tab1, ea3_tab2, ea3_tab3
     )
-    ea3_tab0_instance = ea3_tab0(__DB__)
-    ea3_tab1_instance = ea3_tab1(__DB__)
-    ea3_tab2_instance = ea3_tab2(__DB__)
+    ea3_tab0_instance = ea3_tab0(DB)
+    ea3_tab1_instance = ea3_tab1(DB)
+    ea3_tab2_instance = ea3_tab2(DB)
     ea3_tab3_instance = ea3_tab3()
     ea3_indicator_panel = IndicatorPanel(
         monitoring_or_evaluation="_evaluation_",
@@ -218,6 +221,9 @@ eb3_indicator_panel_placeholder = PlaceholderPanel(
 
 monitor_panel_classes_list = [
     ma1_indicator_panel, 
+    PlaceholderPanel(
+        placeholder_html_string="<h2>MA2 panel goes here</h2>"
+    )
     # ma2_indicator_panel, 
     # ma3_indicator_panel,
     # mb2_indicator_panel

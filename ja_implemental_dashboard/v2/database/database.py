@@ -1,61 +1,18 @@
 import os, time, datetime
 import hashlib
-import pandas
 import bokeh.palettes
 import sqlite3
 
+# This file contains all the functions to load, preprocess
+# and work with the database
+# The actual loading of the database is performed in the
+# load_database.py file, so that it can be imported
+# only ince in the dispatcher.py file,
+# while this file can be imported as many times as needed.
 
 #############
-# CACHING
-#############
-def get_cache_folder() -> str:
-    """ Get the path to the cache folder.
-    Returns the path to the cache folder.
-    """
-    return os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "cache"))
-
-
-##################################
-# USER SELECTION OF DATABASE PATH
-##################################
-
-# DATABASE_FILE = os.path.normpath(
-#     "C:/Users/lecca/Desktop/AAMIASoftwares-research/JA_ImpleMENTAL/ExampleData/Dati QUADIM - Standardizzati - Sicilia/DATABASE.sqlite3"
-# )
-
-import tkinter
-from tkinter import filedialog
-root = tkinter.Tk()
-root.withdraw()
-
-filedialog_cache_file = os.path.join(get_cache_folder(), "filedialog_last_used_directory.cache")
-if os.path.exists(filedialog_cache_file):
-    with open(filedialog_cache_file, "r") as f:
-        last_used_dir = f.read()
-else:
-    last_used_dir = ""
-if not os.path.exists(last_used_dir):
-    last_used_dir = os.path.expanduser("~")
-
-file_path = filedialog.askopenfilename(
-    defaultextension=".sqlite3", 
-    filetypes=[("SQLite3 database files", "*.sqlite3")],
-    initialdir=last_used_dir,
-)
-if file_path == "":
-    print("No file selected. Exiting.")
-    exit()
-DATABASE_FILE = os.path.normpath(file_path)
-with open(filedialog_cache_file, "w") as f:
-    f.write(os.path.dirname(DATABASE_FILE))
-del root, filedialog_cache_file, last_used_dir, file_path
-
-
-
-
-############
 # CONSTANTS
-############
+#############
 
 # Each value stored in an SQLite database (or manipulated by the database engine) has one of the following storage classes:
 #   NULL. The value is a NULL value.
@@ -63,7 +20,6 @@ del root, filedialog_cache_file, last_used_dir, file_path
 #   REAL. The value is a floating point value, stored as an 8-byte IEEE floating point number.
 #   TEXT. The value is a text string, stored using the database encoding (UTF-8, UTF-16BE or UTF-16LE).
 #   BLOB. The value is a blob of data, stored exactly as it was input.
-
 
 DATABSE_RECORD_LAYOUT_DATA_TYPES = {
     "demographics": {
@@ -116,18 +72,10 @@ DATABSE_RECORD_LAYOUT_DATA_TYPES = {
     }
 }
 
-
-
 DISEASE_CODE_TO_DB_CODE = {
     "_schizophrenia_": "SCHIZO",
     "_depression_": "DEPRE",
-    "_bipolar_disorder_": "BIPOLAR"
-}
-
-COHORT_CODE_TO_DB_CODE = {
-    "_a_": "INCIDENT",
-    "_b_": "PREVALENT",
-    "_c_": "INCIDENT_1825"
+    "_bipolar_disorder_": "BIPO",
 }
 
 INTERVENTIONS_CODES_LANGDICT_MAP = {
@@ -630,7 +578,6 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
         }
     }
 }
-# colors
 
 INTERVENTIONS_CODES_COLOR_DICT = {
     "All": "#a0a0a0ff",
@@ -645,16 +592,152 @@ INTERVENTIONS_CODES_COLOR_DICT = {
 }
 
 
-##################
-# DATABASE OBJECT
-##################
 
-DB = sqlite3.connect(DATABASE_FILE)
+####################
+# GENERIC UTILITIES
+# - CACHING
+####################
+
+def get_cache_folder() -> str:
+    """ Get the path to the cache folder.
+    Returns the path to the cache folder.
+    """
+    cache_folder = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "cache"))
+    # create the folder if it does not exist
+    if not os.path.exists(cache_folder):
+        os.makedirs(cache_folder)
+    return cache_folder
+
+def get_original_database_file_path_cache_file() -> str:
+    """ Get the path to the cache file that contains the path to the original database file.
+    Returns the path to the cache file.
+    """
+    cache_fname = "original_database_file.cache"
+    cache_file = os.path.normpath(
+        os.path.join(get_cache_folder(), cache_fname)
+    )
+    return cache_file
+
+def get_original_database_file_path() -> str:
+    """ Get the path to the original database file, which is saved in a cache file.
+    Returns the path to the file.
+    """
+    cache_file = get_original_database_file_path_cache_file()
+    if not os.path.exists(cache_file):
+        return None
+    with open(cache_file, "r") as f:
+        path = f.read()
+    if len(path) == 0:
+        return None
+    return str(path)
+
+def get_original_database_hash_file_path() -> str:
+    """ Get the path to the file that contains the hash of the original database file.
+    Returns the path to the file.
+    """
+    fname = "db_hash_original.cache"
+    path = os.path.normpath(
+        os.path.join(get_cache_folder(), fname)
+    )
+    return path
+
+def get_slim_database_hash_file_path() -> str:
+    """ Get the path to the file that contains the hash of the slim database file.
+    Returns the path to the file.
+    """
+    fname = "db_hash_slim.cache"
+    path = os.path.normpath(
+        os.path.join(get_cache_folder(), fname)
+    )
+    return path
+
+def hash_database_file(file_path: str) -> str:
+    """ Compute the hash of the database file.
+    file_path: str
+        The path to the database file.
+    Returns the hash of the file.
+    """
+    md5 = hashlib.md5()
+    with open(file_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(1048576), b""):
+            md5.update(byte_block)
+    return md5.hexdigest()
+
+def detect_original_database_has_changed() -> bool:
+    """ Detect if the database file has changed since the last preprocessing.
+    Returns True if the database file has changed, False otherwise.
+    """
+    hash_folder = get_cache_folder()
+    if not os.path.exists(hash_folder):
+        return True
+    cache_file = get_original_database_hash_file_path()
+    if not os.path.exists(cache_file):
+        return True
+    with open(cache_file, "r") as f:
+        old_hash = f.read()
+    database_file_hash = hash_database_file(get_original_database_file_path())
+    return old_hash != database_file_hash
+
+def get_slim_database_filepath() -> str:
+    """ Get the path to the slim database file.
+    Returns the path to the slim database file.
+    """
+    return os.path.normpath(
+        os.path.join(
+            os.path.dirname(get_original_database_file_path()),
+            f"{os.path.basename(get_original_database_file_path()).replace('.sqlite3', '.jasqlite3')}"
+        )
+    )
+
+def detect_slim_database_has_changed() -> bool:
+    """ Detect if the slim database file has changed since the last preprocessing.
+    Returns True if the slim database file has changed, False otherwise.
+    """
+    hash_folder = get_cache_folder()
+    if not os.path.exists(hash_folder):
+        return True
+    cache_file = get_slim_database_hash_file_path()
+    if not os.path.exists(cache_file):
+        return True
+    with open(cache_file, "r") as f:
+        old_hash = f.read()
+    slim_database_file = get_slim_database_filepath()
+    if not os.path.exists(slim_database_file):
+        return True
+    slim_database_file_hash = hash_database_file(slim_database_file)
+    return old_hash != slim_database_file_hash
+
+def write_to_original_database_hash_file(hash_: str) -> None:
+    """ Write the hash of the database file to a file in the cache folder.
+    hash_: str
+        The hash of the database file.
+    """
+    hash_folder = get_cache_folder()
+    if not os.path.exists(hash_folder):
+        os.makedirs(hash_folder)
+    cache_file = get_original_database_hash_file_path()
+    with open(cache_file, "w") as f:
+        f.write(hash_)
+
+def write_to_slim_database_hash_file(hash_: str) -> None:
+    """ Write the hash of the slim database file to a file in the cache folder.
+    hash_: str
+        The hash of the slim database file.
+    """
+    hash_folder = get_cache_folder()
+    if not os.path.exists(hash_folder):
+        os.makedirs(hash_folder)
+    cache_file = get_slim_database_hash_file_path()
+    with open(cache_file, "w") as f:
+        f.write(hash_)
 
 
-##############
-# UTILITIES
-##############
+
+
+####################
+# GENERIC UTILITIES
+# - DATABASE
+####################
 
 def get_tables(connection: sqlite3.Connection) -> list[str]:
     """ Get the names of the tables in the database.
@@ -668,7 +751,6 @@ def get_tables(connection: sqlite3.Connection) -> list[str]:
     cursor.close()
     tables.sort()
     return tables
-
 
 def get_temp_tables(connection: sqlite3.Connection) -> list[str]:
     """ Get the names of the temporary tables in the database.
@@ -731,21 +813,7 @@ def get_column_types(connection: sqlite3.Connection, table: str) -> list[str]:
     cursor.close()
     return columns
 
-def standardize_table_names(connection: sqlite3.Connection) -> None:
-    """All table names should be lowercase, without spaces before or after,
-    and no spaces in between words.
-    """
-    cursor = connection.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    tables = [c[0] for c in cursor.fetchall()]
-    for table in tables:
-        new_table = table.strip().lower().replace(" ", "_")
-        if table != new_table:
-            print(f"Renaming table '{table}' to '{new_table}'")
-            cursor.execute(f"ALTER TABLE {table} RENAME TO {new_table}")
-    cursor.close()
-
-def check_database_has_tables(connection: sqlite3.Connection, cohorts_required:bool=False) -> tuple[bool, list[str]]:
+def check_database_has_tables(connection: sqlite3.Connection, cohorts_required:bool=False, age_stratification_required: bool=False) -> tuple[bool, list[str]]:
     """ Check if the database has the necessary tables.
     connection: sqlite3.Connection
         The connection to the database.
@@ -760,110 +828,47 @@ def check_database_has_tables(connection: sqlite3.Connection, cohorts_required:b
     required_tables = ["demographics", "diagnoses", "interventions", "pharma", "physical_exams"]
     if cohorts_required:
         required_tables.append("cohorts")
+    if age_stratification_required:
+        required_tables.append("age_stratification")
     # logic
     tables = get_tables(connection)
     missing_tables = [t for t in required_tables if t not in tables]
     return len(missing_tables) == 0, missing_tables
 
-def hash_database_file(file_path: str) -> str:
-    """ Compute the hash of the database file.
-    file_path: str
-        The path to the database file.
-    Returns the hash of the file.
-    """
-    md5 = hashlib.md5()
-    with open(file_path, "rb") as f:
-        for byte_block in iter(lambda: f.read(1048576), b""):
-            md5.update(byte_block)
-    return md5.hexdigest()
+def get_tables_dimensions(connection: sqlite3.Connection) -> dict[str:int]:
+    cursor = connection.cursor()
+    tables = get_tables(connection)
+    tables_dimensions = {}
+    for table in tables:
+        cursor.execute(f"SELECT COUNT(*) FROM {table}")
+        tables_dimensions[table] = cursor.fetchone()[0]
+    cursor.close()
+    return tables_dimensions
 
-def get_original_database_hash_file_path() -> str:
-    """ Get the path to the file that contains the hash of the original database file.
-    Returns the path to the file.
-    """
-    fname = "db_hash_original.cache"
-    path = os.path.normpath(
-        os.path.join(get_cache_folder(), fname)
-    )
-    return path
+def print_tables_dimensions(connection: sqlite3.Connection):
+    tables_dimensions = get_tables_dimensions(connection)
+    for table, dim in tables_dimensions.items():
+        print(f"Table {table} has {dim:,d} rows")
 
-def get_slim_database_hash_file_path() -> str:
-    """ Get the path to the file that contains the hash of the slim database file.
-    Returns the path to the file.
-    """
-    fname = "db_hash_slim.cache"
-    path = os.path.normpath(
-        os.path.join(get_cache_folder(), fname)
-    )
-    return path
 
-def detect_original_database_has_changed() -> bool:
-    """ Detect if the database file has changed since the last preprocessing.
-    Returns True if the database file has changed, False otherwise.
-    """
-    hash_folder = get_cache_folder()
-    if not os.path.exists(hash_folder):
-        return True
-    cache_file = get_original_database_hash_file_path()
-    if not os.path.exists(cache_file):
-        return True
-    with open(cache_file, "r") as f:
-        old_hash = f.read()
-    database_file_hash = hash_database_file(DATABASE_FILE)
-    return old_hash != database_file_hash
 
-def get_slim_database_filepath() -> str:
-    """ Get the path to the slim database file.
-    Returns the path to the slim database file.
-    """
-    return os.path.normpath(
-        os.path.join(
-            os.path.dirname(DATABASE_FILE),
-            f"{os.path.basename(DATABASE_FILE).replace('.sqlite3', '.jasqlite3')}"
-        )
-    )
+##########################
+# PREPROCESSING UTILITIES
+##########################
 
-def detect_slim_database_has_changed() -> bool:
-    """ Detect if the slim database file has changed since the last preprocessing.
-    Returns True if the slim database file has changed, False otherwise.
+def standardize_table_names(connection: sqlite3.Connection) -> None:
+    """All table names should be lowercase, without spaces before or after,
+    and no spaces in between words.
     """
-    hash_folder = get_cache_folder()
-    if not os.path.exists(hash_folder):
-        return True
-    cache_file = get_slim_database_hash_file_path()
-    if not os.path.exists(cache_file):
-        return True
-    with open(cache_file, "r") as f:
-        old_hash = f.read()
-    slim_database_file = get_slim_database_filepath()
-    if not os.path.exists(slim_database_file):
-        return True
-    slim_database_file_hash = hash_database_file(slim_database_file)
-    return old_hash != slim_database_file_hash
-
-def write_to_original_database_hash_file(hash_: str) -> None:
-    """ Write the hash of the database file to a file in the cache folder.
-    hash_: str
-        The hash of the database file.
-    """
-    hash_folder = get_cache_folder()
-    if not os.path.exists(hash_folder):
-        os.makedirs(hash_folder)
-    cache_file = get_original_database_hash_file_path()
-    with open(cache_file, "w") as f:
-        f.write(hash_)
-
-def write_to_slim_database_hash_file(hash_: str) -> None:
-    """ Write the hash of the slim database file to a file in the cache folder.
-    hash_: str
-        The hash of the slim database file.
-    """
-    hash_folder = get_cache_folder()
-    if not os.path.exists(hash_folder):
-        os.makedirs(hash_folder)
-    cache_file = get_slim_database_hash_file_path()
-    with open(cache_file, "w") as f:
-        f.write(hash_)
+    cursor = connection.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    tables = [c[0] for c in cursor.fetchall()]
+    for table in tables:
+        new_table = table.strip().lower().replace(" ", "_")
+        if table != new_table:
+            print(f"Renaming table '{table}' to '{new_table}'")
+            cursor.execute(f"ALTER TABLE {table} RENAME TO {new_table}")
+    cursor.close()
 
 def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
     """To be run before the preprocessing of the database,
@@ -910,7 +915,7 @@ def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
     # apply the process
     cursor = connection.cursor()
     # save the hash of the original database file for next time
-    write_to_original_database_hash_file(hash_database_file(DATABASE_FILE))
+    write_to_original_database_hash_file(hash_database_file(get_original_database_file_path()))
     # permanently delete the slim database file if it exists
     if os.path.exists(new_db_file):
         os.remove(new_db_file)
@@ -1083,7 +1088,7 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
     # we do not need to do anything unless the force is True
     # if force, just go on, else, check other conditions
     if not force:
-        print("Detecting changes in the internal database, please wait...")
+        print("Detecting changes in the internal database, please wait...", end=" ")
         # conditions to not apply this preprocessing (to exit this function):
         # - the original database file must not have changed since the last preprocessing
         condition_1 = not detect_original_database_has_changed()
@@ -1229,7 +1234,6 @@ def preprocess_database_datetimes(connection: sqlite3.Connection, force: bool=Fa
     write_to_slim_database_hash_file(hash_database_file(get_slim_database_filepath()))
     print("done!")
 
-
 def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None:
     """ Create the temporary cohorts table in the database.
 
@@ -1268,7 +1272,6 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
     # check if the process has to run or not
     has_cohorts_table = "cohorts" in get_tables(connection)
     if has_cohorts_table and not force:
-        print("The cohorts table is already in the database.")
         return
     print("Creating the cohorts table...", end=" ")
     # logic
@@ -1307,6 +1310,7 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
     tot_seconds *= 3 # three mental disorders considered
     hours, minutes, seconds = tot_seconds//3600, (tot_seconds//60)%60, tot_seconds%60
     print(f"Estimated time: {hours:.0f}h {minutes:.0f}m {seconds:.0f}s")
+    t0_ = time.time()
     # #######
     # SCHIZO
     # #######
@@ -1583,9 +1587,11 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
             get_slim_database_filepath()
         )
     )
-
-
-from ..indicator.widget import AGE_WIDGET_INTERVALS
+    t1_ = time.time()
+    h_ = int((t1_ - t0_)//3600)
+    m_ = int((t1_ - t0_)//60 - h_*60)
+    s_ = int((t1_ - t0_)%60)
+    print(f"done! (took {h_}h {m_}m {s_}s)")
 
 def get_all_years_of_inclusion(connection: sqlite3.Connection) -> list[int]:
     m, l = check_database_has_tables(connection, cohorts_required=True)
@@ -1618,8 +1624,6 @@ def get_age_stratification_column_all(year_of_inclusion_list: list[int], age_int
     and the second one being the end of the age interval.
     """
     return [get_age_stratification_column(yoi, ai) for yoi in year_of_inclusion_list for ai in age_intervals]
-
-
 
 def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclusions_list: list[int]|None=None, age_stratifications: dict[str:tuple]|None=None, force: bool=True):
     #########   to completely review
@@ -1677,7 +1681,6 @@ def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclu
     tables = get_all_tables(connection)
     if not force:
         if "age_stratification" in tables:
-            print("The age stratification tables already exist.")
             return
     print("Creating age stratification tables...", end=" ")
     # logic
@@ -1749,20 +1752,23 @@ def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclu
     )
     print("done!")
 
-            
+##########################################
+# STRATIFICATION UTILITIES
+# which will be imported from other files
+##########################################
 
-
-
-
-
-# main utility that will be imported from other 
 #############     to redo - check also edu levels and logic
-def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
-    """ Given the database with the tables of the available age ranges, stratify the patients according to the kwargs parameters.
-    This function outputs a string, that is the name of the table that stores the IDs of the patients that satisfy the conditions.
+from ..indicator.widget import AGE_WIDGET_INTERVALS
 
-    NOTE!!
+def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
+    """ Given the internal jas database, stratify the patients according to the kwargs parameters.
+    This function outputs a string, that is the name of the temporary table that stores the IDs of the patients that satisfy the conditions.
+    The temporary table only has the column ID_SUBJECT of type TEXT.
+
+    The returned table name will be in the format 'temp.<table_timestamp_name>'.
+
     After you are done with the output table, remember to drop it with the following command:
+
         cursor = connection.cursor()
         cursor.execute(f"DROP TABLE IF EXISTS {table_name};")
         connection.commit() 
@@ -1770,36 +1776,36 @@ def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
     kwargs:
     - year_of_inclusion: int
         The year of inclusion of the patients in the cohort.
-        If none provided, the current year. Must be present in the age-stratified demographics tables.
-    - age: list[str]
-        A list of age range identifiers, such as "14-", "25-45" or "65+".
-        Must be compatible with the age-stratified demographics tables.
+        If none provided, the current year. Must be present in age_stratification table.
+    - age: list[tuple[int, int]]
+        A list of age range ranges, such as [(18, 25), (45, 65)] or [(1, 14)].
+        Must be compatible with the age_stratification table.
     - gender: str
         in ["A", "A-U", "M", "F", "U"]
-    - civil status: str
+    - civil_status: str
         in ["All", "All-Other", "Unmarried", "Married", "Married_no_long", "Other"]
-    - job condition: str
+    - job_condition: str
         in ["All", "All-Unknown", "Employed", "Unemployed", "Pension", "Unknown"]
-    - educational level: str
-        in ["All", "All-Unknown", "0-5", "6-8", "9-13", ">=14", "Unknown"]
+    - educational_level: str
+        in ["All", "All-Unknown", "0", "1", "2", "3", "4", "5", "6", "7", "8", "Unknown"]
+        corresponds to the ISCED levels, where Unknown is synonym of ISCED level 9.
     """
     # inputs
-    year_of_inclusion = kwargs.get("year_of_inclusion", time.localtime().tm_year)
-    year_of_inclusion = int(year_of_inclusion)
+    year_of_inclusion = int(kwargs.get("year_of_inclusion", time.localtime().tm_year))
     age_intervals_list = kwargs.get("age", None)
     if age_intervals_list is None:
-        raise ValueError(f"age must be provided and must be a list of strings choosing from {AGE_WIDGET_INTERVALS.keys()}. Found {age_intervals_list}")
+        raise ValueError(f"List of age intervals must be provided. Found {age_intervals_list}")
     if not isinstance(age_intervals_list, list):
-        raise ValueError(f"age must be a list of strings choosing from {AGE_WIDGET_INTERVALS.keys()}. Found {age_intervals_list} (not a list)")
+        raise ValueError(f"age must be a list. Found {age_intervals_list} (not a list)")
     if len(age_intervals_list) == 0:
-        raise ValueError(f"age must be a non-empty list of strings choosing from {AGE_WIDGET_INTERVALS.keys()}. Found {age_intervals_list}")
+        raise ValueError(f"age must be a non-empty list. Found {age_intervals_list}")
     for age_interval in age_intervals_list:
-        if age_interval not in AGE_WIDGET_INTERVALS.keys():
-            raise ValueError(f"age must be a list of strings choosing from {AGE_WIDGET_INTERVALS.keys()}. Found {age_interval}")
+        if age_interval not in AGE_WIDGET_INTERVALS.values():
+            raise ValueError(f"age must be a list of tuples[int, int] (inclusive) choosing from {AGE_WIDGET_INTERVALS.values()}. Found {age_interval}")
     _available_genders = ["A", "A-U", "M", "F", "U"]
     gender = kwargs.get("gender", None)
     if gender is None:
-        raise ValueError("gender must be provided")
+        raise ValueError(f"gender must be provided choosing from {_available_genders}")
     if gender not in _available_genders:
         raise ValueError(f"gender must be in {_available_genders}")
     _available_civil_status = ["All", "All-Other", "Unmarried", "Married", "Married_no_long", "Other"]
@@ -1814,228 +1820,90 @@ def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
         raise ValueError("job_condition must be provided")
     if job_condition not in _available_job_conditions:
         raise ValueError(f"job_condition must be in {_available_job_conditions}")
-    _available_educational_levels = ["All", "All-Unknown", "0-5", "6-8", "9-13", ">=14", "Unknown"]
+    _available_educational_levels = ["All", "All-Unknown", "0", "1", "2", "3", "4", "5", "6", "7", "8", "Unknown"]
     educational_level = kwargs.get("educational_level", None)
     if educational_level is None:
         raise ValueError("educational_level must be provided")
     if educational_level not in _available_educational_levels:
-        raise ValueError(f"educational_level must be in {_available_educational_levels}")
+        raise ValueError(f"educational_level must be in {_available_educational_levels} and it must be a string")
     # logic
     cursor = connection.cursor()
     # check if the database has the necessary tables
-    has_tables, missing_tables = check_database_has_tables(connection, cohorts_required=False)
+    has_tables, missing_tables = check_database_has_tables(connection, cohorts_required=False, age_stratification_required=True)
     if not has_tables:
         raise ValueError(f"The database is missing the following tables: {missing_tables}")
     # create the table of stratified patients ids
     time_string = datetime.datetime.now().strftime("%H%M%S%f")
     table_name = "stratified_patients_" + time_string
-    queries = []
-    # QUERY 1: drop the table if it exists
-    queries.append(
-        f"DROP TABLE IF EXISTS {table_name};"
+    selection_string_from_age_startification_table = " UNION ".join(
+        [
+            f"""SELECT {get_age_stratification_column(year_of_inclusion, age_tuple)} AS ID_SUBJECT
+            FROM age_stratification
+            WHERE {get_age_stratification_column(year_of_inclusion, age_tuple)} IS NOT NULL"""
+            for age_tuple in age_intervals_list
+        ] 
     )
-    # QUERY 2: Create a subtable of the whole demographics table (all columns)
-    #          where only the patients with IDS in the age-stratified
-    #          tables are allowed
-    #          This table is to be dropped before committing the changes
-    temp_table_name = "temp_table_" + time_string
-    query = f"""
-        CREATE TEMPORARY VIEW {temp_table_name} AS
-            SELECT * FROM demographics
-            WHERE ID_SUBJECT IN ("""
-    for i, age_interval in enumerate(age_intervals_list):
-        query += f"SELECT ID_SUBJECT FROM 'demographics_{year_of_inclusion}_{age_interval}'"
-        if i < len(age_intervals_list) - 1:
-            query += " UNION "
-    query += ")"
-    queries.append(query)
-    # QUERY 3: Create the final table with the stratified patients ids
-    #          according to the other parameters looking just at the
-    #          patients in the temp_table
     if gender == "A":
         gender_selector_statement = "1"
     elif gender == "A-U":
-        gender_selector_statement = f"(GENDER IS NOT NULL)"
+        gender_selector_statement = f"GENDER IS NOT NULL"
     elif gender == "U":
-        gender_selector_statement = f"(GENDER IS NULL)"
+        gender_selector_statement = f"GENDER IS NULL"
     else:
-        gender_selector_statement = f"(GENDER = '{gender}')"
+        gender_selector_statement = f"GENDER = '{str(gender)}'"
     if civil_status == "All":
         civil_status_selector_statement = "1"
     elif civil_status == "All-Other":
         civil_status_selector_statement = f"(CIVIL_STATUS != 'Other' AND CIVIL_STATUS IS NOT NULL)"
     else:
-        civil_status_selector_statement = f"(CIVIL_STATUS = '{civil_status}')"
+        civil_status_selector_statement = f"CIVIL_STATUS = '{civil_status}'"
     if job_condition == "All":
         job_condition_selector_statement = "1"
     elif job_condition == "All-Unknown":
-        job_condition_selector_statement = f"(JOB_COND IS NOT NULL)"
+        job_condition_selector_statement = f"JOB_COND IS NOT NULL"
     elif job_condition == "Unknown":
-        job_condition_selector_statement = f"(JOB_COND IS NULL)"
+        job_condition_selector_statement = f"JOB_COND IS NULL"
     else:
-        job_condition_selector_statement = f"(JOB_COND = '{job_condition}')"
+        job_condition_selector_statement = f"JOB_COND = '{job_condition}'"
     if educational_level == "All":
         educational_level_selector_statement = "1"
     elif educational_level == "All-Unknown":
-        educational_level_selector_statement = f"(EDU_LEVEL IS NOT NULL)"
+        educational_level_selector_statement = f"(EDU_LEVEL IS NOT NULL AND EDU_LEVEL != 9)"
     elif educational_level == "Unknown":
-        educational_level_selector_statement = f"(EDU_LEVEL IS NULL)"
+        educational_level_selector_statement = f"(EDU_LEVEL IS NULL OR EDU_LEVEL = 9)"
     else:
-        educational_level_selector_statement = f"(EDU_LEVEL = '{educational_level}')"
-    query = f"""
-            CREATE TEMPORARY TABLE {table_name} AS
-                SELECT 
-                    DISTINCT ID_SUBJECT FROM {temp_table_name}
-                WHERE
-                    (
-                    {gender_selector_statement}
-                    AND
-                    {civil_status_selector_statement}
-                    AND
-                    {job_condition_selector_statement}
-                    AND
-                    {educational_level_selector_statement}
-                    )
-    """
-    queries.append(query)
-    # QUERY 4: drop the temporary table temp_table
-    queries.append(f"DROP VIEW IF EXISTS {temp_table_name};")
-    # execute the queries
-    for q in queries:
-        cursor.execute(q)
-    connection.commit()
-    # RECAP:
-    # - first, the table is dropped if it exists
-    # - then, a temporary table is created with the patients that are in the age-stratified tables
-    # - finally, the final table is created with the patients that satisfy the other conditions
-    # - table_name contains the IDs of the patients that satisfy the conditions
-    #   under the column named "ID_SUBJECT"
-    # close the cursor
+        try:
+            edu_level_int = int(educational_level)
+        except ValueError:
+            edu_level_int = 9
+            print(f"WARNING: {educational_level} is not a valid educational level. Using 9 (Unknown) instead.")
+        educational_level_selector_statement = f"EDU_LEVEL = {edu_level_int}"
+    # database query
+    cursor.execute(f"DROP TABLE IF EXISTS temp.{table_name};")
+    cursor.execute(f"""
+        CREATE TEMPORARY TABLE {table_name} AS
+        SELECT DISTINCT ID_SUBJECT FROM demographics
+        WHERE
+            /* ID_SUBJECT must be in the correct age interval */
+            ID_SUBJECT IN ({selection_string_from_age_startification_table})
+            AND
+            /* ID_SUBJECT must satisfy the other conditions on gender, civil status, job condition, educational level */
+            {gender_selector_statement}
+            AND
+            {civil_status_selector_statement}
+            AND
+            {job_condition_selector_statement}
+            AND
+            {educational_level_selector_statement}
+    """)
+    # do not commit, the table is temporary, don't want this table to be persistent
     cursor.close()
-    # return the table name
-    return table_name
+    return f"temp.{table_name}"
 
-
-# other utilities
-
-def get_tables_dimensions(connection: sqlite3.Connection) -> dict[str:int]:
-    cursor = connection.cursor()
-    tables = get_tables(connection)
-    tables_dimensions = {}
-    for table in tables:
-        cursor.execute(f"SELECT COUNT(*) FROM {table}")
-        tables_dimensions[table] = cursor.fetchone()[0]
-    cursor.close()
-    return tables_dimensions
-
-def print_tables_dimensions(connection: sqlite3.Connection):
-    tables_dimensions = get_tables_dimensions(connection)
-    for table, dim in tables_dimensions.items():
-        print(f"Table {table} has {dim:,d} rows")
-
-
-
-
-
-
-#########################################
-# DATABASE PREPARATION FOR THE DASHBOARD
-#########################################
-
-# Standardize tables names
-standardize_table_names(DB)
-
-# Check if the database has the necessary tables
-is_ok, missing = check_database_has_tables(DB)
-if not is_ok:
-    raise ValueError("The database is missing the following tables which are required:", missing)
-
-# Preprocess the database: create a second database file (that will be used for the dashboard)
-#                          containing only patients
-#                          that are mental health patients of some sort, to exclude
-#                          every other medical condition not of interest of the dashboard
-new_db_path, has_been_slimmed = slim_down_database(DB)
-DB.close()
-DB = sqlite3.connect(new_db_path)
-
-# Preprocess the ja database: fix data types
-# This comes after the slimming down process just for speed
-preprocess_database_data_types(DB, force=has_been_slimmed)
-
-# Create indices on the tables of the slimmed down database
-create_indices_on_ja_database(DB, force=has_been_slimmed)
-
-# Preprocess the ja database: fix datetime columns
-preprocess_database_datetimes(DB, force=has_been_slimmed)
-
-# Create the Cohorts table
-add_cohorts_table(DB, force=has_been_slimmed)
-
-# Create the stratified demographics table
-from ..indicator.widget import AGE_WIDGET_INTERVALS
-
-
-years_of_inclusion = get_all_years_of_inclusion(DB)
-age_stratifications_list = [v for v in AGE_WIDGET_INTERVALS.values()]
-
-
-
-# add hash, force argument, check logic
-make_age_startification_tables(
-    DB,
-    year_of_inclusions_list=years_of_inclusion,
-    age_stratifications=age_stratifications_list,
-    force=True
-)
-
-
-
-
-##########
-print("Dataset has main tables:")
-print(get_tables(DB))
-print("Dataset has temp tables:")
-print(get_temp_tables(DB))
-print("Years of inclusion:", years_of_inclusion)
-###
-# get the number or non null values in each column of the age stratification table
-cursor = DB.cursor()
-cols = get_column_names(DB, "age_stratification")
-for col in cols:
-    print(
-        col, ":",
-        f"{cursor.execute(f'SELECT COUNT(*) FROM age_stratification WHERE {col} IS NOT NULL').fetchone()[0]:,d}"
-    )
-###
-DB.close()
-quit()
-##########
-
-
-
-
+    
 
 
 
 if __name__ == "__main__":
-    # test database: read the database table names
-    # and print the first 10 rows of each table
-    # with column names
-    cursor = DB.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = [a[0] for a in cursor.fetchall()]
-    for table in tables:
-        print(f"Table: {table}")
-        columns = cursor.execute(f"PRAGMA table_info({table});").fetchall()
-        for c in columns:
-            print(c[1], end="\t")
-        print()
-        for c in columns:
-            print(c[2], end="\t")
-        print()
-        rows = cursor.execute(f"SELECT * FROM {table} LIMIT 10;").fetchall()
-        for r in rows:
-            for e in r:
-                print(e, end="\t")
-            print()
+    print("This script is not intended to be run as the main script.")
         

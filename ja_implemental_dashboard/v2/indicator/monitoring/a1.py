@@ -1,3 +1,4 @@
+import time
 import numpy
 import pandas
 import sqlite3
@@ -11,13 +12,20 @@ panel.extension(
 )
 import bokeh.models
 import bokeh.plotting
-import holoviews ################################################
 
 from ...database.database import DISEASE_CODE_TO_DB_CODE
 from ...database.database import stratify_demographics, check_database_has_tables
 from ..logic_utilities import clean_indicator_getter_input
-from ..widget import indicator_widget
+from ..widget import indicator_widget, AGE_WIDGET_INTERVALS
 from ...main_selectors.disease_text import DS_TITLE as DISEASES_LANGDICT
+
+###########
+###########
+###########     IMPLEMENT INDICATOR VALUES (X, Y) CACHING IN NEW DATABASE!!
+###########
+###########
+
+
 
 # indicator logic
 def ma1(**kwargs):
@@ -29,6 +37,7 @@ def ma1(**kwargs):
     disease_db_code = kwargs.get("disease_db_code", None)
     year_of_inclusion = kwargs.get("year_of_inclusion", None)
     age = kwargs.get("age", None)
+    age = [AGE_WIDGET_INTERVALS[a] for a in age]
     gender = kwargs.get("gender", None)
     civil_status = kwargs.get("civil_status", None)
     job_condition = kwargs.get("job_condition", None)
@@ -58,40 +67,36 @@ def ma1(**kwargs):
         ma1["all"] = 0
         ma1["selected"] = 0
         return ma1
-    #######
-    #######
-    #######    Untill i make the final COHORTS table, I cannot use this function
-    #######
-    ####### just for testing, get some numbers out
-    # count all th eunique ID_SUBJECTS in the stratified demographics table
-    cursor.execute(f"SELECT COUNT(DISTINCT ID_SUBJECT) FROM {stratified_demographics_table_name}")
-    all_ = int(cursor.fetchone()[0])
-    selected_ = int(all_*0.4*numpy.random.random())
+    # get the indicator values
+    # all patients
+    all_ = int(
+            cursor.execute(f"""
+                SELECT COUNT(ID_SUBJECT) from COHORTS
+                WHERE 
+                    ID_SUBJECT IN (SELECT ID_SUBJECT FROM {stratified_demographics_table_name})
+                    AND
+                    YEAR_OF_ONSET <= {int(year_of_inclusion)}
+                    /* No check on the disease here */                   
+            """).fetchone()[0]
+    )
+    # selected patients (with the disease)
+    selected_ = int(
+            cursor.execute(f"""
+                SELECT COUNT(ID_SUBJECT) from COHORTS
+                WHERE
+                    ID_SUBJECT IN (SELECT ID_SUBJECT FROM {stratified_demographics_table_name})
+                    AND
+                    YEAR_OF_ONSET <= {int(year_of_inclusion)}
+                    AND
+                    ID_DISORDER = '{disease_db_code}'
+            """).fetchone()[0]
+    )
     ma1["all"] = all_
     ma1["selected"] = selected_
     # delete the table of stratified demograpohics
     cursor.execute(f"DROP TABLE IF EXISTS {stratified_demographics_table_name}")
-    # commit the changes
-    connection.commit()
     # close the cursor
     cursor.close()
-    # return
-    return ma1
-
-
-
-
-    # THE FOLLOWING IS GOOD IN PANDAS, ABOVE I WANT TO TRANSLATE IT TO SQL
-    # - from the cohort table, find the PREVALENT cohort with YEAR_ENTRY equal to year_of_inclusion
-    condition = pandas.Series(numpy.repeat(True, tables["cohorts"].shape[0]))
-    condition = condition & (tables["cohorts"]["ID_SUBJECT"].isin(stratified_demographics_patient_ids))
-    condition = condition & (tables["cohorts"]["PREVALENT"] == "Y")
-    condition = condition & (tables["cohorts"]["YEAR_ENTRY"] == year_of_inclusion)
-    # - get indicator for all diseases
-    ma1["all"] = tables["cohorts"].loc[condition, "ID_SUBJECT"].nunique()
-    # - get indicator for selected disease
-    condition = condition & (tables["cohorts"][disease_db_code] == "Y")
-    ma1["selected"] = tables["cohorts"].loc[condition, "ID_SUBJECT"].nunique()
     # return
     return ma1
 
@@ -182,17 +187,23 @@ class ma1_tab0(object):
         job_condition = self.widgets_instance.value["job_condition"]
         educational_level = self.widgets_instance.value["educational_level"]
         # logic
-        # get the years of inclusion
         cursor = self._db_conn.cursor()
-        ######    real logic here. for now_lets just use 5 example years
-        years_to_evaluate = [2018, 2019, 2020, 2021]
+        # get the years of inclusion as all years from the first occurrence of the disease
+        # for any patient up to the current year
+        min_year_ = int(
+            cursor.execute(f"""
+                SELECT MIN(YEAR_OF_ONSET) FROM cohorts
+                WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
+            """).fetchone()[0]
+        )
+        years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
         # get the indicator values (y-axis) for the years of inclusion (x-axis on the plot)
         ma1_all = []
         ma1_selected = []
         for year in years_to_evaluate:
             ma1_ = ma1(
                 connection=self._db_conn,
-                cohorts_required=False, ##### ################################################################        only for debugging
+                cohorts_required=True,
                 disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
                 year_of_inclusion=year,
                 age=age_interval,
@@ -262,7 +273,6 @@ class ma1_tab0(object):
         out = panel.pane.Bokeh(plot, height=plt_height) # setting the height here solves the bug after first time it happens!!
         return out
     
-
     def get_panel(self, **kwargs):
         # expected kwargs:
         # language_code, disease_code

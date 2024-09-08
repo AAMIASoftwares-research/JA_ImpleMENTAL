@@ -2,6 +2,38 @@ import os
 import random, numpy
 import sqlite3
 
+
+# test database slovenia
+file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Slovenia\\JA_Implemental-sample_v2.sqlite3"
+db = sqlite3.connect(file)
+cursor = db.cursor()
+tables = [a[0] for a in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+print("tables: ", tables)
+print("temp tables: ", cursor.execute("SELECT name FROM sqlite_temp_master WHERE type='table'").fetchall())
+
+for table in tables:
+    print(f"table {table}: ", cursor.execute(f"SELECT COUNT(*) FROM {table}").fetchall())
+
+for table in tables:
+    print("Table", table)
+    print([a[1] for a in cursor.execute(f"PRAGMA table_info({table})").fetchall()])
+    rows = cursor.execute(f"SELECT * FROM {table} LIMIT 10").fetchall()
+    for row in rows:
+        print(row)
+db.close()
+
+
+
+
+
+
+
+quit()
+
+
+
+
+
 # create/connect to a database
 database_name = __file__.replace('.py', '.db')
 db = sqlite3.connect(database_name)
