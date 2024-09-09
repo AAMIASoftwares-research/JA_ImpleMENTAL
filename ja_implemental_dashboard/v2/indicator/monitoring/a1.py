@@ -1,6 +1,6 @@
 import time
 import numpy
-import pandas
+import json
 import sqlite3
 import param
 import panel
@@ -18,16 +18,13 @@ from ...database.database import stratify_demographics, check_database_has_table
 from ..logic_utilities import clean_indicator_getter_input
 from ..widget import indicator_widget, AGE_WIDGET_INTERVALS
 from ...main_selectors.disease_text import DS_TITLE as DISEASES_LANGDICT
-
-###########
-###########
-###########     IMPLEMENT INDICATOR VALUES (X, Y) CACHING IN NEW DATABASE!!
-###########
-###########
+from ...caching.indicators import is_call_in_cache, retrieve_cached_json, cache_json
 
 
 
-# indicator logic
+
+
+# indicator computation logic
 def ma1(**kwargs):
     """
     """
@@ -182,40 +179,86 @@ class ma1_tab0(object):
         language_code = kwargs.get("language_code", self._language_code)
         disease_code = kwargs.get("disease_code", None)
         age_interval = self.widgets_instance.value["age"]
+        age_interval_list = [AGE_WIDGET_INTERVALS[a] for a in age_interval]
         gender = self.widgets_instance.value["gender"]
         civil_status = self.widgets_instance.value["civil_status"]
         job_condition = self.widgets_instance.value["job_condition"]
         educational_level = self.widgets_instance.value["educational_level"]
         # logic
-        cursor = self._db_conn.cursor()
-        # get the years of inclusion as all years from the first occurrence of the disease
-        # for any patient up to the current year
-        min_year_ = int(
-            cursor.execute(f"""
-                SELECT MIN(YEAR_OF_ONSET) FROM cohorts
-                WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
-            """).fetchone()[0]
+        # - cache check
+        is_in_cache = is_call_in_cache(
+            indicator_name=ma1_code,
+            disease_code=disease_code,
+            age_interval=age_interval_list,
+            gender=gender,
+            civil_status=civil_status,
+            job_condition=job_condition,
+            educational_level=educational_level
         )
-        years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
-        # get the indicator values (y-axis) for the years of inclusion (x-axis on the plot)
-        ma1_all = []
-        ma1_selected = []
-        for year in years_to_evaluate:
-            ma1_ = ma1(
-                connection=self._db_conn,
-                cohorts_required=True,
-                disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
-                year_of_inclusion=year,
-                age=age_interval,
+        if is_in_cache:
+            x_json, y_json = retrieve_cached_json(
+                indicator_name=ma1_code,
+                disease_code=disease_code,
+                age_interval=age_interval_list,
                 gender=gender,
                 civil_status=civil_status,
                 job_condition=job_condition,
                 educational_level=educational_level
             )
-            ma1_all.append(ma1_["all"])
-            ma1_selected.append(ma1_["selected"])
-        # close cursor
-        cursor.close()
+            years_to_evaluate = [int(v) for v in json.loads(x_json)]
+            y = json.loads(y_json)
+            ma1_all = [int(v) for v in y["all"]]
+            ma1_selected = [int(v) for v in y["selected"]]
+            del y
+        else:
+            cursor = self._db_conn.cursor()
+            # get the years of inclusion as all years from the first occurrence of the disease
+            # for any patient up to the current year
+            min_year_ = int(
+                cursor.execute(f"""
+                    SELECT MIN(YEAR_OF_ONSET) FROM cohorts
+                    WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
+                """).fetchone()[0]
+            )
+            years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
+            # get the indicator values (y-axis) for the years of inclusion (x-axis on the plot)
+            ma1_all = []
+            ma1_selected = []
+            for year in years_to_evaluate:
+                ma1_ = ma1(
+                    connection=self._db_conn,
+                    cohorts_required=True,
+                    disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
+                    year_of_inclusion=year,
+                    age=age_interval,
+                    gender=gender,
+                    civil_status=civil_status,
+                    job_condition=job_condition,
+                    educational_level=educational_level
+                )
+                ma1_all.append(ma1_["all"])
+                ma1_selected.append(ma1_["selected"])
+            # close cursor
+            cursor.close()
+            # cache the result
+            x_json = json.dumps(years_to_evaluate)
+            y_json = json.dumps(
+                {
+                    "all": ma1_all,
+                    "selected": ma1_selected
+                }
+            )
+            cache_json(
+                indicator_name=ma1_code,
+                disease_code=disease_code,
+                age_interval=age_interval_list,
+                gender=gender,
+                civil_status=civil_status,
+                job_condition=job_condition,
+                educational_level=educational_level,
+                x_json=x_json,
+                y_json=y_json
+            )
         # plot - use bokeh because it allows independent zooming
         _y_max_plot = max(max(ma1_all), max(ma1_selected))
         _y_max_plot *= 1.15

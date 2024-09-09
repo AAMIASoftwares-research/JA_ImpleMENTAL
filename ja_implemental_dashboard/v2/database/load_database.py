@@ -103,6 +103,10 @@ _years_of_inclusion = get_all_years_of_inclusion(DB)
 _age_stratifications_list = [v for v in AGE_WIDGET_INTERVALS.values()]
 make_age_startification_tables(DB, _years_of_inclusion, _age_stratifications_list, force=_has_been_slimmed)
 
+# CREATE INDICATOR CACHE DATABASE
+from ..caching.indicators import initialize_indicators_cache_database
+initialize_indicators_cache_database(force=_has_been_slimmed)
+
 # PRINT OUT HOW MUCH IT TOOK
 _t1 = time.time()
 _dt = _t1 - _t0

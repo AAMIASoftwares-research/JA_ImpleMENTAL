@@ -60,11 +60,6 @@ def get_table_name_for_indicator(indicator_name:str, create_if_not_exist:bool=Fa
         conn.close
     return table_name
 
-def get_table_columns_for_indicator() -> list:
-    """ Get the columns for the table for the indicator.
-    """
-    return ["call_signature", "x_json", "y_json"]
-
 def get_call_signature_text(
     disease_code:str,
     age_interval:list[tuple[int,int]],
@@ -92,3 +87,106 @@ def get_call_signature_text(
     call_signature = "_".join(list_)
     return str(call_signature)
 
+def is_call_in_cache(
+    indicator_name:str,
+    disease_code:str,
+    age_interval:list[tuple[int,int]],
+    gender:str,
+    civil_status:str,
+    job_condition:str,
+    educational_level:str,
+    cohort:str|None=None,
+) -> bool:
+    """ Check if the call is in the cache.
+    """
+    cache_file = get_indicators_cache_database_file()
+    conn = sqlite3.connect(cache_file)
+    c = conn.cursor()
+    table_name = get_table_name_for_indicator(indicator_name, create_if_not_exist=True)
+    call_signature = get_call_signature_text(
+        disease_code=disease_code,
+        age_interval=age_interval,
+        gender=gender,
+        civil_status=civil_status,
+        job_condition=job_condition,
+        educational_level=educational_level,
+        cohort=cohort
+    )
+    c.execute(
+        f"SELECT COUNT(*) FROM {table_name} WHERE call_signature = ?",
+        (call_signature,)
+    )
+    count = int(c.fetchone()[0])
+    conn.close()
+    return count > 0
+
+def retrieve_cached_json(indicator_name:str,
+    disease_code:str,
+    age_interval:list[tuple[int,int]],
+    gender:str,
+    civil_status:str,
+    job_condition:str,
+    educational_level:str,
+    cohort:str|None=None,
+) -> tuple[str,str]:
+    """ Retrieve the cached JSON data.
+
+    Returns:
+        x_json, y_json
+    """
+    cache_file = get_indicators_cache_database_file()
+    conn = sqlite3.connect(cache_file)
+    c = conn.cursor()
+    table_name = get_table_name_for_indicator(indicator_name)
+    call_signature = get_call_signature_text(
+        disease_code=disease_code,
+        age_interval=age_interval,
+        gender=gender,
+        civil_status=civil_status,
+        job_condition=job_condition,
+        educational_level=educational_level,
+        cohort=cohort
+    )
+    c.execute(
+        # there should not be more than one row with the same call signature
+        f"SELECT x_json, y_json FROM {table_name} WHERE call_signature = ? LIMIT 1",
+        (call_signature,)
+    )
+    x_json, y_json = c.fetchone()
+    conn.close()
+    return x_json, y_json
+
+def cache_json(
+    indicator_name:str,
+    disease_code:str,
+    age_interval:list[tuple[int,int]],
+    gender:str,
+    civil_status:str,
+    job_condition:str,
+    educational_level:str,
+    x_json:str,
+    y_json:str,
+    cohort:str|None=None,
+) -> None:
+    """ Cache the JSON data.
+    """
+    cache_file = get_indicators_cache_database_file()
+    conn = sqlite3.connect(cache_file)
+    c = conn.cursor()
+    table_name = get_table_name_for_indicator(indicator_name, create_if_not_exist=True)
+    call_signature = get_call_signature_text(
+        disease_code=disease_code,
+        age_interval=age_interval,
+        gender=gender,
+        civil_status=civil_status,
+        job_condition=job_condition,
+        educational_level=educational_level,
+        cohort=cohort
+    )
+    c.execute(
+        f"INSERT INTO {table_name} (call_signature, x_json, y_json) VALUES (?, ?, ?)",
+        (call_signature, str(x_json), str(y_json))
+    )
+    conn.commit()
+    conn.close()
+    
