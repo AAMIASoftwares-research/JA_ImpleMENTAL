@@ -20,20 +20,16 @@ from ...main_selectors.disease_text import DS_TITLE as DISEASES_LANGDICT
 from ...caching.indicators import is_call_in_cache, retrieve_cached_json, cache_json
 
 
-
-
-
-# indicator computation logic
+# indicator logic
 def ma2(**kwargs):
     """
     """
     # inputs
     kwargs = clean_indicator_getter_input(**kwargs)
-    connection: sqlite3.Connection = kwargs.get("connection", None)
+    tables = kwargs.get("dict_of_tables", None)
     disease_db_code = kwargs.get("disease_db_code", None)
     year_of_inclusion = kwargs.get("year_of_inclusion", None)
     age = kwargs.get("age", None)
-    age = [AGE_WIDGET_INTERVALS[a] for a in age]
     gender = kwargs.get("gender", None)
     civil_status = kwargs.get("civil_status", None)
     job_condition = kwargs.get("job_condition", None)
@@ -44,9 +40,9 @@ def ma2(**kwargs):
         "selected": None # patients with the selected disease
     }
     # logic
-    # - first find stratified demographics (delete the table before return)
-    stratified_demographics_table_name = stratify_demographics(
-        connection=connection,
+    # - first find stratified demographics
+    stratified_demographics_patient_ids = stratify_demographics(
+        tables["demographics"],
         year_of_inclusion=year_of_inclusion,
         age=age,
         gender=gender,
@@ -54,45 +50,16 @@ def ma2(**kwargs):
         job_condition=job_condition,
         educational_level=educational_level
     )
-    # open a cursor (close it before return)
-    cursor = connection.cursor()
-    # check if table is empty
-    cursor.execute(f"SELECT COUNT(*) FROM {stratified_demographics_table_name}")
-    if cursor.fetchone()[0] == 0:
-        # return
-        ma2["all"] = 0
-        ma2["selected"] = 0
-        return ma2
-    # get the indicator values
-    # all patients
-    all_ = int(
-            cursor.execute(f"""
-                SELECT COUNT(ID_SUBJECT) from COHORTS
-                WHERE 
-                    ID_SUBJECT IN (SELECT ID_SUBJECT FROM {stratified_demographics_table_name})
-                    AND
-                    YEAR_OF_ONSET = {int(year_of_inclusion)}
-                    /* No check on the disease here */                   
-            """).fetchone()[0]
-    )
-    # selected patients (with the disease)
-    selected_ = int(
-            cursor.execute(f"""
-                SELECT COUNT(ID_SUBJECT) from COHORTS
-                WHERE
-                    ID_SUBJECT IN (SELECT ID_SUBJECT FROM {stratified_demographics_table_name})
-                    AND
-                    YEAR_OF_ONSET = {int(year_of_inclusion)}
-                    AND
-                    ID_DISORDER = '{disease_db_code}'
-            """).fetchone()[0]
-    )
-    ma2["all"] = all_
-    ma2["selected"] = selected_
-    # delete the table of stratified demograpohics
-    cursor.execute(f"DROP TABLE IF EXISTS {stratified_demographics_table_name}")
-    # close the cursor
-    cursor.close()
+    # - from the cohort table, find the PREVALENT cohort with YEAR_ENTRY equal to year_of_inclusion
+    condition = pandas.Series(numpy.repeat(True, tables["cohorts"].shape[0]))
+    condition = condition & (tables["cohorts"]["ID_SUBJECT"].isin(stratified_demographics_patient_ids))
+    condition = condition & (tables["cohorts"]["INCIDENT"] == "Y")
+    condition = condition & (tables["cohorts"]["YEAR_ENTRY"] == year_of_inclusion)
+    # - get indicator for all diseases
+    ma2["all"] = tables["cohorts"].loc[condition, "ID_SUBJECT"].nunique()
+    # - get indicator for selected disease
+    condition = condition & (tables["cohorts"][disease_db_code] == "Y")
+    ma2["selected"] = tables["cohorts"].loc[condition, "ID_SUBJECT"].nunique()
     # return
     return ma2
 
@@ -170,14 +137,13 @@ ma2_tab_names_langdict: dict[str: list[str]] = {
     "es": ["Indicador"],
     "pt": ["Indicador"]
 }
-#############################
+
 class ma2_tab0(object):
-    def __init__(self, db_conn: sqlite3.Connection):
+    def __init__(self, dict_of_tables: dict):
         self._language_code = "en"
-        self._db_conn = db_conn
-        # widgets
+        self._dict_of_tables = dict_of_tables
         self.widgets_instance = indicator_widget(
-            language_code=self._language_code
+             language_code=self._language_code,
         )
         # pane row
         self._pane_styles = {
@@ -186,91 +152,33 @@ class ma2_tab0(object):
 
     def get_plot(self, **kwargs):
         # inputs
-        language_code = kwargs.get("language_code", self._language_code)
+        language_code = kwargs.get("language_code", "en")
         disease_code = kwargs.get("disease_code", None)
-        age_interval = self.widgets_instance.value["age"]
-        age_interval_list = [AGE_WIDGET_INTERVALS[a] for a in age_interval]
-        gender = self.widgets_instance.value["gender"]
-        civil_status = self.widgets_instance.value["civil_status"]
-        job_condition = self.widgets_instance.value["job_condition"]
-        educational_level = self.widgets_instance.value["educational_level"]
+        age = self.widgets_instance.widget_age_instance.value
+        gender = kwargs.get("gender", None)
+        civil_status = kwargs.get("civil_status", None)
+        job_condition = kwargs.get("job_condition", None)
+        educational_level = kwargs.get("educational_level", None)
         # logic
-        # - cache check
-        is_in_cache = is_call_in_cache(
-            indicator_name=ma2_code,
-            disease_code=disease_code,
-            age_interval=age_interval_list,
-            gender=gender,
-            civil_status=civil_status,
-            job_condition=job_condition,
-            educational_level=educational_level
-        )
-        if is_in_cache:
-            x_json, y_json = retrieve_cached_json(
-                indicator_name=ma2_code,
-                disease_code=disease_code,
-                age_interval=age_interval_list,
+        years_to_evaluate = self._dict_of_tables["cohorts"]["YEAR_ENTRY"].unique().tolist()
+        years_to_evaluate.sort()
+        ma2_all = []
+        ma2_selected = []
+        for year in years_to_evaluate:
+            ma2_ = ma2(
+                dict_of_tables=self._dict_of_tables,
+                disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
+                year_of_inclusion=year,
+                age=age,
                 gender=gender,
                 civil_status=civil_status,
                 job_condition=job_condition,
                 educational_level=educational_level
             )
-            years_to_evaluate = [int(v) for v in json.loads(x_json)]
-            y = json.loads(y_json)
-            ma1_all = [int(v) for v in y["all"]]
-            ma1_selected = [int(v) for v in y["selected"]]
-            del y
-        else:
-            cursor = self._db_conn.cursor()
-            # get the years of inclusion as all years from the first occurrence of the disease
-            # for any patient up to the current year
-            min_year_ = int(
-                cursor.execute(f"""
-                    SELECT MIN(YEAR_OF_ONSET) FROM cohorts
-                    WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
-                """).fetchone()[0]
-            )
-            years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
-            # get the indicator values (y-axis) for the years of inclusion (x-axis on the plot)
-            ma1_all = []
-            ma1_selected = []
-            for year in years_to_evaluate:
-                ma1_ = ma2(
-                    connection=self._db_conn,
-                    cohorts_required=True,
-                    disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
-                    year_of_inclusion=year,
-                    age=age_interval,
-                    gender=gender,
-                    civil_status=civil_status,
-                    job_condition=job_condition,
-                    educational_level=educational_level
-                )
-                ma1_all.append(ma1_["all"])
-                ma1_selected.append(ma1_["selected"])
-            # close cursor
-            cursor.close()
-            # cache the result
-            x_json = json.dumps(years_to_evaluate)
-            y_json = json.dumps(
-                {
-                    "all": ma1_all,
-                    "selected": ma1_selected
-                }
-            )
-            cache_json(
-                indicator_name=ma2_code,
-                disease_code=disease_code,
-                age_interval=age_interval_list,
-                gender=gender,
-                civil_status=civil_status,
-                job_condition=job_condition,
-                educational_level=educational_level,
-                x_json=x_json,
-                y_json=y_json
-            )
+            ma2_all.append(ma2_["all"])
+            ma2_selected.append(ma2_["selected"])        
         # plot - use bokeh because it allows independent zooming
-        _y_max_plot = max(max(ma1_all), max(ma1_selected))
+        _y_max_plot = max(max(ma2_all), max(ma2_selected))
         _y_max_plot *= 1.15
         hover_tool = bokeh.models.HoverTool(
             tooltips=[
@@ -278,10 +186,9 @@ class ma2_tab0(object):
                 (_number_of_patients_langdict[language_code], "@y")
             ]
         )
-        plt_height = 350
         plot = bokeh.plotting.figure(
             sizing_mode="stretch_width",
-            height=plt_height,
+            height=350,
             title=ma2_code + " - " + ma2_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code],
             x_axis_label=_year_langdict[language_code],
             x_range=(years_to_evaluate[0]-0.5, years_to_evaluate[-1]+0.5),
@@ -290,36 +197,30 @@ class ma2_tab0(object):
             tools="pan,wheel_zoom,box_zoom,reset,save",
             toolbar_location="right",
         )
-        #
-        #
-        ##################################################àà
-        ############ from here on
-        #
         plot.xaxis.ticker = numpy.sort(years_to_evaluate)
         plot.xgrid.grid_line_color = None
-        # plot of data
         plot.line(
-            years_to_evaluate, ma1_all,
+            years_to_evaluate, ma2_all,
             legend_label=DISEASES_LANGDICT[language_code]["_all_"],
             line_color="#a0a0a0ff"
         )
         plot.circle(
             x=years_to_evaluate, 
-            y=ma1_all,
+            y=ma2_all,
             legend_label=DISEASES_LANGDICT[language_code]["_all_"],
             fill_color="#a0a0a0ff",
             line_width=0,
             size=10
         )
         plot.line(
-            years_to_evaluate, ma1_selected,
+            years_to_evaluate, ma2_selected,
             legend_label=DISEASES_LANGDICT[language_code][disease_code],
-            line_color="#FF204Eff" # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
+            line_color="#A0153Eff" # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
         )
         plot.circle(
-            years_to_evaluate, ma1_selected,
+            years_to_evaluate, ma2_selected,
             legend_label=DISEASES_LANGDICT[language_code][disease_code],
-            fill_color="#FF204Eff", # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
+            fill_color="#A0153Eff", # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
             line_width=0,
             size=10
         )
@@ -328,9 +229,10 @@ class ma2_tab0(object):
         plot.legend.click_policy = "hide"
         plot.toolbar.autohide = True
         plot.toolbar.logo = None
-        out = panel.pane.Bokeh(plot, height=plt_height) # setting the height here solves the bug after first time it happens!!
+        out = panel.pane.Bokeh(plot)
         return out
     
+
     def get_panel(self, **kwargs):
         # expected kwargs:
         # language_code, disease_code
@@ -341,7 +243,14 @@ class ma2_tab0(object):
                 self.get_plot, 
                 language_code=language_code, 
                 disease_code=disease_code,
-                indicator_widget_value=self.widgets_instance.param.value,
+                age_temp_1=self.widgets_instance.widget_age_instance.widget_age_all,
+                age_temp_2=self.widgets_instance.widget_age_instance.widget_age_lower,
+                age_temp_3=self.widgets_instance.widget_age_instance.widget_age_upper,
+                age_temp_4=self.widgets_instance.widget_age_instance.widget_age_value,
+                gender=self.widgets_instance.widget_gender,
+                civil_status=self.widgets_instance.widget_civil_status,
+                job_condition=self.widgets_instance.widget_job_condition,
+                educational_level=self.widgets_instance.widget_educational_level
             ),
             self.widgets_instance.get_panel(language_code=language_code),
             styles=self._pane_styles,
@@ -356,6 +265,7 @@ ma2_tab_names_langdict["fr"].append("Aide")
 ma2_tab_names_langdict["de"].append("Hilfe")
 ma2_tab_names_langdict["es"].append("Ayuda")
 ma2_tab_names_langdict["pt"].append("Ajuda")
+
 
 class ma2_tab1(object):
     def __init__(self):
@@ -534,6 +444,35 @@ class ma2_tab1(object):
     
 
 
-
 if __name__ == "__main__":
-    print("This module is not callable.")
+
+
+    from ...database.database import FILES_FOLDER, DATABASE_FILENAMES_DICT, read_databases, preprocess_demographics_database, preprocess_interventions_database, preprocess_cohorts_database
+
+    db = read_databases(DATABASE_FILENAMES_DICT, FILES_FOLDER)
+    db["demographics"] = preprocess_demographics_database(db["demographics"])
+    db["interventions"] = preprocess_interventions_database(db["interventions"])
+    db["cohorts"] = preprocess_cohorts_database(db["cohorts"])
+
+    cohorts_rand = db["cohorts"].copy(deep=True)
+    cohorts_rand["YEAR_ENTRY"] = pandas.Series(numpy.random.randint(2013, 2016, cohorts_rand.shape[0]), index=cohorts_rand.index)
+    database_dict = {
+        "demographics": db["demographics"],
+        "diagnoses": db["diagnoses"],
+        "pharma": db["pharma"],
+        "interventions": db["interventions"],
+        "physical_exams": db["physical_exams"],
+        "cohorts": cohorts_rand
+    }
+
+    tab = ma2_tab0(
+        dict_of_tables= database_dict  # db
+    )
+    app = tab.get_panel(language_code="it", disease_code="_depression_")
+    app.show()
+
+
+    tab = ma2_tab1()
+    app = tab.get_panel(language_code="it")
+    app.show()
+    quit()

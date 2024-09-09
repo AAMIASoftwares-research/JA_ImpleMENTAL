@@ -2,7 +2,6 @@ import time
 import numpy
 import json
 import sqlite3
-import param
 import panel
 from ..._panel_settings import PANEL_EXTENSION, PANEL_TEMPLATE, PANEL_SIZING_MODE
 panel.extension(
@@ -161,7 +160,6 @@ ma1_tab_names_langdict: dict[str: list[str]] = {
 }
 
 class ma1_tab0(object):
-
     def __init__(self, db_conn: sqlite3.Connection):
         self._language_code = "en"
         self._db_conn = db_conn
@@ -514,19 +512,4 @@ class ma1_tab1(object):
 
 
 if __name__ == "__main__":
-
-
-    from ...database.database import DB
-
-    tab = ma1_tab0(
-        db_conn=DB
-    )
-    app = tab.get_panel(language_code="it", disease_code="_depression_")
-    app.show()
-    quit()
-
-
-    tab = ma1_tab1()
-    app = tab.get_panel(language_code="it")
-    app.show()
-    quit()
+    print("This module is not callable.")

@@ -1494,7 +1494,6 @@ def get_age_stratification_column_all(year_of_inclusion_list: list[int], age_int
     return [get_age_stratification_column(yoi, ai) for yoi in year_of_inclusion_list for ai in age_intervals]
 
 def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclusions_list: list[int]|None=None, age_stratifications: dict[str:tuple]|None=None, force: bool=True):
-    #########   to completely review
     """ Age of all patients in demographics is computed with respect to each year of inclusion.
         By convention, the age is computed as the difference between the year of inclusion and the year of birth,
         not accounting for the month and day of birth.
@@ -1687,7 +1686,7 @@ def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
         raise ValueError("job_condition must be provided")
     if job_condition not in _available_job_conditions:
         raise ValueError(f"job_condition must be in {_available_job_conditions}")
-    _available_educational_levels = ["All", "All-Unknown", "0", "1", "2", "3", "4", "5", "6", "7", "8", "Unknown"]
+    _available_educational_levels = ["All", "All-Unknown", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "Unknown"]
     educational_level = kwargs.get("educational_level", None)
     if educational_level is None:
         raise ValueError("educational_level must be provided")
@@ -1736,7 +1735,8 @@ def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
         educational_level_selector_statement = "1"
     elif educational_level == "All-Unknown":
         educational_level_selector_statement = f"(EDU_LEVEL IS NOT NULL AND EDU_LEVEL != 9)"
-    elif educational_level == "Unknown":
+    elif educational_level == "Unknown" or educational_level == "9":
+        # 9 is the ISCED level for Unknown
         educational_level_selector_statement = f"(EDU_LEVEL IS NULL OR EDU_LEVEL = 9)"
     else:
         try:

@@ -37,6 +37,7 @@ from ..caching.database import (
 #######################################################
 
 # USER SELECTION OF THE DATABASE
+print("Please select the database file using the file selection dialog that opened.")
 import tkinter
 from tkinter import filedialog
 root = tkinter.Tk()
