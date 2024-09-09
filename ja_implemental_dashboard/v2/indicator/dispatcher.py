@@ -94,25 +94,23 @@ ma1_indicator_panel = IndicatorPanel(
     tabs=[ma1_tab0_instance, ma1_tab1_instance],
     tab_names_langdict=ma1_tab_names_langdict
 )
+from .monitoring.a2 import (
+    ma2_code, ma2_name_langdict, ma2_short_desription_langdict,
+    ma2_tab_names_langdict,
+    ma2_tab0, ma2_tab1
+)
+ma2_tab0_instance = ma2_tab0(DB)
+ma2_tab1_instance = ma2_tab1()
+ma2_indicator_panel = IndicatorPanel(
+    monitoring_or_evaluation="_monitoring_",
+    indicator_code=ma2_code,
+    indicator_name=ma2_name_langdict,
+    indicator_short_description=ma2_short_desription_langdict,
+    tabs=[ma2_tab0_instance, ma2_tab1_instance],
+    tab_names_langdict=ma2_tab_names_langdict
+)
 
 if 0:
-
-    from .monitoring.a2 import (
-        ma2_code, ma2_name_langdict, ma2_short_desription_langdict,
-        ma2_tab_names_langdict,
-        ma2_tab0, ma2_tab1
-    )
-    ma2_tab0_instance = ma2_tab0(DB)
-    ma2_tab1_instance = ma2_tab1()
-    ma2_indicator_panel = IndicatorPanel(
-        monitoring_or_evaluation="_monitoring_",
-        indicator_code=ma2_code,
-        indicator_name=ma2_name_langdict,
-        indicator_short_description=ma2_short_desription_langdict,
-        tabs=[ma2_tab0_instance, ma2_tab1_instance],
-        tab_names_langdict=ma2_tab_names_langdict
-    )
-
     from .monitoring.a3 import (
         ma3_code, ma3_name_langdict, ma3_short_desription_langdict,
         ma3_tab_names_langdict,
@@ -220,11 +218,11 @@ eb3_indicator_panel_placeholder = PlaceholderPanel(
 )
 
 monitor_panel_classes_list = [
-    ma1_indicator_panel, 
+    ma1_indicator_panel,
+    ma2_indicator_panel,
     PlaceholderPanel(
-        placeholder_html_string="<h2>MA2 panel goes here</h2>"
+        placeholder_html_string="<h2>MA3 panel goes here</h2>"
     )
-    # ma2_indicator_panel, 
     # ma3_indicator_panel,
     # mb2_indicator_panel
 ]

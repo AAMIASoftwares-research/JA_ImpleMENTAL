@@ -290,11 +290,6 @@ class ma2_tab0(object):
             tools="pan,wheel_zoom,box_zoom,reset,save",
             toolbar_location="right",
         )
-        #
-        #
-        ##################################################àà
-        ############ from here on
-        #
         plot.xaxis.ticker = numpy.sort(years_to_evaluate)
         plot.xgrid.grid_line_color = None
         # plot of data
@@ -314,12 +309,12 @@ class ma2_tab0(object):
         plot.line(
             years_to_evaluate, ma1_selected,
             legend_label=DISEASES_LANGDICT[language_code][disease_code],
-            line_color="#FF204Eff" # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
+            line_color="#A0153Eff" # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
         )
         plot.circle(
             years_to_evaluate, ma1_selected,
             legend_label=DISEASES_LANGDICT[language_code][disease_code],
-            fill_color="#FF204Eff", # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
+            fill_color="#A0153Eff", # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
             line_width=0,
             size=10
         )
