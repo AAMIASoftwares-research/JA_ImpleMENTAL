@@ -15,8 +15,11 @@ from .database import (
     add_cohorts_table,
     make_age_startification_tables,
     get_all_years_of_inclusion,
-    get_cache_folder
 )
+from ..caching.database import (
+    get_cache_folder,
+)
+
 
 # This file contains the script to load
 # and preprocess the database.
@@ -62,7 +65,7 @@ with open(filedialog_cache_file, "w") as f:
 del root, filedialog_cache_file, last_used_dir, file_path
 DB = sqlite3.connect(USER_DATABASE_FILE)
 # save original database file path into a cache file
-from .database import get_original_database_file_path_cache_file
+from ..caching.database import get_original_database_file_path_cache_file
 with open(get_original_database_file_path_cache_file(), "w") as f:
     f.write(USER_DATABASE_FILE)
     

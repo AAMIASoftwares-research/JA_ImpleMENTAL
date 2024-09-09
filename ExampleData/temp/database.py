@@ -12,21 +12,53 @@ print("tables: ", tables)
 print("temp tables: ", cursor.execute("SELECT name FROM sqlite_temp_master WHERE type='table'").fetchall())
 
 for table in tables:
-    print(f"table {table}: ", cursor.execute(f"SELECT COUNT(*) FROM {table}").fetchall())
-
-for table in tables:
-    print("Table", table)
-    print([a[1] for a in cursor.execute(f"PRAGMA table_info({table})").fetchall()])
-    rows = cursor.execute(f"SELECT * FROM {table} LIMIT 10").fetchall()
+    print("Table", table, f"({cursor.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]}) entries")
+    print("- column names", [a[1] for a in cursor.execute(f"PRAGMA table_info({table})").fetchall()])
+    print("- Table column sqlite types", [a[2] for a in cursor.execute(f"PRAGMA table_info({table})").fetchall()])
+    print("- Some rows:")
+    rows = cursor.execute(f"SELECT * FROM {table} ORDER BY RANDOM() LIMIT 5").fetchall()
     for row in rows:
-        print(row)
+        print(f"  {row}")
 db.close()
 
 
-
-
-
-
+if 0:
+    # FOR BLAZ
+    # create example database from our database with randomized ID_SUBJECT in each table
+    in_file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia\\DATABASE.jasqlite3"
+    out_file = os.path.normpath(
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "Slovenia",
+            'example_database.sqlite3'
+        )
+    )
+    # of the in database, we copy 1000 rows of tables:
+    # - 'demographics'
+    # - 'pharma'
+    # - 'diagnoses'
+    # - 'interventions'
+    # - 'physical_exams'
+    db = sqlite3.connect(in_file)
+    cursor = db.cursor()
+    db.execute('ATTACH DATABASE ? AS out', (out_file,))
+    cursor.execute('CREATE TABLE IF NOT EXISTS out.demographics AS SELECT * FROM demographics LIMIT 1000')
+    cursor.execute('CREATE TABLE IF NOT EXISTS out.pharma AS SELECT * FROM pharma LIMIT 1000')
+    cursor.execute('CREATE TABLE IF NOT EXISTS out.diagnoses AS SELECT * FROM diagnoses LIMIT 1000')
+    cursor.execute('CREATE TABLE IF NOT EXISTS out.interventions AS SELECT * FROM interventions LIMIT 1000')
+    cursor.execute('CREATE TABLE IF NOT EXISTS out.physical_exams AS SELECT * FROM physical_exams LIMIT 1000')
+    # now, modify the ID_SUBJECT in each table to be a random string of 5 to 9 characters and numbers
+    choice = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz'
+    for table in ['demographics', 'pharma', 'diagnoses', 'interventions', 'physical_exams']:
+        for rowid in range(1, 1001):
+            ID_SUBJECT = ''.join(random.choices(choice, k=random.randint(5, 9)))
+            cursor.execute(f"UPDATE out.{table} SET ID_SUBJECT = ? WHERE rowid = ?", (ID_SUBJECT, rowid))
+    db.commit()
+    print("database created!")
+    cursor.execute("DETACH DATABASE out")
+    cursor.close() 
+    db.close()
 
 quit()
 
