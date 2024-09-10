@@ -24,7 +24,7 @@ from ...caching.indicators import is_call_in_cache, retrieve_cached_json, cache_
 
 
 # indicator computation logic
-def ma2(**kwargs):
+def ma3(**kwargs):
     """
     """
     # inputs
@@ -39,7 +39,7 @@ def ma2(**kwargs):
     job_condition = kwargs.get("job_condition", None)
     educational_level = kwargs.get("educational_level", None)
     # output
-    ma2 = {
+    ma3 = {
         "all": None,     # patients with any disease
         "selected": None # patients with the selected disease
     }
@@ -60,82 +60,91 @@ def ma2(**kwargs):
     cursor.execute(f"SELECT COUNT(*) FROM {stratified_demographics_table_name}")
     if cursor.fetchone()[0] == 0:
         # return
-        ma2["all"] = 0
-        ma2["selected"] = 0
-        return ma2
+        ma3["all"] = 0
+        ma3["selected"] = 0
+        return ma3
     # get the indicator values
     # all patients
+    incident_18_25_column_name = f"incident_18_25_{year_of_inclusion}"
     all_ = int(
-            cursor.execute(f"""
-                SELECT COUNT(ID_SUBJECT) from COHORTS
-                WHERE 
-                    ID_SUBJECT IN (SELECT ID_SUBJECT FROM {stratified_demographics_table_name})
-                    AND
-                    YEAR_OF_ONSET = {int(year_of_inclusion)}
-                    /* No check on the disease here */                   
-            """).fetchone()[0]
+        cursor.execute(f"""
+            SELECT COUNT(ID_SUBJECT) from COHORTS
+            WHERE 
+                ID_SUBJECT IN (
+                    SELECT {incident_18_25_column_name} AS ID_SUBJECT FROM age_stratification WHERE {incident_18_25_column_name} IS NOT NULL
+                    UNION
+                    SELECT ID_SUBJECT FROM {stratified_demographics_table_name}
+                )
+                AND
+                YEAR_OF_ONSET = {int(year_of_inclusion)}
+                /* No check on the disease here */                   
+        """).fetchone()[0]
     )
     # selected patients (with the disease)
     selected_ = int(
-            cursor.execute(f"""
-                SELECT COUNT(ID_SUBJECT) from COHORTS
-                WHERE
-                    ID_SUBJECT IN (SELECT ID_SUBJECT FROM {stratified_demographics_table_name})
-                    AND
-                    YEAR_OF_ONSET = {int(year_of_inclusion)}
-                    AND
-                    ID_DISORDER = '{disease_db_code}'
-            """).fetchone()[0]
+        cursor.execute(f"""
+            SELECT COUNT(ID_SUBJECT) from COHORTS
+            WHERE 
+                ID_SUBJECT IN (
+                    SELECT {incident_18_25_column_name} AS ID_SUBJECT FROM age_stratification WHERE {incident_18_25_column_name} IS NOT NULL
+                    UNION
+                    SELECT ID_SUBJECT FROM {stratified_demographics_table_name}
+                )
+                AND
+                YEAR_OF_ONSET = {int(year_of_inclusion)}
+                AND
+                ID_DISORDER = '{disease_db_code}'
+        """).fetchone()[0]
     )
-    ma2["all"] = all_
-    ma2["selected"] = selected_
+    ma3["all"] = all_
+    ma3["selected"] = selected_
     # delete the table of stratified demograpohics
     cursor.execute(f"DROP TABLE IF EXISTS {stratified_demographics_table_name}")
     # close the cursor
     cursor.close()
     # return
-    return ma2
+    return ma3
 
 
 # Indicator display
-ma2_code = "MA2"
-ma2_name_langdict = {
-    "en": "Treated incidence",
-    "it": "Incidenza trattata",
-    "fr": "Incidence traitée",
-    "de": "Behandelte Inzidenz",
-    "es": "Incidencia tratada",
-    "pt": "Incidência tratada"
+ma3_code = "MA3"
+ma3_name_langdict = {
+    "en": "Treated incidence 18-25 years old",
+    "it": "Incidenza trattata 18-25 anni",
+    "fr": "Incidence traitée 18-25 ans",
+    "de": "Behandelte Inzidenz 18-25 Jahre",
+    "es": "Incidencia tratada 18-25 años",
+    "pt": "Incidência tratada 18-25 anos"
 }
-ma2_short_desription_langdict = {
+ma3_short_desription_langdict = {
     "en": 
         """Number of Patients with an incident mental disorder
-            (or newly taken-in-care) treated in inpatient and outpatient
+            (or newly taken-in-care) aged 18-25 years old and treated in inpatient and outpatient
             Mental Health Facilities (for each year of data availability).
         """,
     "it":
         """Numero di pazienti con un disturbo mentale incidente
-            (o appena presi in carico) trattati in strutture di salute mentale
+            (o appena presi in carico) di età compresa tra 18 e 25 anni e trattati in strutture di salute mentale
             ospedaliere e ambulatoriali (per ogni anno di disponibilità dei dati).
         """,
     "fr":
         """Nombre de patients atteints d'un trouble mental incident
-            (ou nouvellement pris en charge) traités dans des établissements de santé mentale
-            hospitaliers et ambulatoires (pour chaque année de disponibilité des données).
+            (ou nouvellement pris en charge) âgés de 18 à 25 ans et traités en hospitalisation et en ambulatoire
+            établissements de santé mentale (pour chaque année de disponibilité des données).
         """,
     "de":
         """Anzahl der Patienten mit einer vorherrschenden psychischen Störung
-            (oder neu aufgenommen) behandelt in stationären und ambulanten Einrichtungen
-            für psychische Gesundheit (für jedes Jahr der Datenverfügbarkeit).
+            (oder neu aufgenommen) im Alter von 18 bis 25 Jahren und behandelt in stationären und ambulanten
+            Einrichtungen für psychische Gesundheit (für jedes Jahr der Datenverfügbarkeit).
         """,
     "es":
         """Número de pacientes con un trastorno mental incidente
-            (o recién ingresados) tratados en instalaciones de salud mental
+            (o recién ingresados) de 18 a 25 años y tratados en instalaciones de salud mental
             hospitalarias y ambulatorias (para cada año de disponibilidad de datos).
-        """,  
+        """,
     "pt":
         """Número de pacientes com um transtorno mental incidente
-            (ou recém-atendidos) tratados em instalações de saúde mental
+            (ou recém-atendidos) com idades entre 18 e 25 anos e tratados em instalações de saúde mental
             hospitalares e ambulatoriais (para cada ano de disponibilidade de dados).
         """
 }
@@ -162,7 +171,7 @@ _number_of_patients_langdict = {
 # TABS
 #######
 
-ma2_tab_names_langdict: dict[str: list[str]] = {
+ma3_tab_names_langdict: dict[str: list[str]] = {
     "en": ["Indicator"],
     "it": ["Indicatore"],
     "fr": ["Indicateur"],
@@ -170,8 +179,9 @@ ma2_tab_names_langdict: dict[str: list[str]] = {
     "es": ["Indicador"],
     "pt": ["Indicador"]
 }
-#############################
-class ma2_tab0(object):
+
+
+class ma3_tab0(object):
     def __init__(self, db_conn: sqlite3.Connection):
         self._language_code = "en"
         self._db_conn = db_conn
@@ -197,7 +207,7 @@ class ma2_tab0(object):
         # logic
         # - cache check
         is_in_cache = is_call_in_cache(
-            indicator_name=ma2_code,
+            indicator_name=ma3_code,
             disease_code=disease_code,
             age_interval=age_interval_list,
             gender=gender,
@@ -207,7 +217,7 @@ class ma2_tab0(object):
         )
         if is_in_cache:
             x_json, y_json = retrieve_cached_json(
-                indicator_name=ma2_code,
+                indicator_name=ma3_code,
                 disease_code=disease_code,
                 age_interval=age_interval_list,
                 gender=gender,
@@ -217,8 +227,8 @@ class ma2_tab0(object):
             )
             years_to_evaluate = [int(v) for v in json.loads(x_json)]
             y = json.loads(y_json)
-            ma2_all = [int(v) for v in y["all"]]
-            ma2_selected = [int(v) for v in y["selected"]]
+            ma3_all = [int(v) for v in y["all"]]
+            ma3_selected = [int(v) for v in y["selected"]]
             del y
         else:
             cursor = self._db_conn.cursor()
@@ -232,10 +242,10 @@ class ma2_tab0(object):
             )
             years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
             # get the indicator values (y-axis) for the years of inclusion (x-axis on the plot)
-            ma2_all = []
-            ma2_selected = []
+            ma3_all = []
+            ma3_selected = []
             for year in years_to_evaluate:
-                ma2_ = ma2(
+                ma3_ = ma3(
                     connection=self._db_conn,
                     cohorts_required=True,
                     disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
@@ -246,20 +256,20 @@ class ma2_tab0(object):
                     job_condition=job_condition,
                     educational_level=educational_level
                 )
-                ma2_all.append(ma2_["all"])
-                ma2_selected.append(ma2_["selected"])
+                ma3_all.append(ma3_["all"])
+                ma3_selected.append(ma3_["selected"])
             # close cursor
             cursor.close()
             # cache the result
             x_json = json.dumps(years_to_evaluate)
             y_json = json.dumps(
                 {
-                    "all": ma2_all,
-                    "selected": ma2_selected
+                    "all": ma3_all,
+                    "selected": ma3_selected
                 }
             )
             cache_json(
-                indicator_name=ma2_code,
+                indicator_name=ma3_code,
                 disease_code=disease_code,
                 age_interval=age_interval_list,
                 gender=gender,
@@ -270,7 +280,7 @@ class ma2_tab0(object):
                 y_json=y_json
             )
         # plot - use bokeh because it allows independent zooming
-        _y_max_plot = max(max(ma2_all), max(ma2_selected))
+        _y_max_plot = max(max(ma3_all), max(ma3_selected))
         _y_max_plot *= 1.15
         hover_tool = bokeh.models.HoverTool(
             tooltips=[
@@ -282,7 +292,7 @@ class ma2_tab0(object):
         plot = bokeh.plotting.figure(
             sizing_mode="stretch_width",
             height=plt_height,
-            title=ma2_code + " - " + ma2_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code],
+            title=ma3_code + " - " + ma3_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code],
             x_axis_label=_year_langdict[language_code],
             x_range=(years_to_evaluate[0]-0.5, years_to_evaluate[-1]+0.5),
             y_axis_label=_number_of_patients_langdict[language_code],
@@ -294,27 +304,27 @@ class ma2_tab0(object):
         plot.xgrid.grid_line_color = None
         # plot of data
         plot.line(
-            years_to_evaluate, ma2_all,
+            years_to_evaluate, ma3_all,
             legend_label=DISEASES_LANGDICT[language_code]["_all_"],
             line_color="#a0a0a0ff"
         )
         plot.circle(
             x=years_to_evaluate, 
-            y=ma2_all,
+            y=ma3_all,
             legend_label=DISEASES_LANGDICT[language_code]["_all_"],
             fill_color="#a0a0a0ff",
             line_width=0,
             size=10
         )
         plot.line(
-            years_to_evaluate, ma2_selected,
+            years_to_evaluate, ma3_selected,
             legend_label=DISEASES_LANGDICT[language_code][disease_code],
-            line_color="#A0153Eff" # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
+            line_color="#5D0E41ff" # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
         )
         plot.circle(
-            years_to_evaluate, ma2_selected,
+            years_to_evaluate, ma3_selected,
             legend_label=DISEASES_LANGDICT[language_code][disease_code],
-            fill_color="#A0153Eff", # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
+            fill_color="#5D0E41ff", # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
             line_width=0,
             size=10
         )
@@ -345,14 +355,15 @@ class ma2_tab0(object):
         return pane
         
 
-ma2_tab_names_langdict["en"].append("Help")
-ma2_tab_names_langdict["it"].append("Aiuto")
-ma2_tab_names_langdict["fr"].append("Aide")
-ma2_tab_names_langdict["de"].append("Hilfe")
-ma2_tab_names_langdict["es"].append("Ayuda")
-ma2_tab_names_langdict["pt"].append("Ajuda")
+ma3_tab_names_langdict["en"].append("Help")
+ma3_tab_names_langdict["it"].append("Aiuto")
+ma3_tab_names_langdict["fr"].append("Aide")
+ma3_tab_names_langdict["de"].append("Hilfe")
+ma3_tab_names_langdict["es"].append("Ayuda")
+ma3_tab_names_langdict["pt"].append("Ajuda")
 
-class ma2_tab1(object):
+
+class ma3_tab1(object):
     def __init__(self):
         self._language_code = "en"
         # pane
@@ -383,6 +394,7 @@ class ma2_tab1(object):
                     <h3 style='{h3_style}'>Indicator Calculation</h3>
                     <p style='{p_style}'>
                     The treated incidence indicator calculates the number of patients
+                    aged 18-25 years old
                     with an incident mental disorder (or newly taken-in-care)
                     treated in inpatient and outpatient Mental Health Facilities for each year
                     of data availability.
@@ -405,6 +417,7 @@ class ma2_tab1(object):
                     <h3 style='{h3_style}'>Calcolo dell'indicatore</h3>
                     <p style='{p_style}'>
                     L'indicatore di incidenza trattata calcola il numero di pazienti
+                    di età compresa tra 18 e 25 anni
                     con un disturbo mentale incidente (o appena presi in carico)
                     trattati in strutture di salute mentale ospedaliere e ambulatoriali
                     per ogni anno di disponibilità dei dati.
@@ -426,6 +439,7 @@ class ma2_tab1(object):
                     <h3 style='{h3_style}'>Calcul de l'indicateur</h3>
                     <p style='{p_style}'>
                     L'indicateur d'incidence traitée calcule le nombre de patients
+                    âgés de 18 à 25 ans
                     atteints d'un trouble mental incident (ou nouvellement pris en charge)
                     traités dans des établissements de santé mentale hospitaliers et ambulatoires
                     pour chaque année de disponibilité des données.
@@ -446,10 +460,11 @@ class ma2_tab1(object):
                 f"""
                     <h3 style='{h3_style}'>Indikatorberechnung</h3>
                     <p style='{p_style}'>
-                    Der behandelte Inzidenzindikator berechnet die Anzahl von Patienten
+                    Der Indikator für behandelte Inzidenz berechnet die Anzahl von Patienten
+                    im Alter von 18 bis 25 Jahren
                     mit einer vorherrschenden psychischen Störung (oder neu aufgenommen)
-                    behandelt in stationären und ambulanten Einrichtungen
-                    für psychische Gesundheit für jedes Jahr der Datenverfügbarkeit.
+                    behandelt in stationären und ambulanten Einrichtungen für psychische Gesundheit
+                    für jedes Jahr der Datenverfügbarkeit.
                     Es berücksichtigt verschiedene demografische Faktoren wie das Jahr der Aufnahme, das Alter,
                     das Geschlecht, den Familienstand, den Beschäftigungszustand und das Bildungsniveau.
                     </p>
@@ -468,7 +483,8 @@ class ma2_tab1(object):
                     <h3 style='{h3_style}'>Cálculo del indicador</h3>
                     <p style='{p_style}'>
                     El indicador de incidencia tratada calcula el número de pacientes
-                    con un trastorno mental incidente (o recién ingresados)
+                    de 18 a 25 años
+                    con un trastorno mental incidente (o recién atendidos)
                     tratados en instalaciones de salud mental hospitalarias y ambulatorias
                     para cada año de disponibilidad de datos.
                     Toma en cuenta varios factores demográficos como el año de inclusión, la edad,
@@ -489,6 +505,7 @@ class ma2_tab1(object):
                     <h3 style='{h3_style}'>Cálculo do indicador</h3>
                     <p style='{p_style}'>
                     O indicador de incidência tratada calcula o número de pacientes
+                    com 18-25 anos
                     com um transtorno mental incidente (ou recém-atendidos)
                     tratados em instalações de saúde mental hospitalares e ambulatoriais
                     para cada ano de disponibilidade de dados.
@@ -527,7 +544,6 @@ class ma2_tab1(object):
         return self._panes[language_code]
    
     
-
 
 
 if __name__ == "__main__":

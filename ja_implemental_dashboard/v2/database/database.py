@@ -1491,7 +1491,7 @@ def get_age_stratification_column_all(year_of_inclusion_list: list[int], age_int
     Input ages must be a tuple of two integers, the first one being the start of the age interval
     and the second one being the end of the age interval.
     """
-    return [get_age_stratification_column(yoi, ai) for yoi in year_of_inclusion_list for ai in age_intervals]
+    return [get_age_stratification_column(yoi, ai) for yoi in year_of_inclusion_list for ai in age_intervals] + [f"incident_18_25_{yoi}" for yoi in year_of_inclusion_list]
 
 def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclusions_list: list[int]|None=None, age_stratifications: dict[str:tuple]|None=None, force: bool=True):
     """ Age of all patients in demographics is computed with respect to each year of inclusion.
@@ -1504,6 +1504,10 @@ def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclu
         and columns are named following the convention 'ast_<year_of_inclusion_yyyy>_<age_start>_<age_end>'.
         Both age_start and age_end are inclusive.
         Each column is of type TEXT and holds either ID_SUBJECT data or NULL.
+
+        This function additionally creates len(year_of_inclusions_list) tables for subjects located in the 18-25 years old inclusive
+        to make stratification faster at runtime when the incident_18_25 cohort is concerned.
+        These are named: incident_18_25_"+str(yoi).
 
         Inputs:
         - connection: sqlite3.Connection
@@ -1606,8 +1610,45 @@ def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclu
                         WHERE rowid = age_stratification.rowid
                     )
                 """)
+        # for that year of inclusion, we also need to create a table for the 18-25 years old
+        column_name = "incident_18_25_"+str(yoi)
+        cursor.execute("DELETE FROM buffer")
+        cursor.execute(f"""
+            INSERT INTO buffer
+            SELECT DISTINCT ID_SUBJECT
+            FROM demographics
+            WHERE
+                (
+                    /* at the year of inclusion, the patient must be alive (birth < yoi, death > yoi or null)*/
+                    /* at the year of inclusion, the patient must fall into the inclusive age range */
+                    ({yoi} - CAST(strftime('%Y', DT_BIRTH) as INT) BETWEEN 18 AND 25)
+                    AND
+                    (
+                        (CAST(strftime('%Y', DT_DEATH) as INT) > {yoi})
+                        OR
+                        (DT_DEATH IS NULL)
+                    )
+                    /* Also, since I will work only with the subjects that appear in COHORTS, I can filter out the rest
+                       When cohorts will consider every possible mental disorter, this condition will no nothing.
+                       Else, it will filter out the subjects that do not have a record in the cohort table.
+                    */
+                    AND
+                    ID_SUBJECT IN (SELECT DISTINCT ID_SUBJECT FROM cohorts)
+                )
+            ORDER BY ID_SUBJECT
+        """)
+        len_buffer = cursor.execute("SELECT COUNT(*) FROM buffer").fetchone()[0]
+        if len_buffer > 0:
+            cursor.execute(f"""
+                UPDATE age_stratification SET {column_name} = (
+                    SELECT ID_SUBJECT
+                    FROM buffer
+                    WHERE rowid = age_stratification.rowid
+                )
+            """)
     # get rid of the temporary table
-    cursor.execute("DROP TABLE temp.buffer")
+    cursor.execute("DROP TABLE IF EXISTS buffer")
+    cursor.execute("DROP TABLE IF EXISTS temp.buffer")
     # commit changes and close
     connection.commit()
     cursor.close()
@@ -1627,7 +1668,7 @@ def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclu
 from ..indicator.widget import AGE_WIDGET_INTERVALS
 
 def stratify_demographics(connection: sqlite3.Connection, **kwargs) -> str:
-    """ Given the internal jas database, stratify the patients according to the kwargs parameters.
+    """ Given the internal ja database, stratify the patients according to the kwargs parameters.
     This function outputs a string, that is the name of the temporary table that stores the IDs of the patients that satisfy the conditions.
     The temporary table only has the column ID_SUBJECT of type TEXT.
 

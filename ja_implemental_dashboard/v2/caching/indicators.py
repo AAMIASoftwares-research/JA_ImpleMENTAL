@@ -25,9 +25,10 @@ def initialize_indicators_cache_database(force:bool=False) -> None:
     c = conn.cursor()
     if len(tables) > 0:
         for t in tables:
-            c.execute("DELETE FROM ?;", (t,))
-            c.execute("DROP TABLE IF EXISTS ?;", (t,)) 
-    
+            c.execute(f"DELETE FROM {t};")
+            c.execute(f"DROP TABLE IF EXISTS {t};") 
+    # Thye following 'indicators' table will not be used anywhere, it exists just
+    # to initialize the database file
     c.execute(
         """
         CREATE TABLE indicators (

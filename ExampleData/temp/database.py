@@ -2,7 +2,6 @@ import os
 import random, numpy
 import sqlite3
 
-
 # test database slovenia
 file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Slovenia\\JA_Implemental-sample_v2.sqlite3"
 db = sqlite3.connect(file)

@@ -1,5 +1,5 @@
 DS_DEFAULT_TITLE_MESSAGE = {
-    "en": "Select disease",
+    "en": "Select disorder",
     "it": "Seleziona disturbo",
     "fr": "Sélectionnez le trouble",
     "de": "Wählen Sie die Störung",
