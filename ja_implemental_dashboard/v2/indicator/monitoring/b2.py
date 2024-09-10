@@ -1,5 +1,7 @@
+import time
 import numpy
-import pandas
+import json
+import sqlite3
 import panel
 from ..._panel_settings import PANEL_EXTENSION, PANEL_TEMPLATE, PANEL_SIZING_MODE
 panel.extension(
@@ -11,34 +13,42 @@ import bokeh.models
 import bokeh.plotting
 
 from ...database.database import DISEASE_CODE_TO_DB_CODE
-from ..logic_utilities import clean_indicator_getter_input, stratify_demographics
-from ..widget import indicator_widget
+from ...database.database import stratify_demographics, check_database_has_tables
+from ..logic_utilities import clean_indicator_getter_input
+from ..widget import indicator_widget, AGE_WIDGET_INTERVALS
 from ...main_selectors.disease_text import DS_TITLE as DISEASES_LANGDICT
+from ...caching.indicators import is_call_in_cache, retrieve_cached_json, cache_json
 
 
-# indicator logic
-def ma3(**kwargs):
+
+
+
+# indicator computation logic
+def mb2(**kwargs):
     """
+    output:
+    dict[str: list[int]]
+    keys level 0: ["01", "02", "03", "04", "05", "06", "07", "Other"] # TYPE_INT levels
     """
     # inputs
     kwargs = clean_indicator_getter_input(**kwargs)
-    tables = kwargs.get("dict_of_tables", None)
+    connection: sqlite3.Connection = kwargs.get("connection", None)
     disease_db_code = kwargs.get("disease_db_code", None)
     year_of_inclusion = kwargs.get("year_of_inclusion", None)
     age = kwargs.get("age", None)
+    age = [AGE_WIDGET_INTERVALS[a] for a in age]
     gender = kwargs.get("gender", None)
     civil_status = kwargs.get("civil_status", None)
     job_condition = kwargs.get("job_condition", None)
     educational_level = kwargs.get("educational_level", None)
     # output
-    ma3 = {
-        "all": None,     # patients with any disease
-        "selected": None # patients with the selected disease
-    }
+    type_int_list = [1, 2, 3, 4, 5, 6, 7, 9]
+    out_dict_key_list = type_int_list+["any_type"]
+    mb2 = {k: 0 for k in out_dict_key_list}
     # logic
-    # - first find stratified demographics
-    stratified_demographics_patient_ids = stratify_demographics(
-        tables["demographics"],
+    # - first find stratified demographics (delete the table before return)
+    stratified_demographics_table_name = stratify_demographics(
+        connection=connection,
         year_of_inclusion=year_of_inclusion,
         age=age,
         gender=gender,
@@ -46,60 +56,131 @@ def ma3(**kwargs):
         job_condition=job_condition,
         educational_level=educational_level
     )
-    # - from the cohort table, find the PREVALENT cohort with YEAR_ENTRY equal to year_of_inclusion
-    condition = pandas.Series(numpy.repeat(True, tables["cohorts"].shape[0]))
-    condition = condition & (tables["cohorts"]["ID_SUBJECT"].isin(stratified_demographics_patient_ids))
-    condition = condition & (tables["cohorts"]["INCIDENT_1825"] == "Y")
-    condition = condition & (tables["cohorts"]["YEAR_ENTRY"] == year_of_inclusion)
-    # - get indicator for all diseases
-    ma3["all"] = tables["cohorts"].loc[condition, "ID_SUBJECT"].nunique()
-    # - get indicator for selected disease
-    condition = condition & (tables["cohorts"][disease_db_code] == "Y")
-    ma3["selected"] = tables["cohorts"].loc[condition, "ID_SUBJECT"].nunique()
+    # open a cursor (close it before return)
+    cursor = connection.cursor()
+    # check if table is empty
+    cursor.execute(f"SELECT COUNT(*) FROM {stratified_demographics_table_name}")
+    if cursor.fetchone()[0] == 0:
+        return mb2
+    # get the indicator values
+    # first, get the value for any TYPE_INT in the 'interventions' table
+    cursor.execute(f"""
+        SELECT COUNT(*)
+        FROM interventions
+        WHERE ID_PATIENT IN (
+            /* Must be in the right stratification */
+            /* Must have had the disease the year or after the year of inclusion */
+            SELECT ID_PATIENT FROM {stratified_demographics_table_name}
+            INTERSECT
+            SELECT ID_PATIENT FROM cohorts WHERE 
+                YEAR_OF_ONSET <= {year_of_inclusion} 
+                AND 
+                ID_DISORDER = '{disease_db_code}'
+        )
+        AND
+        /* Here, TYPE_INT can be any */
+        /* DT_INT year must be in the year of inclusion */
+        CAST(strftime('%Y', DT_INT) AS INTEGER) = {year_of_inclusion}
+    """)
+    mb2["any_type"] = int(cursor.fetchone()[0])
+    if mb2["any_type"] == 0:
+        return mb2
+    # first version: outer while loop
+    for type_int_code in type_int_list:
+        cursor.execute(f"""
+            SELECT COUNT(*)
+            FROM interventions
+            WHERE ID_PATIENT IN (
+                /* Must be in the right stratification */
+                /* Must have had the disease the year or after the year of inclusion */
+                SELECT ID_PATIENT FROM {stratified_demographics_table_name}
+                INTERSECT
+                SELECT ID_PATIENT FROM cohorts WHERE 
+                    YEAR_OF_ONSET <= {year_of_inclusion} 
+                    AND 
+                    ID_DISORDER = '{disease_db_code}'
+            )
+            AND
+            /* Must have the TYPE_INT */
+            {f"TYPE_INT = '{type_int_code}'" if type_int_code != 9 else f"TYPE_INT = {type_int_code} OR TYPE_INT IS NULL"}
+            /* DT_INT year must be in the year of inclusion */
+            CAST(strftime('%Y', DT_INT) AS INTEGER) = {year_of_inclusion}
+        """)
+        mb2[type_int_code] = int(cursor.fetchone()[0])
+    # delete the table of stratified demograpohics
+    cursor.execute(f"DROP TABLE IF EXISTS {stratified_demographics_table_name}")
+    # close the cursor
+    cursor.close()
     # return
-    return ma3
-
+    return mb2
+    #
+    #
+    #
+    #
+    #
+    #
+    #  ATTENTION! THIS IS NOT READY YET
+    #  IN FACT, IN THE ORIGINAL IMPLEMENTATION,
+    #  FOR EACH TYPE_INT IT IS OBTAINED A LIST
+    #  CONTAINING THE NUMBER OF INTERVENTIONS FOR EACH
+    #  PATIENT DURING THE YEAR OF INCLUSION.
+    #  THIS IS NEEDED BECAUSE THEN THE UI DISPLAYS
+    #  THE MEAN, MEDIAN, Q1, Q3, AND IQR OF THE NUMBER
+    #  OF INTERVENTIONS PER PATIENT, AS WELL AS THE
+    #  DISTRIBUTION OF THE NUMBER OF INTERVENTIONS PER
+    #  PATIENT.
+    #
+    #  SELECT COUNT() DOES NOT PROVIDE THIS INFORMATION
+    #  INSTEAD, WE HAVE TO GET THE LIST OF CANDIDATE PATIENTS,
+    #  AND THEN COUNT THE NUMBER OF INTERVENTIONS FOR EACH
+    #  PATIENT, IN THE YEAR OF INCLUSION.
+    #  
+    #
+    #
+    #
+    #
+    #
 
 # Indicator display
-ma3_code = "MA3"
-ma3_name_langdict = {
-    "en": "Treated incidence 18-25 years old",
-    "it": "Incidenza trattata 18-25 anni",
-    "fr": "Incidence traitée 18-25 ans",
-    "de": "Behandelte Inzidenz 18-25 Jahre",
-    "es": "Incidencia tratada 18-25 años",
-    "pt": "Incidência tratada 18-25 anos"
+mb2_code = "MB2"
+mb2_name_langdict = {
+    "en": "Types of community interventions",
+    "it": "Tipi di interventi comunitari",
+    "fr": "Types d'interventions communautaires",
+    "de": "Arten von Gemeinschaftseingriffen",
+    "es": "Tipos de intervenciones comunitarias",
+    "pt": "Tipos de intervenções comunitárias"
 }
-ma3_short_desription_langdict = {
+mb2_short_desription_langdict = {
     "en": 
-        """Number of Patients with an incident mental disorder
-            (or newly taken-in-care) aged 18-25 years old and treated in inpatient and outpatient
-            Mental Health Facilities (for each year of data availability).
+        """
+        Number of interventions delivered by Mental Health Outpatient Facilities
+        by type of interventions.
         """,
     "it":
-        """Numero di pazienti con un disturbo mentale incidente
-            (o appena presi in carico) di età compresa tra 18 e 25 anni e trattati in strutture di salute mentale
-            ospedaliere e ambulatoriali (per ogni anno di disponibilità dei dati).
+        """
+        Numero di interventi erogati dalle strutture di salute mentale ambulatoriali
+        per tipo di interventi.
         """,
     "fr":
-        """Nombre de patients atteints d'un trouble mental incident
-            (ou nouvellement pris en charge) âgés de 18 à 25 ans et traités en hospitalisation et en ambulatoire
-            établissements de santé mentale (pour chaque année de disponibilité des données).
+        """
+        Nombre d'interventions dispensées par les établissements de santé mentale ambulatoires
+        par type d'interventions.
         """,
     "de":
-        """Anzahl der Patienten mit einer vorherrschenden psychischen Störung
-            (oder neu aufgenommen) im Alter von 18 bis 25 Jahren und behandelt in stationären und ambulanten
-            Einrichtungen für psychische Gesundheit (für jedes Jahr der Datenverfügbarkeit).
+        """
+        Anzahl der Interventionen, die von ambulanten Einrichtungen für psychische Gesundheit
+        nach Art der Interventionen durchgeführt wurden.
         """,
     "es":
-        """Número de pacientes con un trastorno mental incidente
-            (o recién ingresados) de 18 a 25 años y tratados en instalaciones de salud mental
-            hospitalarias y ambulatorias (para cada año de disponibilidad de datos).
+        """
+        Número de intervenciones entregadas por las instalaciones de salud mental ambulatorias
+        por tipo de intervenciones.
         """,
     "pt":
-        """Número de pacientes com um transtorno mental incidente
-            (ou recém-atendidos) com idades entre 18 e 25 anos e tratados em instalações de saúde mental
-            hospitalares e ambulatoriais (para cada ano de disponibilidade de dados).
+        """
+        Número de intervenções entregues por instalações de saúde mental ambulatoriais
+        por tipo de intervenções.
         """
 }
 
@@ -113,19 +194,122 @@ _year_langdict = {
     "es": "Año",
     "pt": "Ano"
 }
-_number_of_patients_langdict = {
-    "en": "Number of patients",
-    "it": "Numero di pazienti",
-    "fr": "Nombre de patients",
-    "de": "Anzahl der Patienten",
-    "es": "Número de pacientes",
-    "pt": "Número de pacientes"
+_intervention_type_code_langdict = {
+    "en": "Intervention type code",
+    "it": "Codice del tipo di intervento",
+    "fr": "Code du type d'intervention",
+    "de": "Interventionstypcode",
+    "es": "Código de tipo de intervención",
+    "pt": "Código do tipo de intervenção"
 }
 
-# TABS
-#######
+_hover_tool_langdict = {
+    "en": {
+        "year": "Year",
+        "intervention_type": "Intervention type",
+        "count": "Total",
+        "mean": "Mean",
+        "median": "Median",
+        "stdev": "Standard deviation",
+        "q1": "Q1 (25%)",
+        "q3": "Q3 (75%)",
+        "iqr": "Interquartile range",
+    },
+    "it": {
+        "year": "Anno",
+        "intervention_type": "Tipo di intervento",
+        "count": "Totale",
+        "mean": "Media",
+        "median": "Mediana",
+        "stdev": "Deviazione standard",
+        "q1": "Q1 (25%)",
+        "q3": "Q3 (75%)",
+        "iqr": "Intervallo interquartile",
+    },
+    "fr": {
+        "year": "Année",
+        "intervention_type": "Type d'intervention",
+        "count": "Total",
+        "mean": "Moyenne",
+        "median": "Médiane",
+        "stdev": "Écart-type",
+        "q1": "Q1 (25%)",
+        "q3": "Q3 (75%)",
+        "iqr": "Intervalle interquartile",
+    },
+    "de": {
+        "year": "Jahr",
+        "intervention_type": "Interventionstyp",
+        "count": "Total",
+        "mean": "Mittelwert",
+        "median": "Median",
+        "stdev": "Standardabweichung",
+        "q1": "Q1 (25%)",
+        "q3": "Q3 (75%)",
+        "iqr": "Interquartilbereich",
+    },
+    "es": {
+        "year": "Año",
+        "intervention_type": "Tipo de intervención",
+        "count": "Total",
+        "mean": "Media",
+        "median": "Mediana",
+        "stdev": "Desviación estándar",
+        "q1": "Q1 (25%)",
+        "q3": "Q3 (75%)",
+        "iqr": "Rango intercuartílico",
+    },
+    "pt": {
+        "year": "Ano",
+        "intervention_type": "Tipo de intervenção",
+        "count": "Total",
+        "mean": "Média",
+        "median": "Mediana",
+        "stdev": "Desvio padrão",
+        "q1": "Q1 (25%)",
+        "q3": "Q3 (75%)",
+        "iqr": "Intervalo interquartil",
+    }
+}
 
-ma3_tab_names_langdict: dict[str: list[str]] = {
+from ...database.database import INTERVENTIONS_CODES_LANGDICT_MAP, INTERVENTIONS_CODES_COLOR_DICT
+
+_y_axis_langdict_all = {
+    "en": "Total num. of interventions",
+    "it": "Num. totale di interventi",
+    "fr": "Nb. total d'interventions",
+    "de": "Gesamtanzahl der Interventionen",
+    "es": "Núm. total de intervenciones",
+    "pt": "Num. total de intervenções"
+}
+
+_y_axis_langdict = {
+    "en": "Num. of interventions per patient",
+    "it": "Num. di interventi per paziente",
+    "fr": "Nb. d'interventions par patient",
+    "de": "Anzahl der Interventionen pro Patient",
+    "es": "Núm. de intervenciones por paciente",
+    "pt": "Num. de intervenções por paciente"
+}
+
+_all_interventions_langdict = {
+    "en": "All interventions",
+    "it": "Tutti gli interventi",
+    "fr": "Toutes les interventions",
+    "de": "Alle Interventionen",
+    "es": "Todas las intervenciones",
+    "pt": "Todas as intervenções"
+}
+
+
+# TABS
+# - tab 0: indicator
+# - tab 1: indicator distribution with boxplots
+# - tab 2: indicator distribution with violin plots
+# - tab 2: help
+####################################################
+
+mb2_tab_names_langdict: dict[str: list[str]] = {
     "en": ["Indicator"],
     "it": ["Indicatore"],
     "fr": ["Indicateur"],
@@ -134,12 +318,13 @@ ma3_tab_names_langdict: dict[str: list[str]] = {
     "pt": ["Indicador"]
 }
 
-class ma3_tab0(object):
-    def __init__(self, dict_of_tables: dict):
+class mb2_tab0(object):
+    def __init__(self, db_conn: sqlite3.Connection):
         self._language_code = "en"
-        self._dict_of_tables = dict_of_tables
+        self._db_conn = db_conn
+        # widgets
         self.widgets_instance = indicator_widget(
-             language_code=self._language_code,
+            language_code=self._language_code
         )
         # pane row
         self._pane_styles = {
@@ -148,33 +333,91 @@ class ma3_tab0(object):
 
     def get_plot(self, **kwargs):
         # inputs
-        language_code = kwargs.get("language_code", "en")
+        language_code = kwargs.get("language_code", self._language_code)
         disease_code = kwargs.get("disease_code", None)
-        age = self.widgets_instance.widget_age_instance.value
-        gender = kwargs.get("gender", None)
-        civil_status = kwargs.get("civil_status", None)
-        job_condition = kwargs.get("job_condition", None)
-        educational_level = kwargs.get("educational_level", None)
+        age_interval = self.widgets_instance.value["age"]
+        age_interval_list = [AGE_WIDGET_INTERVALS[a] for a in age_interval]
+        gender = self.widgets_instance.value["gender"]
+        civil_status = self.widgets_instance.value["civil_status"]
+        job_condition = self.widgets_instance.value["job_condition"]
+        educational_level = self.widgets_instance.value["educational_level"]
         # logic
-        years_to_evaluate = self._dict_of_tables["cohorts"]["YEAR_ENTRY"].unique().tolist()
-        years_to_evaluate.sort()
-        ma3_all = []
-        ma3_selected = []
-        for year in years_to_evaluate:
-            ma3_ = ma3(
-                dict_of_tables=self._dict_of_tables,
-                disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
-                year_of_inclusion=year,
-                age=age,
+        # - cache check
+        is_in_cache = is_call_in_cache(
+            indicator_name=mb2_code,
+            disease_code=disease_code,
+            age_interval=age_interval_list,
+            gender=gender,
+            civil_status=civil_status,
+            job_condition=job_condition,
+            educational_level=educational_level
+        )
+        if is_in_cache:
+            x_json, y_json = retrieve_cached_json(
+                indicator_name=mb2_code,
+                disease_code=disease_code,
+                age_interval=age_interval_list,
                 gender=gender,
                 civil_status=civil_status,
                 job_condition=job_condition,
                 educational_level=educational_level
             )
-            ma3_all.append(ma3_["all"])
-            ma3_selected.append(ma3_["selected"])
+            years_to_evaluate = [int(v) for v in json.loads(x_json)]
+            y = json.loads(y_json)
+            mb2_all = [int(v) for v in y["all"]]
+            mb2_selected = [int(v) for v in y["selected"]]
+            del y
+        else:
+            cursor = self._db_conn.cursor()
+            # get the years of inclusion as all years from the first occurrence of the disease
+            # for any patient up to the current year
+            min_year_ = int(
+                cursor.execute(f"""
+                    SELECT MIN(YEAR_OF_ONSET) FROM cohorts
+                    WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
+                """).fetchone()[0]
+            )
+            years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
+            # get the indicator values (y-axis) for the years of inclusion (x-axis on the plot)
+            mb2_all = []
+            mb2_selected = []
+            for year in years_to_evaluate:
+                mb2_ = mb2(
+                    connection=self._db_conn,
+                    cohorts_required=True,
+                    disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
+                    year_of_inclusion=year,
+                    age=age_interval,
+                    gender=gender,
+                    civil_status=civil_status,
+                    job_condition=job_condition,
+                    educational_level=educational_level
+                )
+                mb2_all.append(mb2_["all"])
+                mb2_selected.append(mb2_["selected"])
+            # close cursor
+            cursor.close()
+            # cache the result
+            x_json = json.dumps(years_to_evaluate)
+            y_json = json.dumps(
+                {
+                    "all": mb2_all,
+                    "selected": mb2_selected
+                }
+            )
+            cache_json(
+                indicator_name=mb2_code,
+                disease_code=disease_code,
+                age_interval=age_interval_list,
+                gender=gender,
+                civil_status=civil_status,
+                job_condition=job_condition,
+                educational_level=educational_level,
+                x_json=x_json,
+                y_json=y_json
+            )
         # plot - use bokeh because it allows independent zooming
-        _y_max_plot = max(max(ma3_all), max(ma3_selected))
+        _y_max_plot = max(max(mb2_all), max(mb2_selected))
         _y_max_plot *= 1.15
         hover_tool = bokeh.models.HoverTool(
             tooltips=[
@@ -182,10 +425,11 @@ class ma3_tab0(object):
                 (_number_of_patients_langdict[language_code], "@y")
             ]
         )
+        plt_height = 350
         plot = bokeh.plotting.figure(
             sizing_mode="stretch_width",
-            height=350,
-            title=ma3_code + " - " + ma3_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code],
+            height=plt_height,
+            title=mb2_code + " - " + mb2_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code],
             x_axis_label=_year_langdict[language_code],
             x_range=(years_to_evaluate[0]-0.5, years_to_evaluate[-1]+0.5),
             y_axis_label=_number_of_patients_langdict[language_code],
@@ -195,26 +439,27 @@ class ma3_tab0(object):
         )
         plot.xaxis.ticker = numpy.sort(years_to_evaluate)
         plot.xgrid.grid_line_color = None
+        # plot of data
         plot.line(
-            years_to_evaluate, ma3_all,
+            years_to_evaluate, mb2_all,
             legend_label=DISEASES_LANGDICT[language_code]["_all_"],
             line_color="#a0a0a0ff"
         )
         plot.circle(
             x=years_to_evaluate, 
-            y=ma3_all,
+            y=mb2_all,
             legend_label=DISEASES_LANGDICT[language_code]["_all_"],
             fill_color="#a0a0a0ff",
             line_width=0,
             size=10
         )
         plot.line(
-            years_to_evaluate, ma3_selected,
+            years_to_evaluate, mb2_selected,
             legend_label=DISEASES_LANGDICT[language_code][disease_code],
             line_color="#5D0E41ff" # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
         )
         plot.circle(
-            years_to_evaluate, ma3_selected,
+            years_to_evaluate, mb2_selected,
             legend_label=DISEASES_LANGDICT[language_code][disease_code],
             fill_color="#5D0E41ff", # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
             line_width=0,
@@ -225,10 +470,9 @@ class ma3_tab0(object):
         plot.legend.click_policy = "hide"
         plot.toolbar.autohide = True
         plot.toolbar.logo = None
-        out = panel.pane.Bokeh(plot)
+        out = panel.pane.Bokeh(plot, height=plt_height) # setting the height here solves the bug after first time it happens!!
         return out
     
-
     def get_panel(self, **kwargs):
         # expected kwargs:
         # language_code, disease_code
@@ -239,14 +483,7 @@ class ma3_tab0(object):
                 self.get_plot, 
                 language_code=language_code, 
                 disease_code=disease_code,
-                age_temp_1=self.widgets_instance.widget_age_instance.widget_age_all,
-                age_temp_2=self.widgets_instance.widget_age_instance.widget_age_lower,
-                age_temp_3=self.widgets_instance.widget_age_instance.widget_age_upper,
-                age_temp_4=self.widgets_instance.widget_age_instance.widget_age_value,
-                gender=self.widgets_instance.widget_gender,
-                civil_status=self.widgets_instance.widget_civil_status,
-                job_condition=self.widgets_instance.widget_job_condition,
-                educational_level=self.widgets_instance.widget_educational_level
+                indicator_widget_value=self.widgets_instance.param.value,
             ),
             self.widgets_instance.get_panel(language_code=language_code),
             styles=self._pane_styles,
@@ -255,15 +492,15 @@ class ma3_tab0(object):
         return pane
         
 
-ma3_tab_names_langdict["en"].append("Help")
-ma3_tab_names_langdict["it"].append("Aiuto")
-ma3_tab_names_langdict["fr"].append("Aide")
-ma3_tab_names_langdict["de"].append("Hilfe")
-ma3_tab_names_langdict["es"].append("Ayuda")
-ma3_tab_names_langdict["pt"].append("Ajuda")
+mb2_tab_names_langdict["en"].append("Help")
+mb2_tab_names_langdict["it"].append("Aiuto")
+mb2_tab_names_langdict["fr"].append("Aide")
+mb2_tab_names_langdict["de"].append("Hilfe")
+mb2_tab_names_langdict["es"].append("Ayuda")
+mb2_tab_names_langdict["pt"].append("Ajuda")
 
 
-class ma3_tab1(object):
+class mb2_tab1(object):
     def __init__(self):
         self._language_code = "en"
         # pane
@@ -445,35 +682,6 @@ class ma3_tab1(object):
    
     
 
+
 if __name__ == "__main__":
-
-
-    from ...database.database import FILES_FOLDER, DATABASE_FILENAMES_DICT, read_databases, preprocess_demographics_database, preprocess_interventions_database, preprocess_cohorts_database
-
-    db = read_databases(DATABASE_FILENAMES_DICT, FILES_FOLDER)
-    db["demographics"] = preprocess_demographics_database(db["demographics"])
-    db["interventions"] = preprocess_interventions_database(db["interventions"])
-    db["cohorts"] = preprocess_cohorts_database(db["cohorts"])
-
-    cohorts_rand = db["cohorts"].copy(deep=True)
-    cohorts_rand["YEAR_ENTRY"] = pandas.Series(numpy.random.randint(2013, 2016, cohorts_rand.shape[0]), index=cohorts_rand.index)
-    database_dict = {
-        "demographics": db["demographics"],
-        "diagnoses": db["diagnoses"],
-        "pharma": db["pharma"],
-        "interventions": db["interventions"],
-        "physical_exams": db["physical_exams"],
-        "cohorts": cohorts_rand
-    }
-
-    tab = ma3_tab0(
-        dict_of_tables= database_dict  # db
-    )
-    app = tab.get_panel(language_code="it", disease_code="_depression_")
-    app.show()
-
-
-    tab = ma3_tab1()
-    app = tab.get_panel(language_code="it")
-    app.show()
-    quit()
+    print("This module is not callable.")

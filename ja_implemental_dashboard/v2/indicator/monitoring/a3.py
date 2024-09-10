@@ -72,7 +72,7 @@ def ma3(**kwargs):
             WHERE 
                 ID_SUBJECT IN (
                     SELECT {incident_18_25_column_name} AS ID_SUBJECT FROM age_stratification WHERE {incident_18_25_column_name} IS NOT NULL
-                    UNION
+                    INTERSECT /*AND*/
                     SELECT ID_SUBJECT FROM {stratified_demographics_table_name}
                 )
                 AND
@@ -87,7 +87,7 @@ def ma3(**kwargs):
             WHERE 
                 ID_SUBJECT IN (
                     SELECT {incident_18_25_column_name} AS ID_SUBJECT FROM age_stratification WHERE {incident_18_25_column_name} IS NOT NULL
-                    UNION
+                    INERSECT /*AND*/
                     SELECT ID_SUBJECT FROM {stratified_demographics_table_name}
                 )
                 AND

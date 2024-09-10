@@ -63,23 +63,23 @@ DATABSE_RECORD_LAYOUT_DATA_TYPES = {
         "ID_SUBJECT": "TEXT",
         "DT_PRESCR": "TEXT",
         "ATC_CHAR": "TEXT",
-        "QTA_NUM": "INTEGER",
-        "DAYS": "INTEGER",
-        "DAYS_TOT": "INTEGER"
+        "QTA_NUM": "REAL",
+        "DAYS": "REAL",
+        "DAYS_TOT": "REAL"
     },
     "interventions": {
         "ID_SUBJECT": "TEXT",
         "DT_INT": "TEXT",
-        "TYPE_INT": "TEXT",
+        "TYPE_INT": "INTEGER",
         "STRUCTURE": "TEXT",
-        "OPERATOR_1": "TEXT",
-        "OPERATOR_2": "TEXT",
-        "OPERATOR_3": "TEXT"
+        "OPERATOR_1": "INTEGER",
+        "OPERATOR_2": "INTEGER",
+        "OPERATOR_3": "INTEGER"
     },
     "physical_exams": {
         "ID_SUBJECT": "TEXT",
         "DT_INT": "TEXT",
-        "TYPE_INT": "TEXT"
+        "TYPE_INT": "INTEGER"
     }
 }
 
@@ -91,7 +91,7 @@ DISEASE_CODE_TO_DB_CODE = {
 
 INTERVENTIONS_CODES_LANGDICT_MAP = {
     "en": {
-        "01": {
+        1: {
             "legend": "Psychiatric visit",
             "short": "Psychiatric visit",
             "long": 
@@ -102,7 +102,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 individual meeting with a professional, consultation)	
                 """
         },
-        "02": {
+        2: {
             "legend": "Psychological assessment",
             "short": "Standardized psychological assessment using test",
             "long": 
@@ -111,7 +111,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 (i.e., Standardized psychological assessments using test)	
                 """
         },
-        "03": {
+        3: {
             "legend": "Home visit",
             "short": "Home visit",
             "long": 
@@ -119,7 +119,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 Home visit (i.e., home nursing activity, home visits, etc)	
                 """
         },
-        "04": {
+        4: {
             "legend": "Psychosocial intervention",
             "short": "Psychosocial intervention",
             "long": 
@@ -132,7 +132,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 Assistance with financial and welfare procedures)	
                 """
         },
-        "05": {
+        5: {
             "legend": "Psychoeducation session",
             "short": "Psychoeducation session",
             "long": 
@@ -141,7 +141,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 Multifamily group psychoeducation)	
                 """
         },
-        "06": {
+        6: {
             "legend": "Psychotherapy session",
             "short": "Psychotherapy session",
             "long": 
@@ -151,7 +151,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 Family psychotherapy, Group psychotherapy)	
                 """
         },
-        "07": {
+        7: {
             "legend": "Interventions to family members",
             "short": "Contact or interventions addressed to patients' family members",
             "long": 
@@ -161,7 +161,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 (i.e., Meeting with relatives, Family psychotherapy, Multifamily group psychoeducation)	
                 """
         },
-        "Other": {
+        9: {
             "legend": "Other",
             "short": "Other",
             "long": 
@@ -173,7 +173,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
         }
     },
     "it": {
-        "01": {
+        1: {
             "legend": "Visita psichiatrica",
             "short": "Visita psichiatrica",
             "long": 
@@ -184,7 +184,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 incontri individuali con un professionista, consulto)	
                 """
         },
-        "02": {
+        2: {
             "legend": "Valutazione psicologica",
             "short": "Valutazione psicologica standardizzata con test",
             "long": 
@@ -193,7 +193,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 (es. Valutazioni psicologiche standardizzate con test)	
                 """
         },
-        "03": {
+        3: {
             "legend": "Visita domiciliare",
             "short": "Visita domiciliare",
             "long": 
@@ -202,7 +202,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 visite domiciliari, ecc)	
                 """
         },
-        "04": {
+        4: {
             "legend": "Intervento psicosociale",
             "short": "Intervento psicosociale",
             "long": 
@@ -216,7 +216,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 Supporto all'attività quotidiana, Assistenza alle procedure finanziarie e assistenziali)	
                 """
         },
-        "05": {
+        5: {
             "legend": "Sessione di psicoeducazione",
             "short": "Sessione di psicoeducazione",
             "long": 
@@ -225,7 +225,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 Psicoeducazione di gruppo multifamiliare)	
                 """
         },
-        "06": {
+        6: {
             "legend": "Sessione di psicoterapia",
             "short": "Sessione di psicoterapia",
             "long": 
@@ -235,7 +235,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 Psicoterapia familiare, Psicoterapia di gruppo)	
                 """
         },
-        "07": {
+        7: {
             "legend": "Iinterventi ai familiari",
             "short": "Contatto o interventi rivolti ai familiari dei pazienti",
             "long": 
@@ -245,7 +245,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 Psicoeducazione di gruppo multifamiliare)	
                 """
         },
-        "Other": {
+        9: {
             "legend": "Altro",
             "short": "Altro",
             "long": 
@@ -257,7 +257,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
         }
     },
     "fr": {
-        "01": {
+        1: {
             "legend": "Visite psychiatriques",
             "short": "Visite psychiatriques",
             "long": 
@@ -268,7 +268,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 réunion individuelle avec un professionnel, consultation)	
                 """
         },
-        "02": {
+        2: {
             "legend": "Évaluation psychologique",
             "short": "Évaluation psychologique standardisée à l'aide de tests",
             "long": 
@@ -277,7 +277,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 (c'est-à-dire évaluations psychologiques standardisées à l'aide de tests)	
                 """
         },
-        "03": {
+        3: {
             "legend": "Visite à domicile",
             "short": "Visite à domicile",
             "long": 
@@ -286,7 +286,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 visites à domicile, etc.)	
                 """
         },
-        "04": {
+        4: {
             "legend": "Intervention psychosociale",
             "short": "Intervention psychosociale",
             "long": 
@@ -299,7 +299,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 soutien aux activités quotidiennes, assistance aux procédures financières et d'aide)	
                 """
         },
-        "05": {
+        5: {
             "legend": "Séance de psychoéducation",
             "short": "Séance de psychoéducation",
             "long": 
@@ -308,7 +308,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 psychoéducation de groupe multifamiliale)	
                 """
         },
-        "06": {
+        6: {
             "legend": "Séance de psychothérapie",
             "short": "Séance de psychothérapie",
             "long": 
@@ -318,7 +318,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 psychothérapie familiale, psychothérapie de groupe)	
                 """
         },
-        "07": {
+        7: {
             "legend": "Interventions aux la famille",
             "short": "Contact ou interventions adressés aux membres de la famille des patients",
             "long": 
@@ -328,7 +328,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 (c'est-à-dire rencontre avec les proches, psychothérapie familiale, psychoéducation de groupe multifamiliale)	
                 """
         },
-        "Other": {
+        9: {
             "legend": "Autre",
             "short": "Autre",
             "long": 
@@ -340,7 +340,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
         }
     },
     "de": {
-        "01": {
+        1: {
             "legend": "Psychiatrische Untersuchung",
             "short": "Psychiatrische Untersuchung",
             "long": 
@@ -351,7 +351,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 Einzelgespräche mit einem Fachmann, Beratung)	
                 """
         },
-        "02": {
+        2: {
             "legend": "Psychologische Bewertung",
             "short": "Standardisierte psychologische Bewertung mit Test",
             "long": 
@@ -360,7 +360,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 (d.h. standardisierte psychologische Bewertungen mit Test)	
                 """
         },
-        "03": {
+        3: {
             "legend": "Hausbesuch",
             "short": "Hausbesuch",
             "long": 
@@ -369,7 +369,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 Hausbesuche, etc.)	
                 """
         },
-        "04": {
+        4: {
             "legend": "Psychosoziale Intervention",
             "short": "Psychosoziale Intervention",
             "long": 
@@ -382,7 +382,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 Unterstützung bei finanziellen und sozialen Verfahren)	
                 """
         },
-        "05": {
+        5: {
             "legend": "Psychoedukationssitzung",
             "short": "Psychoedukationssitzung",
             "long": 
@@ -391,7 +391,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 Multifamilien-Gruppenpsychoedukation)	
                 """
         },
-        "06": {
+        6: {
             "legend": "Psychotherapiesitzung",
             "short": "Psychotherapiesitzung",
             "long": 
@@ -401,7 +401,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 Familientherapie, Gruppentherapie)	
                 """
         },
-        "07": {
+        7: {
             "legend": "Interventionen für Familienmitglieder",
             "short": "Kontakt oder Interventionen für Familienmitglieder der Patienten",
             "long": 
@@ -411,7 +411,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 (d.h. Treffen mit Verwandten, Familientherapie, Multifamilien-Gruppenpsychoedukation)	
                 """
         },
-        "Other": {
+        9: {
             "legend": "Andere",
             "short": "Andere",
             "long": 
@@ -423,7 +423,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
         }
     },
     "es": {
-        "01": {
+        1: {
             "legend": "Visita psiquiátrica",
             "short": "Visita psiquiátrica",
             "long": 
@@ -434,7 +434,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 reunión individual con un profesional, consulta)	
                 """
         },
-        "02": {
+        2: {
             "legend": "Evaluación psicológica",
             "short": "Evaluación psicológica estandarizada con test",
             "long": 
@@ -443,7 +443,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 (es decir, evaluaciones psicológicas estandarizadas con test)	
                 """
         },
-        "03": {
+        3: {
             "legend": "Visita domiciliaria",
             "short": "Visita domiciliaria",
             "long": 
@@ -452,7 +452,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 visitas domiciliarias, etc.)	
                 """
         },
-        "04": {
+        4: {
             "legend": "Intervención psicosocial",
             "short": "Intervención psicosocial",
             "long": 
@@ -465,7 +465,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 apoyo a las actividades diarias, asistencia en procedimientos financieros y de ayuda)	
                 """
         },
-        "05": {
+        5: {
             "legend": "Sesión de psicoeducación",
             "short": "Sesión de psicoeducación",
             "long": 
@@ -474,7 +474,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 psicoeducación de grupo multifamiliar)	
                 """
         },
-        "06": {
+        6: {
             "legend": "Sesión de psicoterapia",
             "short": "Sesión de psicoterapia",
             "long": 
@@ -484,7 +484,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 psicoterapia familiar, psicoterapia de grupo)	
                 """
         },
-        "07": {
+        7: {
             "legend": "Intervenciones a los familiares",
             "short": "Contacto o intervenciones dirigidas a los familiares de los pacientes",
             "long": 
@@ -494,7 +494,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 (es decir, reunión con familiares, psicoterapia familiar, psicoeducación de grupo multifamiliar)	
                 """
         },
-        "Other": {
+        9: {
             "legend": "Otro",
             "short": "Otro",
             "long": 
@@ -506,7 +506,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
         }
     },
     "pt": {
-        "01": {
+        1: {
             "legend": "Visita psiquiátrica",
             "short": "Visita psiquiátrica",
             "long": 
@@ -517,7 +517,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 reunião individual com um profissional, consulta)	
                 """
         },
-        "02": {
+        2: {
             "legend": "Avaliação psicológica",
             "short": "Avaliação psicológica padronizada com teste",
             "long": 
@@ -526,7 +526,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 (ou seja, avaliações psicológicas padronizadas com teste)	
                 """
         },
-        "03": {
+        3: {
             "legend": "Visita domiciliar",
             "short": "Visita domiciliar",
             "long": 
@@ -535,7 +535,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 visitas domiciliares, etc.)	
                 """
         },
-        "04": {
+        4: {
             "legend": "Intervenção psicossocial",
             "short": "Intervenção psicossocial",
             "long": 
@@ -548,7 +548,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 apoio às atividades diárias, assistência em procedimentos financeiros e de ajuda)	
                 """
         },
-        "05": {
+        5: {
             "legend": "Sessão de psicoeducação",
             "short": "Sessão de psicoeducação",
             "long": 
@@ -557,7 +557,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 psicoeducação de grupo multifamiliar)	
                 """
         },
-        "06": {
+        6: {
             "legend": "Sessão de psicoterapia",
             "short": "Sessão de psicoterapia",
             "long": 
@@ -567,7 +567,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 psicoterapia familiar, psicoterapia de grupo)	
                 """
         },
-        "07": {
+        7: {
             "legend": "Intervenções aos familiares",
             "short": "Contato ou intervenções dirigidos aos familiares dos pacientes",
             "long": 
@@ -577,7 +577,7 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
                 (ou seja, encontro com parentes, psicoterapia familiar, psicoeducação de grupo multifamiliar)	
                 """
         },
-        "Other": {
+        9: {
             "legend": "Outro",
             "short": "Outro",
             "long": 
@@ -592,14 +592,14 @@ INTERVENTIONS_CODES_LANGDICT_MAP = {
 
 INTERVENTIONS_CODES_COLOR_DICT = {
     "All": "#a0a0a0ff",
-    "01": bokeh.palettes.Muted8[0],
-    "02": bokeh.palettes.Muted8[1],
-    "03": bokeh.palettes.Muted8[2],
-    "04": bokeh.palettes.Muted8[3],
-    "05": bokeh.palettes.Muted8[4],
-    "06": bokeh.palettes.Muted8[5],
-    "07": bokeh.palettes.Muted8[6],
-    "Other": bokeh.palettes.Muted8[7]
+    1: bokeh.palettes.Muted8[0],
+    2: bokeh.palettes.Muted8[1],
+    3: bokeh.palettes.Muted8[2],
+    4: bokeh.palettes.Muted8[3],
+    5: bokeh.palettes.Muted8[4],
+    6: bokeh.palettes.Muted8[5],
+    7: bokeh.palettes.Muted8[6],
+    9: bokeh.palettes.Muted8[7]
 }
 
 ####################
