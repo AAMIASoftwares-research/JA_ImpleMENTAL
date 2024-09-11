@@ -65,7 +65,8 @@ def mb2(**kwargs):
     # get the indicator values
     # first, get the value for any TYPE_INT in the 'interventions' table
     cursor.execute(f"""
-        SELECT COUNT(*)
+        CREATE TEMPORARY TABLE temp1756738 AS
+        SELECT DISTINCT ID_PATIENT
         FROM interventions
         WHERE ID_PATIENT IN (
             /* Must be in the right stratification */
@@ -82,6 +83,7 @@ def mb2(**kwargs):
         /* DT_INT year must be in the year of inclusion */
         CAST(strftime('%Y', DT_INT) AS INTEGER) = {year_of_inclusion}
     """)
+    
     mb2["any_type"] = int(cursor.fetchone()[0])
     if mb2["any_type"] == 0:
         return mb2
@@ -135,7 +137,7 @@ def mb2(**kwargs):
     #  AND THEN COUNT THE NUMBER OF INTERVENTIONS FOR EACH
     #  PATIENT, IN THE YEAR OF INCLUSION.
     #  
-    #
+    # FAI ANCHE TUTTA PROCEDURA DA CAPO PER PREPROC
     #
     #
     #

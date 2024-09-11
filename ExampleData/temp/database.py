@@ -3,23 +3,27 @@ import random, numpy
 import sqlite3
 
 # test database slovenia
-file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Slovenia\\JA_Implemental-sample_v2.sqlite3"
+file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Slovenia\\JA_Implemental-sample_v3.sqlite3"
+#file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia\\DATABASE.sqlite3"
+
 db = sqlite3.connect(file)
 cursor = db.cursor()
 tables = [a[0] for a in cursor.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
 print("tables: ", tables)
 print("temp tables: ", cursor.execute("SELECT name FROM sqlite_temp_master WHERE type='table'").fetchall())
 
+
 for table in tables:
     print("Table", table, f"({cursor.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]}) entries")
-    print("- column names", [a[1] for a in cursor.execute(f"PRAGMA table_info({table})").fetchall()])
-    print("- Table column sqlite types", [a[2] for a in cursor.execute(f"PRAGMA table_info({table})").fetchall()])
+    names = [a[1] for a in cursor.execute(f"PRAGMA table_info({table})").fetchall()]
+    types = [a[2] for a in cursor.execute(f"PRAGMA table_info({table})").fetchall()]
+    for n, t in zip(names, types):
+        print(f"  {n} ({t})")
     print("- Some rows:")
     rows = cursor.execute(f"SELECT * FROM {table} ORDER BY RANDOM() LIMIT 5").fetchall()
     for row in rows:
         print(f"  {row}")
 db.close()
-
 
 if 0:
     # FOR BLAZ

@@ -48,12 +48,17 @@ if __name__ == "__main__":
         "pharma": "pharma.sas7bdat",
         "physical_exams": "physical_exams.sas7bdat"
     }
-    database_file = "DATABASE.sqlite3"
+    database_file = "DATABASE.original_from_sas.mod.sqlite3"
     database_file = os.path.normpath(
         os.path.join(FILES_FOLDER, database_file)
     )
-    ##############
-    if 0:
+    if 1:
+        convert_sas_datasets_to_sqlite3_db(
+            files_folder=FILES_FOLDER,
+            file_name_to_table_name_dict=DATABASE_FILENAMES_DICT,
+            output_db_file=database_file
+        )
+    if 1:
         print("TEMPORARY: IF THIS APPEARS GO INTO SOURCE CODE AND PUT 'if 0' on line 57 or close to it.")
         db_sicilia_orig = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia\\DATABASE.original_from_sas.mod.sqlite3"
         db = sqlite3.connect(db_sicilia_orig)
@@ -81,11 +86,6 @@ if __name__ == "__main__":
         print(cursor.execute("SELECT EDU_LEVEL FROM demographics LIMIT 100").fetchall())
         db.close()
         exit()
-    ##############
-    convert_sas_datasets_to_sqlite3_db(
-        files_folder=FILES_FOLDER,
-        file_name_to_table_name_dict=DATABASE_FILENAMES_DICT,
-        output_db_file=database_file
-    )
+    
     #
     quit()
