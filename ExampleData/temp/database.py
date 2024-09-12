@@ -2,6 +2,55 @@ import os
 import random, numpy
 import sqlite3
 
+
+# test: create a database with table 'data' which contains column 'ID_SUBJECT' and 'TYPE_INT'
+# ID_SUBJECT is a random string of length N that can reoccur,
+# TYPE_INT is an integer between 0 and 7 inclusive
+file = os.path.normpath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "databaseb2.db"
+    )
+)
+conn = sqlite3.connect(file)
+c = conn.cursor()
+c.execute('CREATE TABLE IF NOT EXISTS data (ID_SUBJECT TEXT, TYPE_INT INTEGER)')
+c.execute('DELETE FROM data')
+#fill
+for i in range(5000):
+    ID_SUBJECT = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=random.randint(3,4)))
+    TYPE_INT = random.randint(0, 7)
+    c.execute('INSERT INTO data (ID_SUBJECT, TYPE_INT) VALUES (?, ?)', (ID_SUBJECT, TYPE_INT))
+c.execute("SELECT COUNT(DISTINCT ID_SUBJECT) FROM data")
+print(c.fetchone()[0])
+# now, what i want is, for each distint ID_PATIENT, count how many times it
+# appears in the table
+# I want to do this in a single query with GROUP BY if possible
+c.execute("SELECT ID_SUBJECT, COUNT(*) FROM data GROUP BY ID_SUBJECT")
+r = c.fetchall()
+r.sort(key=lambda x: x[1], reverse=True)
+print(r[:50])
+
+# close and quit
+conn.commit()
+c.close()
+conn.close()
+
+
+
+
+
+
+
+
+
+
+
+
+quit()
+
+
+
 # test database slovenia
 file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Slovenia\\JA_Implemental-sample_v3.sqlite3"
 #file = "C:\\Users\\lecca\\Desktop\\AAMIASoftwares-research\\JA_ImpleMENTAL\\ExampleData\\Dati QUADIM - Standardizzati - Sicilia\\DATABASE.sqlite3"

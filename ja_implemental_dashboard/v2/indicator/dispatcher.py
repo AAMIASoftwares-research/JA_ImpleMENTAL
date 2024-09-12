@@ -125,28 +125,28 @@ ma3_indicator_panel = IndicatorPanel(
     tab_names_langdict=ma3_tab_names_langdict
 )
 
+from .monitoring.b2 import (
+    mb2_code, mb2_name_langdict, mb2_short_desription_langdict,
+    mb2_tab_names_langdict,
+    mb2_tab0, mb2_tab1, mb2_tab2, mb2_tab3
+)
+mb2_tab0_instance = mb2_tab0(DB)
+mb2_tab1_instance = mb2_tab1(DB)
+mb2_tab2_instance = mb2_tab2(DB)
+mb2_tab3_instance = mb2_tab3()
+
+mb2_indicator_panel = IndicatorPanel(
+    monitoring_or_evaluation="_monitoring_",
+    indicator_code=mb2_code,
+    indicator_name=mb2_name_langdict,
+    indicator_short_description=mb2_short_desription_langdict,
+    tabs=[mb2_tab0_instance, mb2_tab1_instance, mb2_tab2_instance, mb2_tab3_instance],
+    tab_names_langdict=mb2_tab_names_langdict
+)
+
+# Evaluation indicators
+
 if 0:
-
-    from .monitoring.b2 import (
-        mb2_code, mb2_name_langdict, mb2_short_desription_langdict,
-        mb2_tab_names_langdict,
-        mb2_tab0, mb2_tab1, mb2_tab2, mb2_tab3
-    )
-    mb2_tab0_instance = mb2_tab0(DB)
-    mb2_tab1_instance = mb2_tab1(DB)
-    mb2_tab2_instance = mb2_tab2(DB)
-    mb2_tab3_instance = mb2_tab3()
-
-    mb2_indicator_panel = IndicatorPanel(
-        monitoring_or_evaluation="_monitoring_",
-        indicator_code=mb2_code,
-        indicator_name=mb2_name_langdict,
-        indicator_short_description=mb2_short_desription_langdict,
-        tabs=[mb2_tab0_instance, mb2_tab1_instance, mb2_tab2_instance, mb2_tab3_instance],
-        tab_names_langdict=mb2_tab_names_langdict
-    )
-
-    # Evaluation indicators
 
     from .evaluation.a1 import (
         ea1_code, ea1_name_langdict, ea1_short_desription_langdict,
@@ -203,36 +203,29 @@ if 0:
         tab_names_langdict=ea3_tab_names_langdict
     )
 
-# fake evaluation
+
 from .indicator_panel import PlaceholderPanel
-
-eb1_indicator_panel_placeholder = PlaceholderPanel(
-    placeholder_html_string="<h2>EB1 panel goes here</h2>"
-)
-
-eb2_indicator_panel_placeholder = PlaceholderPanel(
-    placeholder_html_string="<h2>EB2 panel goes here</h2>"
-)
-eb3_indicator_panel_placeholder = PlaceholderPanel(
-    placeholder_html_string="<h2>EB3 panel goes here</h2>"
-)
 
 monitor_panel_classes_list = [
     ma1_indicator_panel,
     ma2_indicator_panel,
     ma3_indicator_panel,
+    mb2_indicator_panel,
     PlaceholderPanel(
-        placeholder_html_string="<h2>MB2 panel goes here</h2>"
+        placeholder_html_string="<h2>Other indicator panels go down here</h2>"
     )
-    # mb2_indicator_panel
 ]
 
 evaluation_panel_classes_list = [
     # ea1_indicator_panel,
     # ea2_indicator_panel,
     # ea3_indicator_panel,
-    eb1_indicator_panel_placeholder,
-    eb2_indicator_panel_placeholder,
+    PlaceholderPanel(
+        placeholder_html_string="<h2>Eval indicator panel here</h2>"
+    ),
+    PlaceholderPanel(
+        placeholder_html_string="<h2>Eval indicator panels go down here</h2>"
+    ),
 ]
 
 

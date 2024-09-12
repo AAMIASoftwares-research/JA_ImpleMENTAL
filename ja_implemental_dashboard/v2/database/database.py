@@ -969,7 +969,7 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
         if condition_1 and condition_2:
             print("None found!")
             return
-    print("Fixing internal database data types...")
+    print("Fixing internal database data types...", end=" ")
     # get the tables names
     tables = get_tables(connection)
     # make sure that no column with the _new suffix exist in any table of the database
