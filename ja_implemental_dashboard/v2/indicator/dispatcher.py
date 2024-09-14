@@ -32,7 +32,7 @@ class Dispatcher(object):
         # ALL DISEASES
         if disease_code == "_all_":
             pane = panel.Column(
-                panel.pane.HTML("<h3>Choose a disorder</h3>"),
+                panel.pane.HTML("<h3 style='text-align: center;'>Choose a disorder from the dropdown menu to start.</h3><p style='text-align: center;'>Beware! Computing indicators may take a while<br/>the first time the Dashboard starts.</p>"),
                 styles={
                     "margin": "auto",
                     "height": "250px",
@@ -145,27 +145,26 @@ mb2_indicator_panel = IndicatorPanel(
 )
 
 # Evaluation indicators
+from .evaluation.a1 import (
+    ea1_code, ea1_name_langdict, ea1_short_desription_langdict,
+    ea1_tab_names_langdict,
+    ea1_tab0, ea1_tab1, ea1_tab2, ea1_tab3
+)
+ea1_tab0_instance = ea1_tab0(DB)
+ea1_tab1_instance = ea1_tab1(DB)
+ea1_tab2_instance = ea1_tab2(DB)
+ea1_tab3_instance = ea1_tab3()
+
+ea1_indicator_panel = IndicatorPanel(
+    monitoring_or_evaluation="_evaluation_",
+    indicator_code=ea1_code,
+    indicator_name=ea1_name_langdict,
+    indicator_short_description=ea1_short_desription_langdict,
+    tabs=[ea1_tab0_instance, ea1_tab1_instance, ea1_tab2_instance, ea1_tab3_instance],
+    tab_names_langdict=ea1_tab_names_langdict
+)
 
 if 0:
-
-    from .evaluation.a1 import (
-        ea1_code, ea1_name_langdict, ea1_short_desription_langdict,
-        ea1_tab_names_langdict,
-        ea1_tab0, ea1_tab1, ea1_tab2, ea1_tab3
-    )
-    ea1_tab0_instance = ea1_tab0(DB)
-    ea1_tab1_instance = ea1_tab1(DB)
-    ea1_tab2_instance = ea1_tab2(DB)
-    ea1_tab3_instance = ea1_tab3()
-
-    ea1_indicator_panel = IndicatorPanel(
-        monitoring_or_evaluation="_evaluation_",
-        indicator_code=ea1_code,
-        indicator_name=ea1_name_langdict,
-        indicator_short_description=ea1_short_desription_langdict,
-        tabs=[ea1_tab0_instance, ea1_tab1_instance, ea1_tab2_instance, ea1_tab3_instance],
-        tab_names_langdict=ea1_tab_names_langdict
-    )
 
     from .evaluation.a2 import (
         ea2_code, ea2_name_langdict, ea2_short_desription_langdict,
@@ -217,7 +216,7 @@ monitor_panel_classes_list = [
 ]
 
 evaluation_panel_classes_list = [
-    # ea1_indicator_panel,
+    ea1_indicator_panel,
     # ea2_indicator_panel,
     # ea3_indicator_panel,
     PlaceholderPanel(

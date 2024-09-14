@@ -47,7 +47,6 @@ def mb2(**kwargs):
     disease_db_code = kwargs.get("disease_db_code", None)
     year_of_inclusion = kwargs.get("year_of_inclusion", None)
     age = kwargs.get("age", None)
-    age = [AGE_WIDGET_INTERVALS[a] for a in age]
     gender = kwargs.get("gender", None)
     civil_status = kwargs.get("civil_status", None)
     job_condition = kwargs.get("job_condition", None)
@@ -103,7 +102,6 @@ def mb2(**kwargs):
         return mb2
     # first version: outer while loop
     for type_int_code in type_int_list:
-        print("Computing: ", type_int_code, year_of_inclusion)
         cursor.execute(f"""
             SELECT COUNT(*)
             FROM interventions
@@ -395,7 +393,7 @@ class mb2_tab0(object):
                     cohorts_required=True,
                     disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
                     year_of_inclusion=year,
-                    age=age_interval,
+                    age=age_interval_list,
                     gender=gender,
                     civil_status=civil_status,
                     job_condition=job_condition,

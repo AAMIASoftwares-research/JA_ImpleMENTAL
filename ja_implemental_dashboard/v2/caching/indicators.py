@@ -101,8 +101,8 @@ def is_call_in_cache(
     """ Check if the call is in the cache.
     """
     cache_file = get_indicators_cache_database_file()
-    conn = sqlite3.connect(cache_file)
-    c = conn.cursor()
+    if not os.path.exists(cache_file):
+        initialize_indicators_cache_database(force=True)
     table_name = get_table_name_for_indicator(indicator_name, create_if_not_exist=True)
     call_signature = get_call_signature_text(
         disease_code=disease_code,
@@ -113,11 +113,14 @@ def is_call_in_cache(
         educational_level=educational_level,
         cohort=cohort
     )
+    conn = sqlite3.connect(cache_file)
+    c = conn.cursor()
     c.execute(
         f"SELECT COUNT(*) FROM {table_name} WHERE call_signature = ?",
         (call_signature,)
     )
     count = int(c.fetchone()[0])
+    conn.commit()
     conn.close()
     return count > 0
 
@@ -131,11 +134,16 @@ def retrieve_cached_json(indicator_name:str,
     cohort:str|None=None,
 ) -> tuple[str,str]:
     """ Retrieve the cached JSON data.
+    Before calling this fucntion, you have to be sure
+    that the call is in the cache.
+    Check it with the function is_call_in_cache.
 
     Returns:
         x_json, y_json
     """
     cache_file = get_indicators_cache_database_file()
+    if not os.path.exists(cache_file):
+        initialize_indicators_cache_database(force=True)
     conn = sqlite3.connect(cache_file)
     c = conn.cursor()
     table_name = get_table_name_for_indicator(indicator_name)
@@ -172,6 +180,8 @@ def cache_json(
     """ Cache the JSON data.
     """
     cache_file = get_indicators_cache_database_file()
+    if not os.path.exists(cache_file):
+        initialize_indicators_cache_database(force=True)
     conn = sqlite3.connect(cache_file)
     c = conn.cursor()
     table_name = get_table_name_for_indicator(indicator_name, create_if_not_exist=True)
