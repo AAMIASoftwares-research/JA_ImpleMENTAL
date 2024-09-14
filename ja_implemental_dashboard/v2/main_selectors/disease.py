@@ -7,6 +7,7 @@ panel.extension(
 )
 
 from .disease_text import DS_DEFAULT_TITLE_MESSAGE, DS_TITLE
+from ..loading.loading import increase_loading_counter, decrease_loading_counter
 
 class DiseaseSelector(object):
     def __init__(self):
@@ -100,6 +101,7 @@ class DiseaseSelector(object):
             styles=self._widget_styles,
             stylesheets=[self._widget_stylesheet]
         )
+        # and an on_change event that conect to the loading_visible javascript function
         return widget
     
     def _update_widget(self, language_code: str="en", disease_code: str="_all_") -> None:
@@ -112,6 +114,7 @@ class DiseaseSelector(object):
         self.widget.value = disease_code
 
     def get_panel(self, language_code, disease_code) -> panel.FlexBox:
+        increase_loading_counter()
         self._language_code = language_code
         self._disease_code = disease_code
         self._update_widget(language_code, disease_code)
@@ -125,6 +128,7 @@ class DiseaseSelector(object):
             align_items=self._panel_align_items,
             styles=self._panel_styles
         )
+        decrease_loading_counter()
         return pane
     
 

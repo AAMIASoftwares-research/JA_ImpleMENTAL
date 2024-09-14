@@ -297,6 +297,7 @@ class ea2_tab0(object):
     
 
     def get_panel(self, **kwargs):
+        
         # expected kwargs:
         # language_code, disease_code
         language_code = kwargs.get("language_code", "en")

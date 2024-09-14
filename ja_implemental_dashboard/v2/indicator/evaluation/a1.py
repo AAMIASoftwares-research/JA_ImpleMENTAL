@@ -30,6 +30,7 @@ from ..widget import indicator_widget, AGE_WIDGET_INTERVALS
 from ...main_selectors.disease_text import DS_TITLE as DISEASES_LANGDICT
 from ...caching.indicators import is_call_in_cache, retrieve_cached_json, cache_json
 from ...main_selectors.cohort_text import COHORT_NAMES
+from ...loading.loading import increase_loading_counter, decrease_loading_counter
 
 
 # indicator logic
@@ -412,6 +413,7 @@ class ea1_tab0(object):
         return out
 
     def get_panel(self, **kwargs):
+        increase_loading_counter()
         # expected kwargs:
         # language_code, disease_code
         language_code = kwargs.get("language_code", "en")
@@ -430,6 +432,7 @@ class ea1_tab0(object):
             styles=self._pane_styles,
             stylesheets=[self._pane_stylesheet]
         )
+        decrease_loading_counter()
         return pane
 
 #
@@ -599,6 +602,7 @@ class ea1_tab1(object):
         return panel.pane.Bokeh(bokeh_plot)
         
     def get_panel(self, **kwargs):
+        increase_loading_counter()
         # expected kwargs:
         # language_code, disease_code
         language_code = kwargs.get("language_code", "en")
@@ -616,6 +620,7 @@ class ea1_tab1(object):
             styles=self._pane_styles,
             stylesheets=[self._pane_stylesheet]
         )
+        decrease_loading_counter()
         return pane
 #
     
@@ -787,6 +792,7 @@ class ea1_tab2(object):
         
 
     def get_panel(self, **kwargs):
+        increase_loading_counter()
         # expected kwargs:
         # language_code, disease_code
         language_code = kwargs.get("language_code", "en")
@@ -804,6 +810,7 @@ class ea1_tab2(object):
             styles=self._pane_styles,
             stylesheets=[self._pane_stylesheet]
         )
+        decrease_loading_counter()
         return pane
 #
 

@@ -12,6 +12,7 @@ panel.extension(
 # All indicators and their logic will be included here
 
 from .indicator_panel import IndicatorPanel, EmptyPanel
+from ..loading.loading import increase_loading_counter, decrease_loading_counter
 
 
 class Dispatcher(object):
@@ -29,6 +30,7 @@ class Dispatcher(object):
         self._pane = None
 
     def get_panel(self, language_code, disease_code, indicator_type_code, cohort_code):
+        increase_loading_counter()
         # ALL DISEASES
         if disease_code == "_all_":
             pane = panel.Column(
@@ -68,6 +70,7 @@ class Dispatcher(object):
                 styles=self._pane_styles,
                 stylesheets=[self._pane_stylesheet]
             )
+        decrease_loading_counter()
         return self._pane
 
 

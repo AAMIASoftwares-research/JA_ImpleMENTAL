@@ -18,6 +18,7 @@ from ..logic_utilities import clean_indicator_getter_input
 from ..widget import indicator_widget, AGE_WIDGET_INTERVALS
 from ...main_selectors.disease_text import DS_TITLE as DISEASES_LANGDICT
 from ...caching.indicators import is_call_in_cache, retrieve_cached_json, cache_json
+from ...loading.loading import increase_loading_counter, decrease_loading_counter
 
 
 
@@ -327,6 +328,7 @@ class ma2_tab0(object):
         return out
     
     def get_panel(self, **kwargs):
+        increase_loading_counter()
         # expected kwargs:
         # language_code, disease_code
         language_code = kwargs.get("language_code", "en")
@@ -342,6 +344,7 @@ class ma2_tab0(object):
             styles=self._pane_styles,
             stylesheets=[self._pane_stylesheet]
         )
+        decrease_loading_counter()
         return pane
         
 

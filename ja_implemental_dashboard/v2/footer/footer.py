@@ -18,7 +18,7 @@ class Footer(object):
             "padding": "0",
             "position": "fixed",
             "bottom": "0",
-            "z-index": "2147483647"
+            "z-index": "9990"
             # "z-index" makes sure that it always stays on top of everything else in the web page
         }
         self._panels = self._get_panel_all_languages()
