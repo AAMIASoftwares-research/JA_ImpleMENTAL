@@ -8,7 +8,7 @@ panel.extension(
 )
 
 
-loading_gifs_dir = os.path.join(os.path.dirname(__file__), "..", "assets", "loading_gifs")
+loading_gifs_urls = os.path.join(os.path.dirname(__file__), "..", "assets", "loading_gifs")
 
 
 class Loading(object):
