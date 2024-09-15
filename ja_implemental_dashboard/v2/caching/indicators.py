@@ -43,6 +43,17 @@ def initialize_indicators_cache_database(force:bool=False) -> None:
 def get_table_name_for_indicator(indicator_name:str, create_if_not_exist:bool=False) -> str:
     """ Get the table name for the indicator.
     """
+    # clean indicator name from spaces, parentheses, commas, +, -, *, /, and %
+    indicator_name = indicator_name.replace(" ", "")
+    indicator_name = indicator_name.replace("(", "")
+    indicator_name = indicator_name.replace(")", "")
+    indicator_name = indicator_name.replace(",", "")
+    indicator_name = indicator_name.replace("+", "")
+    indicator_name = indicator_name.replace("-", "")
+    indicator_name = indicator_name.replace("*", "")
+    indicator_name = indicator_name.replace("/", "")
+    indicator_name = indicator_name.replace("%", "")
+    # get the table name
     table_name = f"indicator_{indicator_name}"
     if create_if_not_exist:
         cache_file = get_indicators_cache_database_file()

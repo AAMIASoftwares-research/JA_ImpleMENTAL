@@ -200,6 +200,46 @@ ea5_indicator_panel = IndicatorPanel(
     tabs=[ea5_tab0(DB), ea5_tab1(DB), ea5_tab2(DB), ea5_tab3()],
     tab_names_langdict=ea5_tab_names_langdict
 )
+from .evaluation.a60 import (
+    ea60_code, ea60_name_langdict, ea60_short_desription_langdict,
+    ea60_tab_names_langdict,
+    ea60_tab0, ea60_tab1, ea60_tab2, ea60_tab3
+)
+ea60_indicator_panel = IndicatorPanel(
+    monitoring_or_evaluation="_evaluation_",
+    indicator_code=ea60_code,
+    indicator_name=ea60_name_langdict,
+    indicator_short_description=ea60_short_desription_langdict,
+    tabs=[ea60_tab0(DB), ea60_tab1(DB), ea60_tab2(DB), ea60_tab3()],
+    tab_names_langdict=ea60_tab_names_langdict
+)
+from .evaluation.a61 import (
+    ea61_code, ea61_name_langdict, ea61_short_desription_langdict,
+    ea61_tab_names_langdict,
+    ea61_tab0, ea61_tab1, ea61_tab2, ea61_tab3
+)
+ea61_indicator_panel = IndicatorPanel(
+    monitoring_or_evaluation="_evaluation_",
+    indicator_code=ea61_code,
+    indicator_name=ea61_name_langdict,
+    indicator_short_description=ea61_short_desription_langdict,
+    tabs=[ea61_tab0(DB), ea61_tab1(DB), ea61_tab2(DB), ea61_tab3()],
+    tab_names_langdict=ea61_tab_names_langdict
+)
+from .evaluation.a62 import (
+    ea62_code, ea62_name_langdict, ea62_short_desription_langdict,
+    ea62_tab_names_langdict,
+    ea62_tab0, ea62_tab1, ea62_tab2, ea62_tab3
+)
+ea62_indicator_panel = IndicatorPanel(
+    monitoring_or_evaluation="_evaluation_",
+    indicator_code=ea62_code,
+    indicator_name=ea62_name_langdict,
+    indicator_short_description=ea62_short_desription_langdict,
+    tabs=[ea62_tab0(DB), ea62_tab1(DB), ea62_tab2(DB), ea62_tab3()],
+    tab_names_langdict=ea62_tab_names_langdict
+)
+
 
 from .indicator_panel import PlaceholderPanel
 
@@ -216,6 +256,9 @@ evaluation_panel_classes_list = [
     ea3_indicator_panel,
     ea4_indicator_panel,
     ea5_indicator_panel,
+    ea60_indicator_panel,
+    ea61_indicator_panel,
+    ea62_indicator_panel,
 ]
 
 
