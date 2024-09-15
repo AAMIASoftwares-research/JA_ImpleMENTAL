@@ -24,7 +24,7 @@ loading_js = f"""
 
 class Loading(object):
     def __init__(self):       
-        self.do_nothing = True # set false to see loading animation
+        self.do_nothing = False # set false to see loading animation
         self._panel_stylesheet = """
             width: 100vw;
             margin: 0;
@@ -56,7 +56,7 @@ class Loading(object):
             display: none; /* initially hidden */
             flex-direction: column;
         ">
-            <img id="loading_gif" src="" style="width: 100%; max-width: 7.0em; margin: 0; padding: 0;">
+            <img id="loading_gif" src="" style="width: 100%; max-width: 7.0em; margin: 0; padding: 0;" ondblclick="reset_loading_counter()">
             <p style="color: #686868ff; font-size: 1.0em; font-weight: 600; margin: 0; padding: 0;">Loading...</p>
         </div>
         """ + loading_js

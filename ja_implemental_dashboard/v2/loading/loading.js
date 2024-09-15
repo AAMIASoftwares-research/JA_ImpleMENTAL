@@ -117,6 +117,11 @@ function decrease_loading_counter(){
     return;
 }
 
+function reset_loading_counter(){
+    g_loading_counter = 0;
+    return;
+}
+
 function loading_visible(){
     const div_element = find_loading_element();
     if (!div_element){
@@ -192,5 +197,6 @@ setInterval(
     }, 
     15000
 );
+
 
 
