@@ -1,5 +1,7 @@
+import time
 import numpy
-import pandas
+import json
+import sqlite3
 import panel
 from ..._panel_settings import PANEL_EXTENSION, PANEL_TEMPLATE, PANEL_SIZING_MODE
 panel.extension(
@@ -19,14 +21,17 @@ holoviews.extension('bokeh') # here holoviews is kept to create a BoxWhisker plo
                              # In the future it would be better to have all plots
                              # done with Bokeh, but for now this is a workaround.
 import bokeh.models
-import bokeh.events
 import bokeh.plotting
 
-from ...database.database import DISEASE_CODE_TO_DB_CODE, COHORT_CODE_TO_DB_CODE
-from ..logic_utilities import clean_indicator_getter_input, stratify_demographics
-from ..widget import indicator_widget
+from ...database.database import DISEASE_CODE_TO_DB_CODE
+from ...database.database import stratify_demographics, check_database_has_tables
+from ..logic_utilities import clean_indicator_getter_input
+from ..widget import indicator_widget, AGE_WIDGET_INTERVALS
 from ...main_selectors.disease_text import DS_TITLE as DISEASES_LANGDICT
+from ...caching.indicators import is_call_in_cache, retrieve_cached_json, cache_json
 from ...main_selectors.cohort_text import COHORT_NAMES
+from ...loading.loading import increase_loading_counter, decrease_loading_counter
+
 
 # indicator logic
 def ea2(**kwargs):
@@ -38,26 +43,24 @@ def ea2(**kwargs):
     """
     # inputs
     kwargs = clean_indicator_getter_input(**kwargs)
-    tables = kwargs.get("dict_of_tables", None)
+    connection: sqlite3.Connection = kwargs.get("connection", None)
     disease_db_code = kwargs.get("disease_db_code", None)
-    cohort_db_code = COHORT_CODE_TO_DB_CODE[kwargs.get("cohort_code", None)]
+    cohort_code = kwargs.get("cohort_code", None)
     year_of_inclusion = kwargs.get("year_of_inclusion", None)
     age = kwargs.get("age", None)
     gender = kwargs.get("gender", None)
     civil_status = kwargs.get("civil_status", None)
     job_condition = kwargs.get("job_condition", None)
     educational_level = kwargs.get("educational_level", None)
-    # output
-    # type_int: any intervention
-    # percentage (float): the indicator, ranage [0; 1]; 
-    # distribution (list): the distribution of number of intervention per patient
-    #  if the patient has at least one intervention
-    statistics_keys = ["percentage", "distribution"] 
-    output = {k0: None for k0 in statistics_keys}
+    #
+    # Access to community care
+    # Percentage of patients with at least one outpatient 
+    # community contact.
+    #
+    output = {"percentage": 0.0, "distribution": []}
     # logic
-    # - get a list of patient ids that are compatible with the stratification parameters
-    valid_patient_ids = stratify_demographics(
-        tables["demographics"],
+    stratified_demographics_table_name = stratify_demographics(
+        connection=connection,
         year_of_inclusion=year_of_inclusion,
         age=age,
         gender=gender,
@@ -65,35 +68,95 @@ def ea2(**kwargs):
         job_condition=job_condition,
         educational_level=educational_level
     )
-    # - stratify patients by disease: from valid_patient_ids, select only the ones that in the cohorts
-    # table have at least one entry for the desired disease
-    ids_with_disease: numpy.ndarray = tables["cohorts"].loc[
-        (tables["cohorts"][disease_db_code] == "Y") & (tables["cohorts"]["YEAR_ENTRY"] <= year_of_inclusion),
-        "ID_SUBJECT"
-    ].unique()
-    valid_patient_ids = valid_patient_ids[valid_patient_ids.isin(ids_with_disease)]
-    # - stratify by patient cohort (_a_, _b_, _c_)
-    ids_in_cohort: numpy.ndarray = tables["cohorts"].loc[tables["cohorts"][cohort_db_code] == "Y", "ID_SUBJECT"].unique()
-    valid_patient_ids = valid_patient_ids[valid_patient_ids.isin(ids_in_cohort)]
-    # - percentage denominator: number of patients with valid patient ids
-    denominator = valid_patient_ids.unique().shape[0]
-    # - percentage numerator: number of patients with at least one intervention in the year of inclusion of type PSYCHOSOCIAL INTERVENTION (code "04")
-    condition = pandas.Series(True, index=tables["interventions"].index, name="condition")
-    condition = condition & (tables["interventions"]["ID_SUBJECT"].isin(valid_patient_ids))
-    condition = condition & (tables["interventions"]["DT_INT"].dt.year == year_of_inclusion)
-    condition = condition & (tables["interventions"]["TYPE_INT"] == "04") # basically same as EA1, but with this condition added
-    numerator = tables["interventions"].loc[condition, "ID_SUBJECT"].unique().shape[0]
-    # - percentage
-    output["percentage"] = numerator / denominator if denominator > 0 else 0.0
-    # - distribution: we use the same condition as before but we count the number of interventions per ID_SUBJECT
-    val_counts = tables["interventions"].loc[condition, "ID_SUBJECT"].value_counts()
-    if len(val_counts) > 0:
-        output["distribution"] = val_counts.to_list()
-    else:
+    # open a cursor (close it before return)
+    cursor = connection.cursor()
+    # check if table is empty
+    cursor.execute(f"SELECT COUNT(*) FROM {stratified_demographics_table_name}")
+    if cursor.fetchone()[0] == 0:
+        return output
+    # get the indicator values
+    # - first get the total of patients that
+    #   satisfy the stratification and are in the cohort
+    if cohort_code is None:
+        print("WARNING: cohort_code is None in ea2.")
+        cohort_code = "_a_"
+    if cohort_code not in ["_a_", "_b_", "_c_"]:
+        print("WARNING: cohort_code is not valid in ea2:", cohort_code)
+        cohort_code = "_a_"
+    if cohort_code == "_a_":
+        cohort_condition_string = f"ID_DISORDER = '{disease_db_code}' AND YEAR_OF_ONSET <= {year_of_inclusion}"
+    elif cohort_code == "_b_":
+        cohort_condition_string = f"ID_DISORDER = '{disease_db_code}' AND YEAR_OF_ONSET = {year_of_inclusion}"
+    elif cohort_code == "_c_":
+        cohort_condition_string = f"""
+            ID_DISORDER = '{disease_db_code}' 
+            AND 
+            YEAR_OF_ONSET = {year_of_inclusion} 
+            AND
+            ID_SUBJECT IN (
+                SELECT {"incident_18_25_"+str(year_of_inclusion)} AS ID_SUBJECT 
+                FROM age_stratification 
+                WHERE {"incident_18_25_"+str(year_of_inclusion)} IS NOT NULL
+            )
+            """
+    cursor.execute(f"""
+        CREATE TEMPORARY TABLE temp_ea2 AS
+        SELECT DISTINCT(ID_SUBJECT) 
+        FROM {stratified_demographics_table_name}
+        WHERE ID_SUBJECT IN (
+            SELECT DISTINCT ID_SUBJECT FROM cohorts
+                WHERE {cohort_condition_string}
+        )
+    """)
+    total_ = int(cursor.execute(f"SELECT COUNT(*) FROM temp_ea2").fetchone()[0])
+    # - from this list, find the number of patients that
+    #   have at least one intervention of any kind in the year of inclusion
+    cursor.execute(f"""
+        CREATE TEMPORARY TABLE temp_ea2_2 AS
+        SELECT DISTINCT ID_SUBJECT
+        FROM temp_ea2
+        WHERE ID_SUBJECT IN (
+            SELECT DISTINCT ID_SUBJECT
+            FROM interventions
+            WHERE 
+                strftime('%Y', DT_INT) = '{year_of_inclusion}'
+                AND
+                TYPE_INT = 4
+        )
+        /*
+        In this call, I don't have to worry about person characteristic, 
+        disease, or cohort, as it is already taken care of 
+        in the previous call.
+        */
+    """)
+    numerator_ = int(cursor.execute(f"SELECT COUNT(*) FROM temp_ea2_2").fetchone()[0])
+    # - calculate the percentage
+    output["percentage"] = numerator_ / total_ if total_ > 0 else 0.0
+    # - find the distribution of number of interventions per patient from the interventions table
+    cursor.execute(f"""
+        SELECT COUNT(*)
+        FROM interventions
+        WHERE 
+            ID_SUBJECT IN (SELECT ID_SUBJECT FROM temp_ea2_2)
+            AND
+            strftime('%Y', DT_INT) = '{year_of_inclusion}'
+            AND
+            TYPE_INT = 4
+        GROUP BY ID_SUBJECT
+    """)
+    distribution_ = [int(row[0]) for row in cursor.fetchall()]
+    output["distribution"] = distribution_ if len(distribution_) > 0 else [0, 0]
+    # delete the table of stratified demograpohics
+    cursor.execute(f"DROP TABLE IF EXISTS {stratified_demographics_table_name}")
+    cursor.execute("DROP TABLE IF EXISTS temp_ea2")
+    cursor.execute("DROP TABLE IF EXISTS temp_ea2_2")
+    # close the cursor
+    cursor.close()
+    # check output
+    if output["percentage"] == 0.0:
         output["distribution"] = [0, 0]
     # return
     return output
-
 
 # Indicator display
 ea2_code = "EA2"
@@ -220,11 +283,12 @@ ea2_tab_names_langdict: dict[str: list[str]] = {
 }
 
 class ea2_tab0(object):
-    def __init__(self, dict_of_tables: dict):
+    def __init__(self, db_conn: sqlite3.Connection):
         self._language_code = "en"
-        self._dict_of_tables = dict_of_tables
+        self._db_conn = db_conn
+        # widgets
         self.widgets_instance = indicator_widget(
-             language_code=self._language_code,
+            language_code=self._language_code
         )
         # pane row
         self._pane_styles = {
@@ -233,31 +297,89 @@ class ea2_tab0(object):
 
     def get_plot(self, **kwargs):
         # inputs
-        language_code = kwargs.get("language_code", "en")
+        language_code = kwargs.get("language_code", self._language_code)
         disease_code = kwargs.get("disease_code", None)
         cohort_code = kwargs.get("cohort_code", None)
-        age = self.widgets_instance.widget_age_instance.value
-        gender = kwargs.get("gender", None)
-        civil_status = kwargs.get("civil_status", None)
-        job_condition = kwargs.get("job_condition", None)
-        educational_level = kwargs.get("educational_level", None)
+        age_interval = self.widgets_instance.value["age"]
+        age_interval_list = [AGE_WIDGET_INTERVALS[a] for a in age_interval]
+        gender = self.widgets_instance.value["gender"]
+        civil_status = self.widgets_instance.value["civil_status"]
+        job_condition = self.widgets_instance.value["job_condition"]
+        educational_level = self.widgets_instance.value["educational_level"]
         # logic
-        years_to_evaluate = self._dict_of_tables["cohorts"]["YEAR_ENTRY"].unique().tolist()
-        years_to_evaluate.sort()
-        ea2_list = []
-        for year in years_to_evaluate:
-            ea2_ = ea2(
-                dict_of_tables=self._dict_of_tables,
-                disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
-                cohort_db_code=cohort_code,
-                year_of_inclusion=year,
-                age=age,
+        is_in_cache = is_call_in_cache(
+            indicator_name=ea2_code,
+            disease_code=disease_code,
+            cohort=cohort_code,
+            age_interval=age_interval_list,
+            gender=gender,
+            civil_status=civil_status,
+            job_condition=job_condition,
+            educational_level=educational_level
+        )
+        if is_in_cache:
+            x_json, y_json = retrieve_cached_json(
+                indicator_name=ea2_code,
+                disease_code=disease_code,
+                cohort=cohort_code,
+                age_interval=age_interval_list,
                 gender=gender,
                 civil_status=civil_status,
                 job_condition=job_condition,
                 educational_level=educational_level
             )
-            ea2_list.append(100*ea2_["percentage"])
+            years_to_evaluate = [int(v) for v in json.loads(x_json)]
+            y = json.loads(y_json)
+            # encode for plotting
+            ea2_list = [100*float(v) for v in y["percentage"]]
+        else:
+            cursor = self._db_conn.cursor()
+            # get the years of inclusion as all years from the first occurrence of the disease
+            # for any patient up to the current year
+            min_year_ = int(
+                cursor.execute(f"""
+                    SELECT MIN(YEAR_OF_ONSET) FROM cohorts
+                    WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
+                """).fetchone()[0]
+            )
+            cursor.close()
+            ea2_list = []
+            years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
+            for year in years_to_evaluate:
+                ea2_ = ea2(
+                    connection=self._db_conn,
+                    disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
+                    cohort_code=cohort_code,
+                    year_of_inclusion=year,
+                    age=age_interval_list,
+                    gender=gender,
+                    civil_status=civil_status,
+                    job_condition=job_condition,
+                    educational_level=educational_level
+                )
+                ea2_list.append(ea2_)
+            # cache everything
+            x_json = json.dumps(years_to_evaluate)
+            y_json = json.dumps(
+                {
+                    "percentage": [ea2_["percentage"] for ea2_ in ea2_list],
+                    "distribution": [ea2_["distribution"] for ea2_ in ea2_list]
+                }
+            )
+            cache_json(
+                indicator_name=ea2_code,
+                disease_code=disease_code,
+                cohort=cohort_code,
+                age_interval=age_interval_list,
+                gender=gender,
+                civil_status=civil_status,
+                job_condition=job_condition,
+                educational_level=educational_level,
+                x_json=x_json,
+                y_json=y_json
+            )
+            # encode for plotting
+            ea2_list = [100*ea2_["percentage"] for ea2_ in ea2_list]
         # plot - use bokeh because it allows independent zooming
         hover_tool = bokeh.models.HoverTool(
             tooltips=[
@@ -293,11 +415,10 @@ class ea2_tab0(object):
         plot.toolbar.autohide = True
         plot.toolbar.logo = None
         out = panel.pane.Bokeh(plot)
+        #
         return out
-    
 
     def get_panel(self, **kwargs):
-        
         # expected kwargs:
         # language_code, disease_code
         language_code = kwargs.get("language_code", "en")
@@ -309,14 +430,7 @@ class ea2_tab0(object):
                 language_code=language_code, 
                 disease_code=disease_code,
                 cohort_code=cohort_code,
-                age_temp_1=self.widgets_instance.widget_age_instance.widget_age_all,
-                age_temp_2=self.widgets_instance.widget_age_instance.widget_age_lower,
-                age_temp_3=self.widgets_instance.widget_age_instance.widget_age_upper,
-                age_temp_4=self.widgets_instance.widget_age_instance.widget_age_value,
-                gender=self.widgets_instance.widget_gender,
-                civil_status=self.widgets_instance.widget_civil_status,
-                job_condition=self.widgets_instance.widget_job_condition,
-                educational_level=self.widgets_instance.widget_educational_level
+                indicator_widget_value=self.widgets_instance.param.value,
             ),
             self.widgets_instance.get_panel(language_code=language_code),
             styles=self._pane_styles,
@@ -334,11 +448,12 @@ ea2_tab_names_langdict["es"].append("Distribución del indicador con boxplot")
 ea2_tab_names_langdict["pt"].append("Distribuição do indicador com boxplot")
 
 class ea2_tab1(object):
-    def __init__(self, dict_of_tables: dict):
+    def __init__(self, db_conn: sqlite3.Connection):
         self._language_code = "en"
-        self._dict_of_tables = dict_of_tables
+        self._db_conn = db_conn
+        # widgets
         self.widgets_instance = indicator_widget(
-             language_code=self._language_code,
+            language_code=self._language_code
         )
         # pane row
         self._pane_styles = {
@@ -347,33 +462,89 @@ class ea2_tab1(object):
 
     def get_plot(self, **kwargs):
         # inputs
-        language_code = kwargs.get("language_code", "en")
+        language_code = kwargs.get("language_code", self._language_code)
         disease_code = kwargs.get("disease_code", None)
         cohort_code = kwargs.get("cohort_code", None)
-        age = self.widgets_instance.widget_age_instance.value
-        gender = kwargs.get("gender", None)
-        civil_status = kwargs.get("civil_status", None)
-        job_condition = kwargs.get("job_condition", None)
-        educational_level = kwargs.get("educational_level", None)
+        age_interval = self.widgets_instance.value["age"]
+        age_interval_list = [AGE_WIDGET_INTERVALS[a] for a in age_interval]
+        gender = self.widgets_instance.value["gender"]
+        civil_status = self.widgets_instance.value["civil_status"]
+        job_condition = self.widgets_instance.value["job_condition"]
+        educational_level = self.widgets_instance.value["educational_level"]
         # logic
-        years_to_evaluate = self._dict_of_tables["cohorts"]["YEAR_ENTRY"].unique().tolist()
-        years_to_evaluate.sort()
-        ea2_dist_list = []
-        for year in years_to_evaluate:
-            ea2_ = ea2(
-                dict_of_tables=self._dict_of_tables,
-                disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
-                cohort_db_code=cohort_code,
-                year_of_inclusion=year,
-                age=age,
+        is_in_cache = is_call_in_cache(
+            indicator_name=ea2_code,
+            disease_code=disease_code,
+            cohort=cohort_code,
+            age_interval=age_interval_list,
+            gender=gender,
+            civil_status=civil_status,
+            job_condition=job_condition,
+            educational_level=educational_level
+        )
+        if is_in_cache:
+            x_json, y_json = retrieve_cached_json(
+                indicator_name=ea2_code,
+                disease_code=disease_code,
+                cohort=cohort_code,
+                age_interval=age_interval_list,
                 gender=gender,
                 civil_status=civil_status,
                 job_condition=job_condition,
                 educational_level=educational_level
             )
-            ea2_dist_list.append(
-                ea2_["distribution"]
+            years_to_evaluate = [int(v) for v in json.loads(x_json)]
+            y = json.loads(y_json)
+            # encode for plotting
+            ea2_dist_list = [[int(n) for n in v] for v in y["distribution"]]
+        else:
+            cursor = self._db_conn.cursor()
+            # get the years of inclusion as all years from the first occurrence of the disease
+            # for any patient up to the current year
+            min_year_ = int(
+                cursor.execute(f"""
+                    SELECT MIN(YEAR_OF_ONSET) FROM cohorts
+                    WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
+                """).fetchone()[0]
             )
+            cursor.close()
+            ea2_list = []
+            years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
+            for year in years_to_evaluate:
+                ea2_ = ea2(
+                    connection=self._db_conn,
+                    disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
+                    cohort_code=cohort_code,
+                    year_of_inclusion=year,
+                    age=age_interval_list,
+                    gender=gender,
+                    civil_status=civil_status,
+                    job_condition=job_condition,
+                    educational_level=educational_level
+                )
+                ea2_list.append(ea2_)
+            # cache everything
+            x_json = json.dumps(years_to_evaluate)
+            y_json = json.dumps(
+                {
+                    "percentage": [ea2_["percentage"] for ea2_ in ea2_list],
+                    "distribution": [ea2_["distribution"] for ea2_ in ea2_list]
+                }
+            )
+            cache_json(
+                indicator_name=ea2_code,
+                disease_code=disease_code,
+                cohort=cohort_code,
+                age_interval=age_interval_list,
+                gender=gender,
+                civil_status=civil_status,
+                job_condition=job_condition,
+                educational_level=educational_level,
+                x_json=x_json,
+                y_json=y_json
+            )
+            # encode for plotting
+            ea2_dist_list = [l["distribution"] for l in ea2_list]
         # plot: BoxWhisker (not available in Bokeh)
         # make a BoxWhisker plot
         # groups (the years)
@@ -431,9 +602,9 @@ class ea2_tab1(object):
         bokeh_plot.height=350
         bokeh_plot.toolbar.autohide = True
         bokeh_plot.toolbar.logo = None
+        #
         return panel.pane.Bokeh(bokeh_plot)
         
-
     def get_panel(self, **kwargs):
         # expected kwargs:
         # language_code, disease_code
@@ -446,21 +617,13 @@ class ea2_tab1(object):
                 language_code=language_code, 
                 disease_code=disease_code,
                 cohort_code=cohort_code,
-                age_temp_1=self.widgets_instance.widget_age_instance.widget_age_all,
-                age_temp_2=self.widgets_instance.widget_age_instance.widget_age_lower,
-                age_temp_3=self.widgets_instance.widget_age_instance.widget_age_upper,
-                age_temp_4=self.widgets_instance.widget_age_instance.widget_age_value,
-                gender=self.widgets_instance.widget_gender,
-                civil_status=self.widgets_instance.widget_civil_status,
-                job_condition=self.widgets_instance.widget_job_condition,
-                educational_level=self.widgets_instance.widget_educational_level
+                indicator_widget_value=self.widgets_instance.param.value,
             ),
             self.widgets_instance.get_panel(language_code=language_code),
             styles=self._pane_styles,
             stylesheets=[self._pane_stylesheet]
         )
         return pane
-        
 #
     
 
@@ -485,33 +648,89 @@ class ea2_tab2(object):
 
     def get_plot(self, **kwargs):
         # inputs
-        language_code = kwargs.get("language_code", "en")
+        language_code = kwargs.get("language_code", self._language_code)
         disease_code = kwargs.get("disease_code", None)
         cohort_code = kwargs.get("cohort_code", None)
-        age = self.widgets_instance.widget_age_instance.value
-        gender = kwargs.get("gender", None)
-        civil_status = kwargs.get("civil_status", None)
-        job_condition = kwargs.get("job_condition", None)
-        educational_level = kwargs.get("educational_level", None)
+        age_interval = self.widgets_instance.value["age"]
+        age_interval_list = [AGE_WIDGET_INTERVALS[a] for a in age_interval]
+        gender = self.widgets_instance.value["gender"]
+        civil_status = self.widgets_instance.value["civil_status"]
+        job_condition = self.widgets_instance.value["job_condition"]
+        educational_level = self.widgets_instance.value["educational_level"]
         # logic
-        years_to_evaluate = self._dict_of_tables["cohorts"]["YEAR_ENTRY"].unique().tolist()
-        years_to_evaluate.sort()
-        ea2_dist_list = []
-        for year in years_to_evaluate:
-            ea2_ = ea2(
-                dict_of_tables=self._dict_of_tables,
-                disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
-                cohort_db_code=cohort_code,
-                year_of_inclusion=year,
-                age=age,
+        is_in_cache = is_call_in_cache(
+            indicator_name=ea2_code,
+            disease_code=disease_code,
+            cohort=cohort_code,
+            age_interval=age_interval_list,
+            gender=gender,
+            civil_status=civil_status,
+            job_condition=job_condition,
+            educational_level=educational_level
+        )
+        if is_in_cache:
+            x_json, y_json = retrieve_cached_json(
+                indicator_name=ea2_code,
+                disease_code=disease_code,
+                cohort=cohort_code,
+                age_interval=age_interval_list,
                 gender=gender,
                 civil_status=civil_status,
                 job_condition=job_condition,
                 educational_level=educational_level
             )
-            ea2_dist_list.append(
-                ea2_["distribution"]
+            years_to_evaluate = [int(v) for v in json.loads(x_json)]
+            y = json.loads(y_json)
+            # encode for plotting
+            ea2_dist_list = [[int(n) for n in v] for v in y["distribution"]]
+        else:
+            cursor = self._db_conn.cursor()
+            # get the years of inclusion as all years from the first occurrence of the disease
+            # for any patient up to the current year
+            min_year_ = int(
+                cursor.execute(f"""
+                    SELECT MIN(YEAR_OF_ONSET) FROM cohorts
+                    WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
+                """).fetchone()[0]
             )
+            cursor.close()
+            ea2_list = []
+            years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
+            for year in years_to_evaluate:
+                ea2_ = ea2(
+                    connection=self._db_conn,
+                    disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
+                    cohort_code=cohort_code,
+                    year_of_inclusion=year,
+                    age=age_interval_list,
+                    gender=gender,
+                    civil_status=civil_status,
+                    job_condition=job_condition,
+                    educational_level=educational_level
+                )
+                ea2_list.append(ea2_)
+            # cache everything
+            x_json = json.dumps(years_to_evaluate)
+            y_json = json.dumps(
+                {
+                    "percentage": [ea2_["percentage"] for ea2_ in ea2_list],
+                    "distribution": [ea2_["distribution"] for ea2_ in ea2_list]
+                }
+            )
+            cache_json(
+                indicator_name=ea2_code,
+                disease_code=disease_code,
+                cohort=cohort_code,
+                age_interval=age_interval_list,
+                gender=gender,
+                civil_status=civil_status,
+                job_condition=job_condition,
+                educational_level=educational_level,
+                x_json=x_json,
+                y_json=y_json
+            )
+            # encode for plotting
+            ea2_dist_list = [l["distribution"] for l in ea2_list]
         # plot: BoxWhisker (not available in Bokeh)
         # make a BoxWhisker plot
         # groups (the years)
@@ -571,6 +790,7 @@ class ea2_tab2(object):
         bokeh_plot.height=350
         bokeh_plot.toolbar.autohide = True
         bokeh_plot.toolbar.logo = None
+        #
         return panel.pane.Bokeh(bokeh_plot)
         
 
@@ -586,21 +806,13 @@ class ea2_tab2(object):
                 language_code=language_code, 
                 disease_code=disease_code,
                 cohort_code=cohort_code,
-                age_temp_1=self.widgets_instance.widget_age_instance.widget_age_all,
-                age_temp_2=self.widgets_instance.widget_age_instance.widget_age_lower,
-                age_temp_3=self.widgets_instance.widget_age_instance.widget_age_upper,
-                age_temp_4=self.widgets_instance.widget_age_instance.widget_age_value,
-                gender=self.widgets_instance.widget_gender,
-                civil_status=self.widgets_instance.widget_civil_status,
-                job_condition=self.widgets_instance.widget_job_condition,
-                educational_level=self.widgets_instance.widget_educational_level
+                indicator_widget_value=self.widgets_instance.param.value,
             ),
             self.widgets_instance.get_panel(language_code=language_code),
             styles=self._pane_styles,
             stylesheets=[self._pane_stylesheet]
         )
         return pane
-              
 #
 
 ea2_tab_names_langdict["en"].append("Help")
@@ -811,7 +1023,5 @@ class ea2_tab3(object):
    
     
 
-
 if __name__ == "__main__":
-
-    quit()
+    print("This module is not callable.")

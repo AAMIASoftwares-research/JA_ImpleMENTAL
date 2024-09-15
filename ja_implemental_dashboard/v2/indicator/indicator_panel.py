@@ -7,6 +7,7 @@ panel.extension(
 )
 
 from panel.theme import Material
+from ..loading.loading import increase_loading_counter, decrease_loading_counter
 
 class EmptyPanel(object):
     # This class is needed because, for some unknown reason,
@@ -18,8 +19,6 @@ class EmptyPanel(object):
 
     def get_panel(self, **kwargs):
         return self._pane
-
-
 
 class PlaceholderPanel(object):
     def __init__(self, width=90, width_units: str="%", height=300, height_units="px", placeholder_html_string=None) -> None:

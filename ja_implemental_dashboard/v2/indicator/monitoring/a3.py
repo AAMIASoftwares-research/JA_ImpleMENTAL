@@ -338,7 +338,6 @@ class ma3_tab0(object):
         return out
     
     def get_panel(self, **kwargs):
-        increase_loading_counter()
         # expected kwargs:
         # language_code, disease_code
         language_code = kwargs.get("language_code", "en")
@@ -354,7 +353,6 @@ class ma3_tab0(object):
             styles=self._pane_styles,
             stylesheets=[self._pane_stylesheet]
         )
-        decrease_loading_counter()
         return pane
         
 

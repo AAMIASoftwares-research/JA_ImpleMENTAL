@@ -506,10 +506,10 @@ class mb2_tab0(object):
         plot.toolbar.autohide = True
         plot.toolbar.logo = None
         out = panel.pane.Bokeh(plot)
+        #
         return out
     
     def get_panel(self, **kwargs):
-        increase_loading_counter()
         # expected kwargs:
         # language_code, disease_code
         language_code = kwargs.get("language_code", "en")
@@ -525,7 +525,6 @@ class mb2_tab0(object):
             styles=self._pane_styles,
             stylesheets=[self._pane_stylesheet]
         )
-        decrease_loading_counter()
         return pane
 
 mb2_tab_names_langdict["en"].append("Indicator distribution boxplot")
@@ -778,10 +777,10 @@ class mb2_tab1(object):
         bokeh_plot.height=350
         bokeh_plot.toolbar.autohide = True
         bokeh_plot.toolbar.logo = None
+        #
         return panel.pane.Bokeh(bokeh_plot)
     
     def get_panel(self, **kwargs):
-        increase_loading_counter()
         # expected kwargs:
         # language_code, disease_code
         language_code = kwargs.get("language_code", "en")
@@ -797,7 +796,6 @@ class mb2_tab1(object):
             styles=self._pane_styles,
             stylesheets=[self._pane_stylesheet]
         )
-        decrease_loading_counter()
         return pane
     
 #
@@ -1057,10 +1055,10 @@ class mb2_tab2(object):
         bokeh_plot.height=350
         bokeh_plot.toolbar.autohide = True
         bokeh_plot.toolbar.logo = None
+        #
         return panel.pane.Bokeh(bokeh_plot)
     
     def get_panel(self, **kwargs):
-        increase_loading_counter()
         # expected kwargs:
         # language_code, disease_code
         language_code = kwargs.get("language_code", "en")
@@ -1076,7 +1074,6 @@ class mb2_tab2(object):
             styles=self._pane_styles,
             stylesheets=[self._pane_stylesheet]
         )
-        decrease_loading_counter()
         return pane
         
 

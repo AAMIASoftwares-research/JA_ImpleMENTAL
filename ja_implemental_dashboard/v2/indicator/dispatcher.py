@@ -1,3 +1,4 @@
+import time
 import sqlite3
 import panel
 from .._panel_settings import PANEL_EXTENSION, PANEL_TEMPLATE, PANEL_SIZING_MODE
@@ -6,7 +7,6 @@ panel.extension(
     template=PANEL_TEMPLATE,
     sizing_mode=PANEL_SIZING_MODE
 )
-
 # This is the class to dispatch the monitoring and evaluation columns
 # This will be included into the final dashboard column
 # All indicators and their logic will be included here
@@ -87,14 +87,12 @@ from .monitoring.a1 import (
     ma1_tab_names_langdict,
     ma1_tab0, ma1_tab1
 )
-ma1_tab0_instance = ma1_tab0(DB)
-ma1_tab1_instance = ma1_tab1()
 ma1_indicator_panel = IndicatorPanel(
     monitoring_or_evaluation="_monitoring_",
     indicator_code=ma1_code,
     indicator_name=ma1_name_langdict,
     indicator_short_description=ma1_short_desription_langdict,
-    tabs=[ma1_tab0_instance, ma1_tab1_instance],
+    tabs=[ma1_tab0(DB), ma1_tab1()],
     tab_names_langdict=ma1_tab_names_langdict
 )
 from .monitoring.a2 import (
@@ -102,14 +100,12 @@ from .monitoring.a2 import (
     ma2_tab_names_langdict,
     ma2_tab0, ma2_tab1
 )
-ma2_tab0_instance = ma2_tab0(DB)
-ma2_tab1_instance = ma2_tab1()
 ma2_indicator_panel = IndicatorPanel(
     monitoring_or_evaluation="_monitoring_",
     indicator_code=ma2_code,
     indicator_name=ma2_name_langdict,
     indicator_short_description=ma2_short_desription_langdict,
-    tabs=[ma2_tab0_instance, ma2_tab1_instance],
+    tabs=[ma2_tab0(DB), ma2_tab1()],
     tab_names_langdict=ma2_tab_names_langdict
 )
 from .monitoring.a3 import (
@@ -117,94 +113,93 @@ from .monitoring.a3 import (
     ma3_tab_names_langdict,
     ma3_tab0, ma3_tab1
 )
-ma3_tab0_instance = ma3_tab0(DB)
-ma3_tab1_instance = ma3_tab1()
 ma3_indicator_panel = IndicatorPanel(
     monitoring_or_evaluation="_monitoring_",
     indicator_code=ma3_code,
     indicator_name=ma3_name_langdict,
     indicator_short_description=ma3_short_desription_langdict,
-    tabs=[ma3_tab0_instance, ma3_tab1_instance],
+    tabs=[ma3_tab0(DB), ma3_tab1()],
     tab_names_langdict=ma3_tab_names_langdict
 )
-
 from .monitoring.b2 import (
     mb2_code, mb2_name_langdict, mb2_short_desription_langdict,
     mb2_tab_names_langdict,
     mb2_tab0, mb2_tab1, mb2_tab2, mb2_tab3
 )
-mb2_tab0_instance = mb2_tab0(DB)
-mb2_tab1_instance = mb2_tab1(DB)
-mb2_tab2_instance = mb2_tab2(DB)
-mb2_tab3_instance = mb2_tab3()
-
 mb2_indicator_panel = IndicatorPanel(
     monitoring_or_evaluation="_monitoring_",
     indicator_code=mb2_code,
     indicator_name=mb2_name_langdict,
     indicator_short_description=mb2_short_desription_langdict,
-    tabs=[mb2_tab0_instance, mb2_tab1_instance, mb2_tab2_instance, mb2_tab3_instance],
+    tabs=[mb2_tab0(DB), mb2_tab1(DB), mb2_tab2(DB), mb2_tab3()],
     tab_names_langdict=mb2_tab_names_langdict
 )
-
 # Evaluation indicators
 from .evaluation.a1 import (
     ea1_code, ea1_name_langdict, ea1_short_desription_langdict,
     ea1_tab_names_langdict,
     ea1_tab0, ea1_tab1, ea1_tab2, ea1_tab3
 )
-ea1_tab0_instance = ea1_tab0(DB)
-ea1_tab1_instance = ea1_tab1(DB)
-ea1_tab2_instance = ea1_tab2(DB)
-ea1_tab3_instance = ea1_tab3()
-
 ea1_indicator_panel = IndicatorPanel(
     monitoring_or_evaluation="_evaluation_",
     indicator_code=ea1_code,
     indicator_name=ea1_name_langdict,
     indicator_short_description=ea1_short_desription_langdict,
-    tabs=[ea1_tab0_instance, ea1_tab1_instance, ea1_tab2_instance, ea1_tab3_instance],
+    tabs=[ea1_tab0(DB), ea1_tab1(DB), ea1_tab2(DB), ea1_tab3()],
     tab_names_langdict=ea1_tab_names_langdict
 )
-
-if 0:
-
-    from .evaluation.a2 import (
-        ea2_code, ea2_name_langdict, ea2_short_desription_langdict,
-        ea2_tab_names_langdict,
-        ea2_tab0, ea2_tab1, ea2_tab2, ea2_tab3
-    )
-    ea2_tab0_instance = ea2_tab0(DB)
-    ea2_tab1_instance = ea2_tab1(DB)
-    ea2_tab2_instance = ea2_tab2(DB)
-    ea2_tab3_instance = ea2_tab3()
-    ea2_indicator_panel = IndicatorPanel(
-        monitoring_or_evaluation="_evaluation_",
-        indicator_code=ea2_code,
-        indicator_name=ea2_name_langdict,
-        indicator_short_description=ea2_short_desription_langdict,
-        tabs=[ea2_tab0_instance, ea2_tab1_instance, ea2_tab2_instance, ea2_tab3_instance],
-        tab_names_langdict=ea2_tab_names_langdict
-    )
-
-    from .evaluation.a3 import (
-        ea3_code, ea3_name_langdict, ea3_short_desription_langdict,
-        ea3_tab_names_langdict,
-        ea3_tab0, ea3_tab1, ea3_tab2, ea3_tab3
-    )
-    ea3_tab0_instance = ea3_tab0(DB)
-    ea3_tab1_instance = ea3_tab1(DB)
-    ea3_tab2_instance = ea3_tab2(DB)
-    ea3_tab3_instance = ea3_tab3()
-    ea3_indicator_panel = IndicatorPanel(
-        monitoring_or_evaluation="_evaluation_",
-        indicator_code=ea3_code,
-        indicator_name=ea3_name_langdict,
-        indicator_short_description=ea3_short_desription_langdict,
-        tabs=[ea3_tab0_instance, ea3_tab1_instance, ea3_tab2_instance, ea3_tab3_instance],
-        tab_names_langdict=ea3_tab_names_langdict
-    )
-
+from .evaluation.a2 import (
+    ea2_code, ea2_name_langdict, ea2_short_desription_langdict,
+    ea2_tab_names_langdict,
+    ea2_tab0, ea2_tab1, ea2_tab2, ea2_tab3
+)
+ea2_indicator_panel = IndicatorPanel(
+    monitoring_or_evaluation="_evaluation_",
+    indicator_code=ea2_code,
+    indicator_name=ea2_name_langdict,
+    indicator_short_description=ea2_short_desription_langdict,
+    tabs=[ea2_tab0(DB), ea2_tab1(DB), ea2_tab2(DB), ea2_tab3()],
+    tab_names_langdict=ea2_tab_names_langdict
+)
+from .evaluation.a3 import (
+    ea3_code, ea3_name_langdict, ea3_short_desription_langdict,
+    ea3_tab_names_langdict,
+    ea3_tab0, ea3_tab1, ea3_tab2, ea3_tab3
+)
+ea3_indicator_panel = IndicatorPanel(
+    monitoring_or_evaluation="_evaluation_",
+    indicator_code=ea3_code,
+    indicator_name=ea3_name_langdict,
+    indicator_short_description=ea3_short_desription_langdict,
+    tabs=[ea3_tab0(DB), ea3_tab1(DB), ea3_tab2(DB), ea3_tab3()],
+    tab_names_langdict=ea3_tab_names_langdict
+)
+from .evaluation.a4 import (
+    ea4_code, ea4_name_langdict, ea4_short_desription_langdict,
+    ea4_tab_names_langdict,
+    ea4_tab0, ea4_tab1, ea4_tab2, ea4_tab3
+)
+ea4_indicator_panel = IndicatorPanel(
+    monitoring_or_evaluation="_evaluation_",
+    indicator_code=ea4_code,
+    indicator_name=ea4_name_langdict,
+    indicator_short_description=ea4_short_desription_langdict,
+    tabs=[ea4_tab0(DB), ea4_tab1(DB), ea4_tab2(DB), ea4_tab3()],
+    tab_names_langdict=ea4_tab_names_langdict
+)
+from .evaluation.a5 import (
+    ea5_code, ea5_name_langdict, ea5_short_desription_langdict,
+    ea5_tab_names_langdict,
+    ea5_tab0, ea5_tab1, ea5_tab2, ea5_tab3
+)
+ea5_indicator_panel = IndicatorPanel(
+    monitoring_or_evaluation="_evaluation_",
+    indicator_code=ea5_code,
+    indicator_name=ea5_name_langdict,
+    indicator_short_description=ea5_short_desription_langdict,
+    tabs=[ea5_tab0(DB), ea5_tab1(DB), ea5_tab2(DB), ea5_tab3()],
+    tab_names_langdict=ea5_tab_names_langdict
+)
 
 from .indicator_panel import PlaceholderPanel
 
@@ -213,21 +208,14 @@ monitor_panel_classes_list = [
     ma2_indicator_panel,
     ma3_indicator_panel,
     mb2_indicator_panel,
-    PlaceholderPanel(
-        placeholder_html_string="<h2>Other indicator panels go down here</h2>"
-    )
 ]
 
 evaluation_panel_classes_list = [
     ea1_indicator_panel,
-    # ea2_indicator_panel,
-    # ea3_indicator_panel,
-    PlaceholderPanel(
-        placeholder_html_string="<h2>Eval indicator panel here</h2>"
-    ),
-    PlaceholderPanel(
-        placeholder_html_string="<h2>Eval indicator panels go down here</h2>"
-    ),
+    ea2_indicator_panel,
+    ea3_indicator_panel,
+    ea4_indicator_panel,
+    ea5_indicator_panel,
 ]
 
 

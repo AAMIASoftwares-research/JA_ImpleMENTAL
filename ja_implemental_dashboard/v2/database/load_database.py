@@ -58,6 +58,7 @@ file_path = filedialog.askopenfilename(
 if file_path == "":
     print("No file selected. Exiting.")
     exit()
+print("Database file selected:\n\t", file_path)
 
 # CONNECT TO USER SELECTED DATABASE
 USER_DATABASE_FILE = os.path.normpath(file_path)
