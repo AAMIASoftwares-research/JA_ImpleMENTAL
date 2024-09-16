@@ -331,12 +331,17 @@ class ea1_tab0(object):
             cursor = self._db_conn.cursor()
             # get the years of inclusion as all years from the first occurrence of the disease
             # for any patient up to the current year
-            min_year_ = int(
-                cursor.execute(f"""
-                    SELECT MIN(YEAR_OF_ONSET) FROM cohorts
-                    WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
-                """).fetchone()[0]
-            )
+            try:
+                min_year_ = int(
+                    cursor.execute(f"""
+                        SELECT MIN(YEAR_OF_ONSET) FROM cohorts
+                        WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
+                    """).fetchone()[0]
+                )
+                min_year_available_ = True
+            except:
+                min_year_ = time.localtime().tm_year - 2
+                min_year_available_ = False
             cursor.close()
             ea1_list = []
             years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
@@ -406,6 +411,10 @@ class ea1_tab0(object):
             line_width=0,
             size=10
         )
+        if not min_year_available_:
+            print("no data available")              ########################################    TODO
+            # plot.text (write no data available message on the plot)
+            # also hide the line and circle
         plot.add_tools(hover_tool)
         plot.toolbar.autohide = True
         plot.toolbar.logo = None
@@ -496,12 +505,17 @@ class ea1_tab1(object):
             cursor = self._db_conn.cursor()
             # get the years of inclusion as all years from the first occurrence of the disease
             # for any patient up to the current year
-            min_year_ = int(
-                cursor.execute(f"""
-                    SELECT MIN(YEAR_OF_ONSET) FROM cohorts
-                    WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
-                """).fetchone()[0]
-            )
+            try:
+                min_year_ = int(
+                    cursor.execute(f"""
+                        SELECT MIN(YEAR_OF_ONSET) FROM cohorts
+                        WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
+                    """).fetchone()[0]
+                )
+                min_year_available_ = True
+            except:
+                min_year_ = time.localtime().tm_year - 2
+                min_year_available_ = False
             cursor.close()
             ea1_list = []
             years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
@@ -682,12 +696,17 @@ class ea1_tab2(object):
             cursor = self._db_conn.cursor()
             # get the years of inclusion as all years from the first occurrence of the disease
             # for any patient up to the current year
-            min_year_ = int(
-                cursor.execute(f"""
-                    SELECT MIN(YEAR_OF_ONSET) FROM cohorts
-                    WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
-                """).fetchone()[0]
-            )
+            try:
+                min_year_ = int(
+                    cursor.execute(f"""
+                        SELECT MIN(YEAR_OF_ONSET) FROM cohorts
+                        WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
+                    """).fetchone()[0]
+                )
+                min_year_available_ = True
+            except:
+                min_year_ = time.localtime().tm_year - 2
+                min_year_available_ = False
             cursor.close()
             ea1_list = []
             years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
