@@ -1,3 +1,9 @@
+# IMPORTANT
+#
+# SLOVENIA ONLY HAS DEMOGRAPHICS AND DIAGNOSES TABLES WITH RESPECT TO THE COMPLETE VERSION OF THE DASHBOARD
+# (PLUS THE TABLES CREATED BY THE DASHBOARD)
+
+
 import os, time, datetime
 import hashlib
 import bokeh.palettes
@@ -693,7 +699,7 @@ def check_database_has_tables(connection: sqlite3.Connection, cohorts_required:b
     - list[str]: the list of tables that are missing in the database (if True, empty list).
     """
     # required tables
-    required_tables = ["demographics", "diagnoses", "interventions", "pharma", "physical_exams"]
+    required_tables = ["demographics", "pharma"]
     if cohorts_required:
         required_tables.append("cohorts")
     if age_stratification_required:
@@ -730,7 +736,7 @@ def standardize_table_names(connection: sqlite3.Connection) -> None:
     """
     cursor = connection.cursor()
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    tables = [c[0] for c in cursor.fetchall()]
+    tables:list[str] = [c[0] for c in cursor.fetchall()]
     for table in tables:
         new_table = table.strip().lower().replace(" ", "_")
         if table != new_table:
@@ -807,71 +813,6 @@ def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
             /* Here, casting is not necessary because pattern-matching with LIKE also */
             /* works wether ATC_CHAR is BLOB or TEXT independently */
     """)
-    # slim down the diagnoses table
-    cursor.execute("""
-        CREATE TABLE slim.diagnoses AS
-        SELECT *
-        FROM diagnoses
-        WHERE
-            (
-                cast(CODING_SYSTEM AS TEXT) = 'ICD9'
-                AND
-                (
-                    substr(cast(DIAGNOSIS AS TEXT),1,3) IN (
-                                                '311', /* Depression */
-                                                '295', '297', /* Schizophrenic Disorder */
-                                                /* Bipolar Disorder */
-                                                '301' /* Personality Disorder */
-                                                /* Anxiety Disorders */
-                                                /* Suicidal Behaviour */
-                                            )
-                    OR
-                    substr(cast(DIAGNOSIS AS TEXT),1,4) IN (
-                                                '2962', '2963', '2980', '3004', '3090', '3091', /* Depression */
-                                                '2982', '2983', '2984', '2988', '2989', /* Schizophrenic Disorder */
-                                                '2960', '2961', '2964', '2965', '2966', '2967', '2981', /* Bipolar Disorder */
-                                                /* Personality Disorder */
-                                                '3000', '3001', '3003', '3098', '3083', /* Anxiety Disorders */
-                                                'E950', 'E951', 'E952', 'E953', 'E954', 'E955', 'E956', 'E957', 'E958', 'E959' /* Suicidal Behaviour */
-                                            )
-                    OR
-                    substr(cast(DIAGNOSIS AS TEXT),1,5) IN (
-                                                /* Depression */
-                                                /* Schizophrenic Disorder */
-                                                '29680', '29681', '29689', '29699', /* Bipolar Disorder */
-                                                /* Personality Disorder */
-                                                /* Anxiety Disorders */
-                                                'V6284' /* Suicidal Behaviour */
-                                            )
-                )
-            )
-            OR
-            (
-                cast(CODING_SYSTEM AS TEXT) = 'ICD10'
-                AND
-                (
-                   substr(cast(DIAGNOSIS AS TEXT),1,3) IN (
-                                                'F32', 'F33', 'F39', /* Depression */
-                                                'F20', 'F21', 'F22', 'F23', 'F24', 'F25', 'F28', 'F29', /* Schizophrenic Disorder */
-                                                'F30', 'F31', /* Bipolar Disorder */
-                                                'F60', 'F61', /* Personality Disorder */
-                                                'F40', 'F41', 'F42', /* Anxiety Disorders */
-                                                'X60', 'X61', 'X62', 'X63', 'X64', 'X65', 'X66', 'X67', 'X68', 'X69', 'X70', 'X71', 'X72', 'X73', 'X74', 'X75', 'X76', 'X77', 'X78', 'X79', 'X80', 'X81', 'X82', 'X83', 'X84', 'Y10', 'Y11', 'Y12', 'Y13', 'Y14', 'Y15', 'Y16', 'Y17', 'Y18', 'Y19', 'Y20', 'Y21', 'Y22', 'Y23', 'Y24', 'Y25', 'Y26', 'Y27', 'Y28', 'Y29', 'Y30', 'Y31', 'Y32', 'Y33', 'Y34' /* Suicidal Behaviour */
-                                            )
-                    OR
-                    substr(cast(DIAGNOSIS AS TEXT),1,4) IN (
-                                                'F341', 'F348', 'F349', 'F381', 'F388', 'F431', 'F432', /* Depression */
-                                                /* Schizophrenic Disorder */
-                                                'F340', 'F380', /* Bipolar Disorder */
-                                                /* Personality Disorder */
-                                                'F930', 'F931', 'F932', 'F430', 'F431', 'F438', 'F439' /* Anxiety Disorders */
-                                                /* Suicidal Behaviour */
-                                            )
-                )
-            )
-    """)
-    # tables 'interventions' is by construction already fine
-    cursor.execute("CREATE TABLE slim.interventions AS SELECT * FROM interventions")
     # slim down the demographics table
     # to do so, find all the subjects that are in the slimmed down pharma and diagnoses tables
     # as well as in the interventions and physical_exams tables
@@ -886,19 +827,6 @@ def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
                either in the pharma, diagnoses, interventions tables 
             */
             SELECT ID_SUBJECT FROM slim.pharma
-            UNION
-            SELECT ID_SUBJECT FROM slim.diagnoses
-            UNION
-            SELECT ID_SUBJECT FROM slim.interventions
-        )
-    """)
-    # slim down the physical_exams table from the unique set of subjects in the demographics table
-    cursor.execute("""
-        CREATE TABLE slim.physical_exams AS
-        SELECT *
-        FROM physical_exams
-        WHERE ID_SUBJECT IN (
-            SELECT ID_SUBJECT FROM slim.demographics
         )
     """)
     # commit changes and close
@@ -917,10 +845,7 @@ def create_indices_on_ja_database(connection: sqlite3.Connection, force=False) -
         return
     cursor = connection.cursor()
     cursor.execute("CREATE INDEX idx_demographics_id_subject ON demographics(ID_SUBJECT)")
-    cursor.execute("CREATE INDEX idx_diagnoses_id_subject ON diagnoses(ID_SUBJECT)")
-    cursor.execute("CREATE INDEX idx_interventions_id_subject ON interventions(ID_SUBJECT)")
     cursor.execute("CREATE INDEX idx_pharma_id_subject ON pharma(ID_SUBJECT)")
-    cursor.execute("CREATE INDEX idx_physical_exams_id_subject ON physical_exams(ID_SUBJECT)")
     # done
     connection.commit()
     cursor.close()
@@ -1021,6 +946,8 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
                     RENAME COLUMN {cn}_new TO {cn}
                 """ 
                 cursor.execute(query)
+            else:
+                print(f"Table '{table}' has column '{cn}' with type '{ct}' which is not in the record layout.\nRecord Layout:\n{DATABSE_RECORD_LAYOUT_DATA_TYPES}")
     # be sure that no columns with the suffix _new exists
     tables = get_tables(connection)
     for table in tables:
@@ -1051,23 +978,19 @@ def preprocess_database_datetimes(connection: sqlite3.Connection, force: bool=Fa
     print("Preprocessing date-time columns of the internal database...", end=" ")
     DATETIME_COLUMNS_REQUIRED = {
         "demographics": ["DT_BIRTH"],
-        "diagnoses": ["DATE_DIAG"],
-        "interventions": ["DT_INT"],
         "pharma": ["DT_PRESCR"],
-        "physical_exams": ["DT_INT"]
     }
     DATETIME_COLUMNS_NOT_REQUIRED = {
         "demographics": ["DT_DEATH", "DT_START_ASSIST", "DT_END_ASSIST"],
-        "diagnoses": ["DATE_DIAG_END", "DATE_ADMISSION", "DATE_DISCHARGE"],
-        "interventions": [],
         "pharma": [],
-        "physical_exams": []
     }
     pairs = [(k, v, True) for k, v in DATETIME_COLUMNS_REQUIRED.items()]
     pairs.extend([(k, v, False) for k, v in DATETIME_COLUMNS_NOT_REQUIRED.items()])
     cursor = connection.cursor()
     for table, columns, required in pairs:
         for column in columns:
+            if not column in get_column_names(connection, table):
+                continue
             # first, drop rows that are not compliant with either:
             # - ISO 8601 format: 'YYYY-MM-DD HH:MM:SS' or 'YYYY-MM-DD'
             # - YYMMDD10 format: 'YYYY/MM/DD'
@@ -1106,18 +1029,9 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
     """ Create the temporary cohorts table in the database.
 
     Table columns:
-    - ID_SUBJECT: alphanumeric (could be non-unique in the table)
-    - YEAR_ENTRY: integer, the year considered for the inclusion in the cohort
-    - AGE_ENTRY: integer, the age of the patient at the year of inclusion
-    - ID_DISORDER: string, the disorder of the patient
-    - ID_COHORT: string, the cohort of the patient
-        - "SCHIZO", stands for Schizophrenic Disorder
-        - "DEPRE", stands for Depression
-        - "BIPOLAR", stands for Bipolar Disorder
-    - ID_COHORT: string, the cohort of the patient
-        - "A", stands for INCIDENT
-        - "B", stands for PREVALENT
-        - "C", stands for INCIDENT for age 18-25
+    - ID_SUBJECT: TEXT
+    - ID_DISORDER: TEXT
+    - YEAR_OF_ONSET: INTEGER
 
     cohorts is kept into the jasqlite3 database as a table.
     Use force=True if any previous preprocessing has happened.
