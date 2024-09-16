@@ -79,8 +79,21 @@ class Dispatcher(object):
 # and the preprocessing of it.
 # Check out load_database for the whole process
 from ..database.load_database import DB
+from .indicator_panel import SectionDividerPanel
 
 # Monitoring indicators
+
+ma_section_divider = SectionDividerPanel(
+    section_title_langdict={
+        "en": "A. TREATED PREVALENCE AND INCIDENCE IN MENTAL HEALTH SERVICES",
+        "it": "A. PREVALENZA E INCIDENZA TRATTATA NEI SERVIZI DI SALUTE MENTALE",
+        "fr": "A. PRÉVALENCE ET INCIDENCE TRAITÉES DANS LES SERVICES DE SANTÉ MENTALE",
+        "de": "A. BEHANDELTE PRÄVALENZ UND INZIDENZ IN PSYCHIATRISCHEN DIENSTEN",
+        "es": "A. PREVALENCIA E INCIDENCIA TRATADAS EN LOS SERVICIOS DE SALUD MENTAL",
+        "pt": "A. PREVALÊNCIA E INCIDÊNCIA TRATADAS NOS SERVIÇOS DE SAÚDE MENTAL",
+    },
+    is_first_in_page=True
+)
 
 from .monitoring.a1 import (
     ma1_code, ma1_name_langdict, ma1_short_desription_langdict,
@@ -121,6 +134,17 @@ ma3_indicator_panel = IndicatorPanel(
     tabs=[ma3_tab0(DB), ma3_tab1()],
     tab_names_langdict=ma3_tab_names_langdict
 )
+mb_section_divider = SectionDividerPanel(
+    section_title_langdict={
+        "en": "B. OUTPATIENT CARE",
+        "it": "B. CURA AMBULATORIALE",
+        "fr": "B. SOINS AMBULATOIRES",
+        "de": "B. AMBULANTE VERSORGUNG",
+        "es": "B. ATENCIÓN AMBULATORIA",
+        "pt": "B. CUIDADOS AMBULATORIAIS",
+    }
+)
+
 from .monitoring.b2 import (
     mb2_code, mb2_name_langdict, mb2_short_desription_langdict,
     mb2_tab_names_langdict,
@@ -135,6 +159,17 @@ mb2_indicator_panel = IndicatorPanel(
     tab_names_langdict=mb2_tab_names_langdict
 )
 # Evaluation indicators
+ea_section_divider = SectionDividerPanel(
+    section_title_langdict={
+        "en": "A. ACCESSIBILITY",
+        "it": "A. ACCESSIBILITÀ",
+        "fr": "A. ACCESSIBILITÉ",
+        "de": "A. ZUGÄNGLICHKEIT",
+        "es": "A. ACCESIBILIDAD",
+        "pt": "A. ACESSIBILIDADE",
+    },
+    is_first_in_page=True
+)
 from .evaluation.a1 import (
     ea1_code, ea1_name_langdict, ea1_short_desription_langdict,
     ea1_tab_names_langdict,
@@ -244,13 +279,16 @@ ea62_indicator_panel = IndicatorPanel(
 from .indicator_panel import PlaceholderPanel
 
 monitor_panel_classes_list = [
+    ma_section_divider,
     ma1_indicator_panel,
     ma2_indicator_panel,
     ma3_indicator_panel,
+    mb_section_divider,
     mb2_indicator_panel,
 ]
 
 evaluation_panel_classes_list = [
+    ea_section_divider,
     ea1_indicator_panel,
     ea2_indicator_panel,
     ea3_indicator_panel,

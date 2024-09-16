@@ -66,6 +66,47 @@ class PlaceholderPanel(object):
         self._pane.object = html_string
         return self._pane
 
+class SectionDividerPanel(object):
+    def __init__(self, section_title_langdict: dict[str:str], is_first_in_page=False) -> None:
+        self._section_title: dict[str: str] = section_title_langdict
+        self.is_first_in_page = is_first_in_page
+        for k in self._section_title.keys():
+            self._panes_langdict = self._section_title[k].upper()
+        self._panes_langdict = {k: self._get_pane_ny_language_key(k) for k in self._section_title.keys()}
+    
+    def _get_pane_ny_language_key(self, language_key: str):
+        return panel.pane.HTML(
+            f"""<div style="
+                    margin:  auto;
+                    margin-left: 3em;
+                    margin-top: {1 if self.is_first_in_page else 5}em;
+                    margin-bottom: 0.8em;
+                ">
+                    <h3 style="
+                        font-size: 1.5em;
+                        color: #5a5a5a;
+                        margin: 0;
+                        padding: 0;
+                        padding-right: 0.8em;
+                        background-color: white;
+                        width: fit-content;
+                    ">{self._section_title[language_key]}</h3>
+                    <div style="
+                        height: 21px;
+                        border-top: 2px solid #5a5a5a;
+                        border-radius: 7px;
+                        margin-top: -1.3em;
+                        width: calc( 100vw - 6.5em);
+                        position: relative;
+                        z-index: -1;
+                    ">
+                <div>
+            """,
+            styles={"margin": "0px", "padding": "0px"},
+        )
+    
+    def get_panel(self, **kwargs):
+        return self._panes_langdict[kwargs.get("language_code", "en")]
 
 
 class IndicatorPanel(object):
@@ -166,8 +207,6 @@ class IndicatorPanel(object):
             for tn, t in zip(self._tab_names[language_code], self._tabs)
         ]
         return tab_objects_list
-           
-        
     
     def get_panel(self, **kwargs):
         # expected kwargs:
@@ -202,3 +241,18 @@ class IndicatorPanel(object):
             )
         return self._pane
     
+
+if __name__ == "__main__":
+    text_langdict = {
+        "en": "English Text",
+        "fr": "French Text"
+    }
+    section_1 = SectionDividerPanel(text_langdict)
+    section_2 = SectionDividerPanel(text_langdict)
+    app = panel.Column(
+        section_1.get_panel(language_code="en"),
+        panel.pane.HTML("<p>Some other content</p>"),
+        panel.pane.HTML("<img srg='https://letsenhance.io/static/8f5e523ee6b2479e26ecc91b9c25261e/1015f/MainAfter.jpg'></img>"),
+        section_2.get_panel(language_code="en")
+    )
+    app.show()
