@@ -727,15 +727,19 @@ def print_tables_dimensions(connection: sqlite3.Connection):
 def standardize_table_names(connection: sqlite3.Connection) -> None:
     """All table names should be lowercase, without spaces before or after,
     and no spaces in between words.
+    
+    --- IMPORTANT ---
+    This function does NOT modify the original databse permanently
+    as table names modifications are not committed!
     """
     cursor = connection.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    tables = [c[0] for c in cursor.fetchall()]
+    tables = get_tables(connection)
     for table in tables:
-        new_table = table.strip().lower().replace(" ", "_")
+        new_table = table.strip().lower().replace(" ", "_").replace("-", "")
         if table != new_table:
-            print(f"Renaming table '{table}' to '{new_table}'")
-            cursor.execute(f"ALTER TABLE {table} RENAME TO {new_table}")
+            intermediate_name = new_table + "_new"
+            cursor.execute(f"ALTER TABLE {table} RENAME TO {intermediate_name}")
+            cursor.execute(f"ALTER TABLE {intermediate_name} RENAME TO {new_table}")
     cursor.close()
 
 def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
