@@ -1021,6 +1021,8 @@ def preprocess_database_data_types(connection: sqlite3.Connection, force: bool=F
                     RENAME COLUMN {cn}_new TO {cn}
                 """ 
                 cursor.execute(query)
+            else:
+                print(f"Table '{table}' has column '{cn}' with type '{ct}' which is not in the record layout.\nRecord Layout:\n{DATABSE_RECORD_LAYOUT_DATA_TYPES}")
     # be sure that no columns with the suffix _new exists
     tables = get_tables(connection)
     for table in tables:
