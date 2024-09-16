@@ -92,7 +92,6 @@ ma_section_divider = SectionDividerPanel(
     },
     is_first_in_page=True
 )
-
 from .monitoring.a1 import (
     ma1_code, ma1_name_langdict, ma1_short_desription_langdict,
     ma1_tab_names_langdict,
@@ -132,30 +131,6 @@ ma3_indicator_panel = IndicatorPanel(
     tabs=[ma3_tab0(DB), ma3_tab1()],
     tab_names_langdict=ma3_tab_names_langdict
 )
-mb_section_divider = SectionDividerPanel(
-    section_title_langdict={
-        "en": "B. OUTPATIENT CARE",
-        "it": "B. CURA AMBULATORIALE",
-        "fr": "B. SOINS AMBULATOIRES",
-        "de": "B. AMBULANTE VERSORGUNG",
-        "es": "B. ATENCIÓN AMBULATORIA",
-        "pt": "B. CUIDADOS AMBULATORIAIS",
-    }
-)
-
-from .monitoring.b2 import (
-    mb2_code, mb2_name_langdict, mb2_short_desription_langdict,
-    mb2_tab_names_langdict,
-    mb2_tab0, mb2_tab1, mb2_tab2, mb2_tab3
-)
-mb2_indicator_panel = IndicatorPanel(
-    monitoring_or_evaluation="_monitoring_",
-    indicator_code=mb2_code,
-    indicator_name=mb2_name_langdict,
-    indicator_short_description=mb2_short_desription_langdict,
-    tabs=[mb2_tab0(DB), mb2_tab1(DB), mb2_tab2(DB), mb2_tab3()],
-    tab_names_langdict=mb2_tab_names_langdict
-)
 # Evaluation indicators
 ea_section_divider = SectionDividerPanel(
     section_title_langdict={
@@ -167,45 +142,6 @@ ea_section_divider = SectionDividerPanel(
         "pt": "A. ACESSIBILIDADE",
     },
     is_first_in_page=True
-)
-from .evaluation.a1 import (
-    ea1_code, ea1_name_langdict, ea1_short_desription_langdict,
-    ea1_tab_names_langdict,
-    ea1_tab0, ea1_tab1, ea1_tab2, ea1_tab3
-)
-ea1_indicator_panel = IndicatorPanel(
-    monitoring_or_evaluation="_evaluation_",
-    indicator_code=ea1_code,
-    indicator_name=ea1_name_langdict,
-    indicator_short_description=ea1_short_desription_langdict,
-    tabs=[ea1_tab0(DB), ea1_tab1(DB), ea1_tab2(DB), ea1_tab3()],
-    tab_names_langdict=ea1_tab_names_langdict
-)
-from .evaluation.a2 import (
-    ea2_code, ea2_name_langdict, ea2_short_desription_langdict,
-    ea2_tab_names_langdict,
-    ea2_tab0, ea2_tab1, ea2_tab2, ea2_tab3
-)
-ea2_indicator_panel = IndicatorPanel(
-    monitoring_or_evaluation="_evaluation_",
-    indicator_code=ea2_code,
-    indicator_name=ea2_name_langdict,
-    indicator_short_description=ea2_short_desription_langdict,
-    tabs=[ea2_tab0(DB), ea2_tab1(DB), ea2_tab2(DB), ea2_tab3()],
-    tab_names_langdict=ea2_tab_names_langdict
-)
-from .evaluation.a3 import (
-    ea3_code, ea3_name_langdict, ea3_short_desription_langdict,
-    ea3_tab_names_langdict,
-    ea3_tab0, ea3_tab1, ea3_tab2, ea3_tab3
-)
-ea3_indicator_panel = IndicatorPanel(
-    monitoring_or_evaluation="_evaluation_",
-    indicator_code=ea3_code,
-    indicator_name=ea3_name_langdict,
-    indicator_short_description=ea3_short_desription_langdict,
-    tabs=[ea3_tab0(DB), ea3_tab1(DB), ea3_tab2(DB), ea3_tab3()],
-    tab_names_langdict=ea3_tab_names_langdict
 )
 from .evaluation.a4 import (
     ea4_code, ea4_name_langdict, ea4_short_desription_langdict,
@@ -281,23 +217,16 @@ monitor_panel_classes_list = [
     ma1_indicator_panel,
     ma2_indicator_panel,
     ma3_indicator_panel,
-    mb_section_divider,
-    mb2_indicator_panel,
 ]
 
 evaluation_panel_classes_list = [
     ea_section_divider,
-    ea1_indicator_panel,
-    ea2_indicator_panel,
-    ea3_indicator_panel,
     ea4_indicator_panel,
     ea5_indicator_panel,
     ea60_indicator_panel,
     ea61_indicator_panel,
     ea62_indicator_panel,
 ]
-
-
 
 
 

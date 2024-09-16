@@ -24,7 +24,7 @@ loading_js = f"""
 
 class Loading(object):
     def __init__(self):       
-        self.do_nothing = False # set false to see loading animation
+        self.do_nothing = True # set false to see loading animation
         self._panel_stylesheet = """
             width: 100vw;
             margin: 0;

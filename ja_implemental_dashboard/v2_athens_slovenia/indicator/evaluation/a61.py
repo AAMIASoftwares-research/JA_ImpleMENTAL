@@ -33,10 +33,10 @@ from ...main_selectors.cohort_text import COHORT_NAMES
 from ...loading.loading import increase_loading_counter, decrease_loading_counter
 
 # ATTENTION: THIS INDICATOR DOES NOT DEPEND ON THE DISEASE SELECTOR, AS THE DISEASE IS FIXED 
-# _schizophrenia_
+# _bipolar_disorder_ valproic acid, carbamazepine
 
 # indicator logic
-def ea4(**kwargs):
+def ea61(**kwargs):
     """
     output dict:
     - percentage (float): the indicator, ranage [0; 1]; 
@@ -46,7 +46,7 @@ def ea4(**kwargs):
     # inputs
     kwargs = clean_indicator_getter_input(**kwargs)
     connection: sqlite3.Connection = kwargs.get("connection", None)
-    disease_db_code = DISEASE_CODE_TO_DB_CODE['_schizophrenia_']
+    disease_db_code = DISEASE_CODE_TO_DB_CODE['_bipolar_disorder_']
     cohort_code = kwargs.get("cohort_code", None)
     year_of_inclusion = kwargs.get("year_of_inclusion", None)
     age = kwargs.get("age", None)
@@ -78,10 +78,10 @@ def ea4(**kwargs):
     # - first get the total of patients that
     #   satisfy the stratification and are in the cohort
     if cohort_code is None:
-        print("WARNING: cohort_code is None in ea4.")
+        print("WARNING: cohort_code is None in ea61.")
         cohort_code = "_a_"
     if cohort_code not in ["_a_", "_b_", "_c_"]:
-        print("WARNING: cohort_code is not valid in ea4:", cohort_code)
+        print("WARNING: cohort_code is not valid in ea61:", cohort_code)
         cohort_code = "_a_"
     if cohort_code == "_a_":
         cohort_condition_string = f"ID_DISORDER = '{disease_db_code}' AND YEAR_OF_ONSET <= {year_of_inclusion}"
@@ -100,7 +100,7 @@ def ea4(**kwargs):
             )
             """
     cursor.execute(f"""
-        CREATE TEMPORARY TABLE temp_ea4 AS
+        CREATE TEMPORARY TABLE temp_ea61 AS
         SELECT DISTINCT ID_SUBJECT 
         FROM {stratified_demographics_table_name}
         WHERE ID_SUBJECT IN (
@@ -108,22 +108,26 @@ def ea4(**kwargs):
                 WHERE {cohort_condition_string}
         )
     """)
-    total_ = int(cursor.execute(f"SELECT COUNT(*) FROM temp_ea4").fetchone()[0])
+    total_ = int(cursor.execute(f"SELECT COUNT(*) FROM temp_ea61").fetchone()[0])
     # - from this list, find the number of patients that
     #   have at least one prescription of antipsychotic drugs during the year of evaluation
     cursor.execute(f"""
-        CREATE TEMPORARY TABLE temp_ea4_2 AS
+        CREATE TEMPORARY TABLE temp_ea61_2 AS
         SELECT DISTINCT ID_SUBJECT
-        FROM temp_ea4
+        FROM temp_ea61
         WHERE ID_SUBJECT IN (
             SELECT DISTINCT ID_SUBJECT
             FROM pharma
             WHERE
-                ID_SUBJECT IN (SELECT ID_SUBJECT FROM temp_ea4)
+                ID_SUBJECT IN (SELECT ID_SUBJECT FROM temp_ea61)
                 AND
                 strftime('%Y', DT_PRESCR) = '{year_of_inclusion}'
                 AND
-                ATC_CHAR LIKE 'N05A%' AND ATC_CHAR NOT LIKE 'N05AN%'
+                (
+                    ATC_CHAR LIKE 'N03AG01%' /* valproic acid */
+                    OR
+                    ATC_CHAR LIKE 'N03AF01%' /* carbamazepine */
+                )
         )
         /*
         In this call, I don't have to worry about person characteristic, 
@@ -131,7 +135,7 @@ def ea4(**kwargs):
         in the previous call.
         */
     """)
-    numerator_ = int(cursor.execute(f"SELECT COUNT(*) FROM temp_ea4_2").fetchone()[0])
+    numerator_ = int(cursor.execute(f"SELECT COUNT(*) FROM temp_ea61_2").fetchone()[0])
     # - calculate the percentage
     output["percentage"] = numerator_ / total_ if total_ > 0 else 0.0
     # - find the distribution of number of interventions per patient from the interventions table
@@ -139,19 +143,23 @@ def ea4(**kwargs):
         SELECT COUNT(*)
         FROM pharma
         WHERE
-            ID_SUBJECT IN (SELECT ID_SUBJECT FROM temp_ea4_2)
+            ID_SUBJECT IN (SELECT ID_SUBJECT FROM temp_ea61_2)
             AND
             strftime('%Y', DT_PRESCR) = '{year_of_inclusion}'
             AND
-            ATC_CHAR LIKE 'N05A%' AND ATC_CHAR NOT LIKE 'N05AN%'
+            (
+                ATC_CHAR LIKE 'N03AG01%' /* valproic acid */
+                OR
+                ATC_CHAR LIKE 'N03AF01%' /* carbamazepine */
+            )
         GROUP BY ID_SUBJECT
     """)
     distribution_ = [int(row[0]) for row in cursor.fetchall()]
     output["distribution"] = distribution_ if len(distribution_) > 0 else [0, 0]
     # delete the table of stratified demograpohics
     cursor.execute(f"DROP TABLE IF EXISTS {stratified_demographics_table_name}")
-    cursor.execute("DROP TABLE IF EXISTS temp_ea4")
-    cursor.execute("DROP TABLE IF EXISTS temp_ea4_2")
+    cursor.execute("DROP TABLE IF EXISTS temp_ea61")
+    cursor.execute("DROP TABLE IF EXISTS temp_ea61_2")
     # close the cursor
     cursor.close()
     # check output
@@ -161,22 +169,22 @@ def ea4(**kwargs):
     return output
 
 # Indicator display
-ea4_code = "EA4"
-ea4_name_langdict = {
-    "en": "Access to psychotropic treatment in schizophrenic disorders",
-    "it": "Accesso al trattamento psicotropo nei disturbi schizofrenici",
-    "fr": "Accès au traitement psychotrope dans les troubles schizophréniques",
-    "de": "Zugang zur psychotropen Behandlung bei schizophrenen Störungen",
-    "es": "Acceso al tratamiento psicotrópico en trastornos esquizofrénicos",
-    "pt": "Acesso ao tratamento psicotrópico em transtornos esquizofrênicos"
+ea61_code = "EA6-1"
+ea61_name_langdict = {
+    "en": "Access to psychotropic treatment in bipolar disorder - valproic acid, carbamazepine",
+    "it": "Accesso al trattamento psicotropo nel disturbo bipolare - acido valproico, carbamazepina",
+    "fr": "Accès au traitement psychotrope dans le trouble bipolaire - acide valproïque, carbamazépine",
+    "de": "Zugang zur psychotropen Behandlung bei bipolaren Störungen - Valproinsäure, Carbamazepin",
+    "es": "Acceso al tratamiento psicotrópico en el trastorno bipolar - ácido valproico, carbamazepina",
+    "pt": "Acesso ao tratamento psicotrópico no transtorno bipolar - ácido valproico, carbamazepina"
 }
-ea4_short_desription_langdict = {
-    "en": """Percentage of patients with schizophrenic disorder receiving at least one prescription of antipsychotic drugs during the year of evaluation.""",
-    "it": """Percentuale di pazienti con disturbo schizofrenico che ricevono almeno una prescrizione di farmaci antipsicotici durante l'anno di valutazione.""",
-    "fr": """Pourcentage de patients atteints de trouble schizophrénique recevant au moins une prescription de médicaments antipsychotiques pendant l'année d'évaluation.""",
-    "de": """Prozentsatz der Patienten mit schizophrenen Störungen, die während des Bewertungsjahres mindestens ein Rezept für Antipsychotika erhalten.""",
-    "es": """Porcentaje de pacientes con trastorno esquizofrénico que reciben al menos una receta de medicamentos antipsicóticos durante el año de evaluación.""",
-    "pt": """Percentagem de pacientes com transtorno esquizofrênico que recebem pelo menos uma prescrição de medicamentos antipsicóticos durante o ano de avaliação."""
+ea61_short_desription_langdict = {
+    "en": """Percentage of patients with bipolar disorder receiving at least one prescription of mood stabilizers during the year of evaluation""",
+    "it": """Percentuale di pazienti con disturbo bipolare che ricevono almeno una prescrizione di stabilizzatori dell'umore durante l'anno di valutazione""",
+    "fr": """Pourcentage de patients atteints de trouble bipolaire recevant au moins une prescription de stabilisants de l'humeur pendant l'année d'évaluation""",
+    "de": """Prozentsatz der Patienten mit bipolaren Störungen, die im Bewertungsjahr mindestens ein Rezept für Stimmungsstabilisatoren erhalten""",
+    "es": """Porcentaje de pacientes con trastorno bipolar que reciben al menos una receta de estabilizadores del estado de ánimo durante el año de evaluación""",
+    "pt": """Percentagem de pacientes com transtorno bipolar que recebem pelo menos uma prescrição de estabilizadores do humor durante o ano de avaliação"""
 }
 
 # other useful text
@@ -275,7 +283,7 @@ _hover_tool_langdict = {
 # - tab 2: help
 ####################################################
 
-ea4_tab_names_langdict: dict[str: list[str]] = {
+ea61_tab_names_langdict: dict[str: list[str]] = {
     "en": ["Indicator"],
     "it": ["Indicatore"],
     "fr": ["Indicateur"],
@@ -284,7 +292,7 @@ ea4_tab_names_langdict: dict[str: list[str]] = {
     "pt": ["Indicador"]
 }
 
-class ea4_tab0(object):
+class ea61_tab0(object):
     def __init__(self, db_conn: sqlite3.Connection):
         self._language_code = "en"
         self._db_conn = db_conn
@@ -310,7 +318,7 @@ class ea4_tab0(object):
         educational_level = self.widgets_instance.value["educational_level"]
         # logic
         is_in_cache = is_call_in_cache(
-            indicator_name=ea4_code,
+            indicator_name=ea61_code,
             disease_code=disease_code,
             cohort=cohort_code,
             age_interval=age_interval_list,
@@ -321,7 +329,7 @@ class ea4_tab0(object):
         )
         if is_in_cache:
             x_json, y_json = retrieve_cached_json(
-                indicator_name=ea4_code,
+                indicator_name=ea61_code,
                 disease_code=disease_code,
                 cohort=cohort_code,
                 age_interval=age_interval_list,
@@ -333,22 +341,25 @@ class ea4_tab0(object):
             years_to_evaluate = [int(v) for v in json.loads(x_json)]
             y = json.loads(y_json)
             # encode for plotting
-            ea4_list = [100*float(v) for v in y["percentage"]]
+            ea61_list = [100*float(v) for v in y["percentage"]]
         else:
             cursor = self._db_conn.cursor()
             # get the years of inclusion as all years from the first occurrence of the disease
             # for any patient up to the current year
-            min_year_ = int(
-                cursor.execute(f"""
-                    SELECT MIN(YEAR_OF_ONSET) FROM cohorts
-                    WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
-                """).fetchone()[0]
-            )
+            try:
+                min_year_ = int(
+                    cursor.execute(f"""
+                        SELECT MIN(YEAR_OF_ONSET) FROM cohorts
+                        WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
+                    """).fetchone()[0]
+                )
+            except:
+                min_year_ = time.localtime().tm_year - 5
             cursor.close()
-            ea4_list = []
+            ea61_list = []
             years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
             for year in years_to_evaluate:
-                ea4_ = ea4(
+                ea61_ = ea61(
                     connection=self._db_conn,
                     disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
                     cohort_code=cohort_code,
@@ -359,17 +370,17 @@ class ea4_tab0(object):
                     job_condition=job_condition,
                     educational_level=educational_level
                 )
-                ea4_list.append(ea4_)
+                ea61_list.append(ea61_)
             # cache everything
             x_json = json.dumps(years_to_evaluate)
             y_json = json.dumps(
                 {
-                    "percentage": [ea4_["percentage"] for ea4_ in ea4_list],
-                    "distribution": [ea4_["distribution"] for ea4_ in ea4_list]
+                    "percentage": [ea61_["percentage"] for ea61_ in ea61_list],
+                    "distribution": [ea61_["distribution"] for ea61_ in ea61_list]
                 }
             )
             cache_json(
-                indicator_name=ea4_code,
+                indicator_name=ea61_code,
                 disease_code=disease_code,
                 cohort=cohort_code,
                 age_interval=age_interval_list,
@@ -381,7 +392,7 @@ class ea4_tab0(object):
                 y_json=y_json
             )
             # encode for plotting
-            ea4_list = [100*ea4_["percentage"] for ea4_ in ea4_list]
+            ea61_list = [100*ea61_["percentage"] for ea61_ in ea61_list]
         # plot - use bokeh because it allows independent zooming
         hover_tool = bokeh.models.HoverTool(
             tooltips=[
@@ -392,7 +403,7 @@ class ea4_tab0(object):
         plot = bokeh.plotting.figure(
             sizing_mode="stretch_width",
             height=350,
-            title=ea4_code + " - " + ea4_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code] + ", " + COHORT_NAMES[language_code][cohort_code],
+            title=ea61_code + " - " + ea61_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code] + ", " + COHORT_NAMES[language_code][cohort_code],
             x_axis_label=_year_langdict[language_code],
             x_range=(years_to_evaluate[0]-0.5, years_to_evaluate[-1]+0.5),
             y_axis_label=_percentage_of_patients_langdict[language_code],
@@ -404,12 +415,12 @@ class ea4_tab0(object):
         plot.xgrid.grid_line_color = None
         plot.yaxis[0].formatter = bokeh.models.PrintfTickFormatter(format="%.0f%%")
         plot.line(
-            years_to_evaluate, ea4_list,
-            line_color="#82CD47FF" # https://colorhunt.co/palette/f0ff4282cd4754b435379237
+            years_to_evaluate, ea61_list,
+            line_color="#134B70" # https://colorhunt.co/palette/201e43134b70508c9beeeeee
         )
         plot.circle(
-            years_to_evaluate, ea4_list,
-            fill_color="#82CD47FF", # https://colorhunt.co/palette/f0ff4282cd4754b435379237
+            years_to_evaluate, ea61_list,
+            fill_color="#134B70", # https://colorhunt.co/palette/201e43134b70508c9beeeeee
             line_width=0,
             size=10
         )
@@ -429,7 +440,7 @@ class ea4_tab0(object):
             panel.bind(
                 self.get_plot, 
                 language_code=language_code, 
-                disease_code="_schizophrenia_",
+                disease_code="_bipolar_disorder_",
                 cohort_code=cohort_code,
                 indicator_widget_value=self.widgets_instance.param.value,
             ),
@@ -441,14 +452,14 @@ class ea4_tab0(object):
 
 #
 
-ea4_tab_names_langdict["en"].append("Indicator distribution boxplot")
-ea4_tab_names_langdict["it"].append("Distribuzione dell'indicatore con boxplot")
-ea4_tab_names_langdict["fr"].append("Distribution de l'indicateur avec boxplot")
-ea4_tab_names_langdict["de"].append("Indikatorverteilung Boxplot")
-ea4_tab_names_langdict["es"].append("Distribución del indicador con boxplot")
-ea4_tab_names_langdict["pt"].append("Distribuição do indicador com boxplot")
+ea61_tab_names_langdict["en"].append("Indicator distribution boxplot")
+ea61_tab_names_langdict["it"].append("Distribuzione dell'indicatore con boxplot")
+ea61_tab_names_langdict["fr"].append("Distribution de l'indicateur avec boxplot")
+ea61_tab_names_langdict["de"].append("Indikatorverteilung Boxplot")
+ea61_tab_names_langdict["es"].append("Distribución del indicador con boxplot")
+ea61_tab_names_langdict["pt"].append("Distribuição do indicador com boxplot")
 
-class ea4_tab1(object):
+class ea61_tab1(object):
     def __init__(self, db_conn: sqlite3.Connection):
         self._language_code = "en"
         self._db_conn = db_conn
@@ -474,7 +485,7 @@ class ea4_tab1(object):
         educational_level = self.widgets_instance.value["educational_level"]
         # logic
         is_in_cache = is_call_in_cache(
-            indicator_name=ea4_code,
+            indicator_name=ea61_code,
             disease_code=disease_code,
             cohort=cohort_code,
             age_interval=age_interval_list,
@@ -485,7 +496,7 @@ class ea4_tab1(object):
         )
         if is_in_cache:
             x_json, y_json = retrieve_cached_json(
-                indicator_name=ea4_code,
+                indicator_name=ea61_code,
                 disease_code=disease_code,
                 cohort=cohort_code,
                 age_interval=age_interval_list,
@@ -497,22 +508,25 @@ class ea4_tab1(object):
             years_to_evaluate = [int(v) for v in json.loads(x_json)]
             y = json.loads(y_json)
             # encode for plotting
-            ea4_dist_list = [[int(n) for n in v] for v in y["distribution"]]
+            ea61_dist_list = [[int(n) for n in v] for v in y["distribution"]]
         else:
             cursor = self._db_conn.cursor()
             # get the years of inclusion as all years from the first occurrence of the disease
             # for any patient up to the current year
-            min_year_ = int(
-                cursor.execute(f"""
-                    SELECT MIN(YEAR_OF_ONSET) FROM cohorts
-                    WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
-                """).fetchone()[0]
-            )
+            try:
+                min_year_ = int(
+                    cursor.execute(f"""
+                        SELECT MIN(YEAR_OF_ONSET) FROM cohorts
+                        WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
+                    """).fetchone()[0]
+                )
+            except:
+                min_year_ = time.localtime().tm_year - 5
             cursor.close()
-            ea4_list = []
+            ea61_list = []
             years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
             for year in years_to_evaluate:
-                ea4_ = ea4(
+                ea61_ = ea61(
                     connection=self._db_conn,
                     disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
                     cohort_code=cohort_code,
@@ -523,17 +537,17 @@ class ea4_tab1(object):
                     job_condition=job_condition,
                     educational_level=educational_level
                 )
-                ea4_list.append(ea4_)
+                ea61_list.append(ea61_)
             # cache everything
             x_json = json.dumps(years_to_evaluate)
             y_json = json.dumps(
                 {
-                    "percentage": [ea4_["percentage"] for ea4_ in ea4_list],
-                    "distribution": [ea4_["distribution"] for ea4_ in ea4_list]
+                    "percentage": [ea61_["percentage"] for ea61_ in ea61_list],
+                    "distribution": [ea61_["distribution"] for ea61_ in ea61_list]
                 }
             )
             cache_json(
-                indicator_name=ea4_code,
+                indicator_name=ea61_code,
                 disease_code=disease_code,
                 cohort=cohort_code,
                 age_interval=age_interval_list,
@@ -545,7 +559,7 @@ class ea4_tab1(object):
                 y_json=y_json
             )
             # encode for plotting
-            ea4_dist_list = [l["distribution"] for l in ea4_list]
+            ea61_dist_list = [l["distribution"] for l in ea61_list]
         # plot: BoxWhisker (not available in Bokeh)
         # make a BoxWhisker plot
         # groups (the years)
@@ -554,9 +568,9 @@ class ea4_tab1(object):
         g_ = []
         v_ = []
         for i, y_ in enumerate(years_to_evaluate):
-            n = len(ea4_dist_list[i])
+            n = len(ea61_dist_list[i])
             g_.extend([y_] * n)
-            v_.extend(ea4_dist_list[i])
+            v_.extend(ea61_dist_list[i])
         plot = holoviews.BoxWhisker(
             (g_, v_), 
             kdims=[("year", _year_langdict[language_code])], 
@@ -564,19 +578,19 @@ class ea4_tab1(object):
         ).opts(
             show_legend=False, 
             box_fill_color="#d3e3fd", 
-            title=ea4_code + " - " + ea4_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code] + ", " + COHORT_NAMES[language_code][cohort_code],
+            title=ea61_code + " - " + ea61_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code] + ", " + COHORT_NAMES[language_code][cohort_code],
         )
         bokeh_plot = holoviews.render(plot)
         # add a transparent Circle plot to show some info with a custom hover tool
         source = bokeh.models.ColumnDataSource({
             "year": [str(i) for i in years_to_evaluate],
-            "median": [numpy.median(ea4_dist_list[i]) for i in range(len(years_to_evaluate))],
-            "mean": [numpy.mean(ea4_dist_list[i]) for i in range(len(years_to_evaluate))],
-            "stdev": [numpy.std(ea4_dist_list[i]) for i in range(len(years_to_evaluate))],
-            "q1": [numpy.percentile(ea4_dist_list[i], 25) for i in range(len(years_to_evaluate))],
-            "q3": [numpy.percentile(ea4_dist_list[i], 75) for i in range(len(years_to_evaluate))],
-            "iqr": [numpy.percentile(ea4_dist_list[i], 75) - numpy.percentile(ea4_dist_list[i], 25) for i in range(len(years_to_evaluate))],
-            "count": [len(ea4_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "median": [numpy.median(ea61_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "mean": [numpy.mean(ea61_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "stdev": [numpy.std(ea61_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "q1": [numpy.percentile(ea61_dist_list[i], 25) for i in range(len(years_to_evaluate))],
+            "q3": [numpy.percentile(ea61_dist_list[i], 75) for i in range(len(years_to_evaluate))],
+            "iqr": [numpy.percentile(ea61_dist_list[i], 75) - numpy.percentile(ea61_dist_list[i], 25) for i in range(len(years_to_evaluate))],
+            "count": [len(ea61_dist_list[i]) for i in range(len(years_to_evaluate))],
         })
         hover_tool = bokeh.models.HoverTool(
             tooltips=[
@@ -610,13 +624,12 @@ class ea4_tab1(object):
         # expected kwargs:
         # language_code, disease_code
         language_code = kwargs.get("language_code", "en")
-        disease_code = kwargs.get("disease_code", "_schizophrenia_")
         cohort_code = kwargs.get("cohort_code", "_a_")
         pane = panel.Row(
             panel.bind(
                 self.get_plot, 
                 language_code=language_code, 
-                disease_code="_schizophrenia_",
+                disease_code="_bipolar_disorder_",
                 cohort_code=cohort_code,
                 indicator_widget_value=self.widgets_instance.param.value,
             ),
@@ -628,17 +641,17 @@ class ea4_tab1(object):
 #
     
 
-ea4_tab_names_langdict["en"].append("Indicator distribution violin plot")
-ea4_tab_names_langdict["it"].append("Distribuzione dell'indicatore con violino")
-ea4_tab_names_langdict["fr"].append("Distribution de l'indicateur avec violon")
-ea4_tab_names_langdict["de"].append("Indikatorverteilung Geigenplot")
-ea4_tab_names_langdict["es"].append("Distribución del indicador con violín")
-ea4_tab_names_langdict["pt"].append("Distribuição do indicador com violino")
+ea61_tab_names_langdict["en"].append("Indicator distribution violin plot")
+ea61_tab_names_langdict["it"].append("Distribuzione dell'indicatore con violino")
+ea61_tab_names_langdict["fr"].append("Distribution de l'indicateur avec violon")
+ea61_tab_names_langdict["de"].append("Indikatorverteilung Geigenplot")
+ea61_tab_names_langdict["es"].append("Distribución del indicador con violín")
+ea61_tab_names_langdict["pt"].append("Distribuição do indicador com violino")
 
-class ea4_tab2(object):
-    def __init__(self, dict_of_tables: dict):
+class ea61_tab2(object):
+    def __init__(self, connection: sqlite3.Connection):
         self._language_code = "en"
-        self._dict_of_tables = dict_of_tables
+        self._db_conn = connection
         self.widgets_instance = indicator_widget(
              language_code=self._language_code,
         )
@@ -660,7 +673,7 @@ class ea4_tab2(object):
         educational_level = self.widgets_instance.value["educational_level"]
         # logic
         is_in_cache = is_call_in_cache(
-            indicator_name=ea4_code,
+            indicator_name=ea61_code,
             disease_code=disease_code,
             cohort=cohort_code,
             age_interval=age_interval_list,
@@ -671,7 +684,7 @@ class ea4_tab2(object):
         )
         if is_in_cache:
             x_json, y_json = retrieve_cached_json(
-                indicator_name=ea4_code,
+                indicator_name=ea61_code,
                 disease_code=disease_code,
                 cohort=cohort_code,
                 age_interval=age_interval_list,
@@ -683,22 +696,25 @@ class ea4_tab2(object):
             years_to_evaluate = [int(v) for v in json.loads(x_json)]
             y = json.loads(y_json)
             # encode for plotting
-            ea4_dist_list = [[int(n) for n in v] for v in y["distribution"]]
+            ea61_dist_list = [[int(n) for n in v] for v in y["distribution"]]
         else:
             cursor = self._db_conn.cursor()
             # get the years of inclusion as all years from the first occurrence of the disease
             # for any patient up to the current year
-            min_year_ = int(
-                cursor.execute(f"""
-                    SELECT MIN(YEAR_OF_ONSET) FROM cohorts
-                    WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
-                """).fetchone()[0]
-            )
+            try:
+                min_year_ = int(
+                    cursor.execute(f"""
+                        SELECT MIN(YEAR_OF_ONSET) FROM cohorts
+                        WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
+                    """).fetchone()[0]
+                )
+            except:
+                min_year_ = time.localtime().tm_year - 5
             cursor.close()
-            ea4_list = []
+            ea61_list = []
             years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
             for year in years_to_evaluate:
-                ea4_ = ea4(
+                ea61_ = ea61(
                     connection=self._db_conn,
                     disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
                     cohort_code=cohort_code,
@@ -709,17 +725,17 @@ class ea4_tab2(object):
                     job_condition=job_condition,
                     educational_level=educational_level
                 )
-                ea4_list.append(ea4_)
+                ea61_list.append(ea61_)
             # cache everything
             x_json = json.dumps(years_to_evaluate)
             y_json = json.dumps(
                 {
-                    "percentage": [ea4_["percentage"] for ea4_ in ea4_list],
-                    "distribution": [ea4_["distribution"] for ea4_ in ea4_list]
+                    "percentage": [ea61_["percentage"] for ea61_ in ea61_list],
+                    "distribution": [ea61_["distribution"] for ea61_ in ea61_list]
                 }
             )
             cache_json(
-                indicator_name=ea4_code,
+                indicator_name=ea61_code,
                 disease_code=disease_code,
                 cohort=cohort_code,
                 age_interval=age_interval_list,
@@ -731,7 +747,7 @@ class ea4_tab2(object):
                 y_json=y_json
             )
             # encode for plotting
-            ea4_dist_list = [l["distribution"] for l in ea4_list]
+            ea61_dist_list = [l["distribution"] for l in ea61_list]
         # plot: BoxWhisker (not available in Bokeh)
         # make a BoxWhisker plot
         # groups (the years)
@@ -740,9 +756,9 @@ class ea4_tab2(object):
         g_ = []
         v_ = []
         for i, y_ in enumerate(years_to_evaluate):
-            n = len(ea4_dist_list[i])
+            n = len(ea61_dist_list[i])
             g_.extend([y_] * n)
-            v_.extend(ea4_dist_list[i])
+            v_.extend(ea61_dist_list[i])
         plot = holoviews.Violin(
             (g_, v_), 
             kdims=[("year", _year_langdict[language_code])], 
@@ -752,19 +768,19 @@ class ea4_tab2(object):
             inner="quartiles",
             bandwidth=0.5,
             violin_color="#d3e3fd", 
-            title=ea4_code + " - " + ea4_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code] + ", " + COHORT_NAMES[language_code][cohort_code],
+            title=ea61_code + " - " + ea61_name_langdict[language_code] + " - " + DISEASES_LANGDICT[language_code][disease_code] + ", " + COHORT_NAMES[language_code][cohort_code],
         )
         bokeh_plot = holoviews.render(plot)
         # add a transparent Circle plot to show some info with a custom hover tool
         source = bokeh.models.ColumnDataSource({
             "year": [str(i) for i in years_to_evaluate],
-            "median": [numpy.median(ea4_dist_list[i]) for i in range(len(years_to_evaluate))],
-            "mean": [numpy.mean(ea4_dist_list[i]) for i in range(len(years_to_evaluate))],
-            "stdev": [numpy.std(ea4_dist_list[i]) for i in range(len(years_to_evaluate))],
-            "q1": [numpy.percentile(ea4_dist_list[i], 25) for i in range(len(years_to_evaluate))],
-            "q3": [numpy.percentile(ea4_dist_list[i], 75) for i in range(len(years_to_evaluate))],
-            "iqr": [numpy.percentile(ea4_dist_list[i], 75) - numpy.percentile(ea4_dist_list[i], 25) for i in range(len(years_to_evaluate))],
-            "count": [len(ea4_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "median": [numpy.median(ea61_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "mean": [numpy.mean(ea61_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "stdev": [numpy.std(ea61_dist_list[i]) for i in range(len(years_to_evaluate))],
+            "q1": [numpy.percentile(ea61_dist_list[i], 25) for i in range(len(years_to_evaluate))],
+            "q3": [numpy.percentile(ea61_dist_list[i], 75) for i in range(len(years_to_evaluate))],
+            "iqr": [numpy.percentile(ea61_dist_list[i], 75) - numpy.percentile(ea61_dist_list[i], 25) for i in range(len(years_to_evaluate))],
+            "count": [len(ea61_dist_list[i]) for i in range(len(years_to_evaluate))],
         })
         hover_tool = bokeh.models.HoverTool(
             tooltips=[
@@ -798,13 +814,12 @@ class ea4_tab2(object):
         # expected kwargs:
         # language_code, disease_code
         language_code = kwargs.get("language_code", "en")
-        disease_code = kwargs.get("disease_code", "_schizophrenia_")
         cohort_code = kwargs.get("cohort_code", "_a_")
         pane = panel.Row(
             panel.bind(
                 self.get_plot, 
                 language_code=language_code, 
-                disease_code="_schizophrenia_",
+                disease_code="_bipolar_disorder_",
                 cohort_code=cohort_code,
                 indicator_widget_value=self.widgets_instance.param.value,
             ),
@@ -815,15 +830,15 @@ class ea4_tab2(object):
         return pane
 #
 
-ea4_tab_names_langdict["en"].append("Help")
-ea4_tab_names_langdict["it"].append("Aiuto")
-ea4_tab_names_langdict["fr"].append("Aide")
-ea4_tab_names_langdict["de"].append("Hilfe")
-ea4_tab_names_langdict["es"].append("Ayuda")
-ea4_tab_names_langdict["pt"].append("Ajuda")
+ea61_tab_names_langdict["en"].append("Help")
+ea61_tab_names_langdict["it"].append("Aiuto")
+ea61_tab_names_langdict["fr"].append("Aide")
+ea61_tab_names_langdict["de"].append("Hilfe")
+ea61_tab_names_langdict["es"].append("Ayuda")
+ea61_tab_names_langdict["pt"].append("Ajuda")
 
 
-class ea4_tab3(object):
+class ea61_tab3(object):
     def __init__(self):
         self._language_code = "en"
         # pane
@@ -853,7 +868,8 @@ class ea4_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Indicator Calculation</h3>
                     <p style='{p_style}'>
-                    The indicator is calculated as the percentage of patients having at least one prescription of antipsychotic drugs in the year of inclusion.
+                    The indicator is calculated as the percentage of patients having at least one prescription of bipolar disorder-related drugs in the year of inclusion.
+                    Specifically, this indicators considers prescriptions of drugs containing valproic acid, carbamazepine.
                     The denominator is the number of patients that satisfy the variuos stratification parameters and have the disturb of interest, 
                     and the numerator is the number of patients with at least one prescription in the year that are included in
                     the set of patients used to compute the denominator.
@@ -876,7 +892,8 @@ class ea4_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Calcolo dell'indicatore</h3>
                     <p style='{p_style}'>
-                    L'indicatore è calcolato come la percentuale di pazienti che hanno almeno una prescrizione di farmaci antipsicotici nell'anno di inclusione.
+                    L'indicatore è calcolato come la percentuale di pazienti che hanno almeno una prescrizione di farmaci per il disturbo bipolare nell'anno di inclusione.
+                    In particolare, questo indicatore considera le prescrizioni di farmaci contenenti acido valproico, carbamazepina.
                     Il denominatore è il numero di pazienti che soddisfano i vari parametri di stratificazione e hanno il disturbo di interesse,
                     e il numeratore è il numero di pazienti con almeno una prescrizione nell'anno che sono inclusi nel
                     insieme di pazienti utilizzato per calcolare il denominatore.
@@ -898,7 +915,8 @@ class ea4_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Calcul de l'indicateur</h3>
                     <p style='{p_style}'>
-                    L'indicateur est calculé comme le pourcentage de patients ayant au moins une prescription de médicaments antipsychotiques l'année de l'inclusion.
+                    L'indicateur est calculé comme le pourcentage de patients ayant au moins une prescription de médicaments liés au trouble bipolaire dans l'année d'inclusion.
+                    Plus précisément, cet indicateur considère les prescriptions de médicaments contenant de l'acide valproïque, de la carbamazépine.
                     Le dénominateur est le nombre de patients qui satisfont aux différents paramètres de stratification et ont le trouble d'intérêt,
                     et le numérateur est le nombre de patients ayant au moins une prescription dans l'année qui sont inclus dans
                     l'ensemble de patients utilisé pour calculer le dénominateur.
@@ -920,7 +938,8 @@ class ea4_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Indikatorberechnung</h3>
                     <p style='{p_style}'>
-                    Der Indikator wird als Prozentsatz der Patienten berechnet, die im Jahr der Aufnahme mindestens ein Rezept für Antipsychotika erhalten.
+                    Der Indikator wird als Prozentsatz der Patienten berechnet, die mindestens eine Verschreibung von Medikamenten im Zusammenhang mit bipolarer Störung im Jahr der Aufnahme haben.
+                    Insbesondere berücksichtigt dieser Indikator Verschreibungen von Medikamenten, die Valproinsäure, Carbamazepin enthalten.
                     Der Nenner ist die Anzahl der Patienten, die die verschiedenen Stratifikationsparameter erfüllen und die Störung von Interesse haben,
                     und der Zähler ist die Anzahl der Patienten mit mindestens einem Rezept im Jahr, die inbegriffen sind
                     die Gruppe von Patienten, die zur Berechnung des Nenners verwendet werden.
@@ -942,7 +961,8 @@ class ea4_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Cálculo del indicador</h3>
                     <p style='{p_style}'>
-                    El indicador se calcula como el porcentaje de pacientes que tienen al menos una receta de medicamentos antipsicóticos en el año de inclusión.
+                    El indicador se calcula como el porcentaje de pacientes que tienen al menos una receta de medicamentos relacionados con el trastorno bipolar en el año de inclusión.
+                    Específicamente, este indicador considera recetas de medicamentos que contienen ácido valproico, carbamazepina.
                     El denominador es el número de pacientes que cumplen con los diversos parámetros de estratificación y tienen el trastorno de interés,
                     y el numerador es el número de pacientes con al menos una receta en el año que están incluidos en
                     el conjunto de pacientes utilizado para calcular el denominador.
@@ -964,7 +984,8 @@ class ea4_tab3(object):
                 f"""
                     <h3 style='{h3_style}'>Cálculo do indicador</h3>
                     <p style='{p_style}'>
-                    O indicador é calculado como a porcentagem de pacientes que têm pelo menos uma prescrição de medicamentos antipsicóticos no ano de inclusão.
+                    O indicador é calculado como a porcentagem de pacientes que têm pelo menos uma prescrição de medicamentos relacionados ao transtorno bipolar no ano de inclusão.
+                    Especificamente, este indicador considera prescrições de medicamentos contendo ácido valproico, carbamazepina.
                     O denominador é o número de pacientes que satisfazem os vários parâmetros de estratificação e têm o distúrbio de interesse,
                     e o numerador é o número de pacientes com pelo menos uma prescrição no ano que estão incluídos em
                     o conjunto de pacientes usado para calcular o denominador.

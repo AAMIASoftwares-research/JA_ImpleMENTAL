@@ -735,14 +735,16 @@ def standardize_table_names(connection: sqlite3.Connection) -> None:
     and no spaces in between words.
     """
     cursor = connection.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    tables:list[str] = [c[0] for c in cursor.fetchall()]
+    tables = get_tables(connection)
     for table in tables:
-        new_table = table.strip().lower().replace(" ", "_")
+        new_table = table.strip().lower().replace(" ", "_").replace("-", "")
         if table != new_table:
             print(f"Renaming table '{table}' to '{new_table}'")
-            cursor.execute(f"ALTER TABLE {table} RENAME TO {new_table}")
+            intermediate_name = new_table + "_new"
+            cursor.execute(f"ALTER TABLE {table} RENAME TO {intermediate_name}")
+            cursor.execute(f"ALTER TABLE {intermediate_name} RENAME TO {new_table}")
     cursor.close()
+    # do not commit here
 
 def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
     """To be run before the preprocessing of the database,
@@ -815,7 +817,7 @@ def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
     """)
     # slim down the demographics table
     # to do so, find all the subjects that are in the slimmed down pharma and diagnoses tables
-    # as well as in the interventions and physical_exams tables
+    # 
     # create a unique set of subjects
     # then, create a new demographics table with only the subjects that appear in the unique set
     cursor.execute("""
@@ -823,8 +825,7 @@ def slim_down_database(connection: sqlite3.Connection) -> tuple[str, bool]:
         SELECT *
         FROM demographics
         WHERE ID_SUBJECT IN (
-            /* I want to keep every subject that has something
-               either in the pharma, diagnoses, interventions tables 
+            /* 
             */
             SELECT ID_SUBJECT FROM slim.pharma
         )
@@ -1028,6 +1029,8 @@ def preprocess_database_datetimes(connection: sqlite3.Connection, force: bool=Fa
 def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None:
     """ Create the temporary cohorts table in the database.
 
+    ONLY WITH DIAGNOSES AND PHARMA TABLES
+
     Table columns:
     - ID_SUBJECT: TEXT
     - ID_DISORDER: TEXT
@@ -1042,10 +1045,7 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
         The connection to the database.
         The database must have the following tables:
             demographics
-            diagnoses
-            interventions
             pharma
-            physical_exams
     """
     # check if the database has the necessary tables
     has_tables, missing_tables = check_database_has_tables(connection)
@@ -1068,27 +1068,11 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
             YEAR_OF_ONSET INTEGER /* Not the year of the diagnosis, but the year of the first doubt which is afterward confirmed by a diagnosis */
         )
     """)
-    # create the three temporary tables that are needed for there calculations
-    def create_temp_tables(cursor: sqlite3.Cursor) -> None:
-        # clear the temporary tables if they exist and recreate them
-        cursor.execute("DROP TABLE IF EXISTS temp.t_pharma")
-        cursor.execute("DROP TABLE IF EXISTS temp.t_diagnoses")
-        cursor.execute("DROP TABLE IF EXISTS temp.t_interventions")
-        cursor.execute("CREATE TEMP TABLE IF NOT EXISTS t_pharma (ID_SUBJECT TEXT, MIN_YEAR INTEGER)")
-        cursor.execute("CREATE TEMP TABLE IF NOT EXISTS t_diagnoses (ID_SUBJECT TEXT, MIN_YEAR INTEGER)")
-        cursor.execute("CREATE TEMP TABLE IF NOT EXISTS t_interventions (ID_SUBJECT TEXT, MIN_YEAR INTEGER)")
-        cursor.execute("DELETE FROM t_pharma")
-        cursor.execute("DELETE FROM t_diagnoses")
-        cursor.execute("DELETE FROM t_interventions")
     # Print out an estimation of the time it will take to process the data
-    n_diagnoses = get_table_num_rows(connection, "diagnoses")
-    entries_per_second_diagnoses = 111500.0
     n_pharma = get_table_num_rows(connection, "pharma")
     entries_per_second_pharma = 29500.0
-    n_interventions = get_table_num_rows(connection, "interventions")
-    entries_per_second_interventions = 7600.0
     overhead_seconds = 10.0
-    tot_seconds = n_diagnoses/entries_per_second_diagnoses + n_pharma/entries_per_second_pharma + n_interventions/entries_per_second_interventions + overhead_seconds
+    tot_seconds = n_pharma/entries_per_second_pharma + overhead_seconds
     tot_seconds *= 3 # three mental disorders considered
     hours, minutes, seconds = tot_seconds//3600, (tot_seconds//60)%60, tot_seconds%60
     print(f"Estimated time: {hours:.0f}h {minutes:.0f}m {seconds:.0f}s")
@@ -1096,262 +1080,47 @@ def add_cohorts_table(connection: sqlite3.Connection, force: bool=False) -> None
     # #######
     # SCHIZO
     # #######
-    create_temp_tables(cursor)
-    cursor.execute("""
-        INSERT INTO t_diagnoses (ID_SUBJECT, MIN_YEAR)
-        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DATE_DIAG) AS INTEGER))
-        FROM diagnoses
-        WHERE
-            (
-                (
-                    CODING_SYSTEM = 'ICD9'
-                    AND
-                    (
-                        substr(DIAGNOSIS,1,3) IN ('295', '297')
-                        OR
-                        substr(DIAGNOSIS,1,4) IN ('2982', '2983', '2984', '2988', '2989')
-                    )
-                )
-                OR
-                (
-                    CODING_SYSTEM = 'ICD10'
-                    AND
-                    (   
-                        substr(DIAGNOSIS,1,3) IN ('F20', 'F21', 'F22', 'F23', 'F24', 'F25', 'F28', 'F29')
-                    )
-                )
-            )
-        GROUP BY ID_SUBJECT
-    """)
     cursor.execute(f"""
-        INSERT INTO t_pharma (ID_SUBJECT, MIN_YEAR)
-        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_PRESCR) AS INTEGER))
+        INSERT INTO cohorts (ID_SUBJECT, ID_DISORDER, YEAR_OF_ONSET)
+        SELECT ID_SUBJECT, 'SCHIZO', MIN(CAST(strftime('%Y', DT_PRESCR) AS INTEGER))
         FROM pharma    
         WHERE
-            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses) /* for some reason, way faster than using INNER JOIN */
-            AND
             ATC_CHAR LIKE 'N05A%' AND ATC_CHAR NOT LIKE 'N05AN%'
-            AND
-            CAST(strftime('%Y', DT_PRESCR) AS INTEGER) - ( SELECT MIN_YEAR FROM t_diagnoses WHERE ID_SUBJECT = pharma.ID_SUBJECT LIMIT 1)
-                BETWEEN -{WASHOUT_YEARS} AND 0
         GROUP BY ID_SUBJECT
-    """)
-    cursor.execute(f"""
-        INSERT INTO t_interventions (ID_SUBJECT, MIN_YEAR)
-        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_INT) AS INTEGER))
-        FROM interventions
-        WHERE
-            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses) /* for some reason, way faster than using INNER JOIN */
-            AND
-            CAST(strftime('%Y', DT_INT) AS INTEGER) - ( SELECT MIN_YEAR FROM t_diagnoses WHERE ID_SUBJECT = interventions.ID_SUBJECT LIMIT 1)
-                BETWEEN -{WASHOUT_YEARS} AND 0
-        GROUP BY ID_SUBJECT
-    """)
-    cursor.execute("""
-        INSERT INTO cohorts (ID_SUBJECT, ID_DISORDER, YEAR_OF_ONSET)
-        SELECT 
-            ID_SUBJECT, 
-            'SCHIZO', 
-            MIN_YEAR
-        FROM t_diagnoses
-        /* by selecting from this table, I know that the subject was diagnosed */
-        /* I can use this to select the subjects that have a record of pharma or interventions */
-        /* before the diagnosis but after the year of diagnosis - WASHOUT_YEARS */
-    """)
-    cursor.execute(f"""
-        UPDATE cohorts
-        SET YEAR_OF_ONSET = (
-            /*
-            If i'm setting, it means that one of the two conditions in the WHERE is true:
-            So I can take the minimum of MIN_YEAR between the two tables that lies in the previous 3 years inclusive
-            as the new YEAR_OF_ONSET.
-            It is possible that the subjects in diagnosis have no record in pharma or interventions.
-            */
-            SELECT MIN(MIN_YEAR)
-            FROM (
-                SELECT MIN_YEAR FROM (SELECT YEAR_OF_ONSET AS MIN_YEAR FROM cohorts WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
-                UNION
-                SELECT MIN_YEAR FROM (SELECT MIN_YEAR FROM t_pharma WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
-                UNION
-                SELECT MIN_YEAR FROM (SELECT MIN_YEAR FROM t_interventions WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
-            )
-        )
-        WHERE
-            ID_DISORDER = 'SCHIZO'
-            AND
-            ID_SUBJECT IN (
-                SELECT ID_SUBJECT FROM t_pharma
-                UNION
-                SELECT ID_SUBJECT FROM t_interventions
-                )
     """)
     ########
     # DEPRE
     ########
-    create_temp_tables(cursor)
-    cursor.execute("""
-        INSERT INTO t_diagnoses (ID_SUBJECT, MIN_YEAR)
-        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DATE_DIAG) AS INTEGER))
-        FROM diagnoses
-        WHERE
-            (
-                (
-                    CODING_SYSTEM = 'ICD9'
-                    AND
-                    (
-                        substr(DIAGNOSIS,1,3) IN ('311')
-                        OR
-                        substr(DIAGNOSIS,1,4) IN ('2962', '2963', '2980', '3004', '3090', '3091')
-                    )
-                )
-                OR
-                (
-                    CODING_SYSTEM = 'ICD10'
-                    AND
-                    (   
-                        substr(DIAGNOSIS,1,3) IN ('F32', 'F33', 'F39')
-                        OR
-                        substr(DIAGNOSIS,1,4) IN ('F341', 'F348', 'F349', 'F381', 'F388', 'F431', 'F432')
-                    )
-                )
-            )
-        GROUP BY ID_SUBJECT
-    """)
     cursor.execute(f"""
-        INSERT INTO t_pharma (ID_SUBJECT, MIN_YEAR)
-        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_PRESCR) AS INTEGER))
+        INSERT INTO cohorts (ID_SUBJECT, ID_DISORDER, YEAR_OF_ONSET)
+        SELECT ID_SUBJECT, 'DEPRE', MIN(CAST(strftime('%Y', DT_PRESCR) AS INTEGER))
         FROM pharma    
         WHERE
-            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses) /* for some reason, way faster than using INNER JOIN */
-            AND
             ATC_CHAR LIKE 'N06A%'
-            AND
-            CAST(strftime('%Y', DT_PRESCR) AS INTEGER) - ( SELECT MIN_YEAR FROM t_diagnoses WHERE ID_SUBJECT = pharma.ID_SUBJECT LIMIT 1)
-                BETWEEN -{WASHOUT_YEARS} AND 0
         GROUP BY ID_SUBJECT
-    """)
-    cursor.execute(f"""
-        INSERT INTO t_interventions (ID_SUBJECT, MIN_YEAR)
-        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_INT) AS INTEGER))
-        FROM interventions
-        WHERE
-            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses) /* for some reason, way faster than using INNER JOIN */
-            AND
-            CAST(strftime('%Y', DT_INT) AS INTEGER) - ( SELECT MIN_YEAR FROM t_diagnoses WHERE ID_SUBJECT = interventions.ID_SUBJECT LIMIT 1)
-                BETWEEN -{WASHOUT_YEARS} AND 0
-        GROUP BY ID_SUBJECT
-    """)
-    cursor.execute("""
-        INSERT INTO cohorts (ID_SUBJECT, ID_DISORDER, YEAR_OF_ONSET)
-        SELECT 
-            ID_SUBJECT, 
-            'DEPRE', 
-            MIN_YEAR
-        FROM t_diagnoses
-    """)
-    cursor.execute(f"""
-        UPDATE cohorts
-        SET YEAR_OF_ONSET = (
-            SELECT MIN(MIN_YEAR)
-            FROM (
-                SELECT MIN_YEAR FROM (SELECT YEAR_OF_ONSET AS MIN_YEAR FROM cohorts WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
-                UNION
-                SELECT MIN_YEAR FROM (SELECT MIN_YEAR FROM t_pharma WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
-                UNION
-                SELECT MIN_YEAR FROM (SELECT MIN_YEAR FROM t_interventions WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
-            )
-        )
-        WHERE
-            ID_DISORDER = 'DEPRE'
-            AND
-            ID_SUBJECT IN (
-                SELECT ID_SUBJECT FROM t_pharma
-                UNION
-                SELECT ID_SUBJECT FROM t_interventions
-                )
     """)
     # BIPOLAR
-    create_temp_tables(cursor)
-    cursor.execute("""
-        INSERT INTO t_diagnoses (ID_SUBJECT, MIN_YEAR)
-        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DATE_DIAG) AS INTEGER))
-        FROM diagnoses
-        WHERE
-            (
-                (
-                    CODING_SYSTEM = 'ICD9'
-                    AND
-                    (
-                        substr(DIAGNOSIS,1,4) IN ('2960', '2961', '2964', '2965', '2966', '2967', '2981')
-                        OR
-                        substr(DIAGNOSIS,1,5) IN ('29680', '29681', '29689', '29699')
-                    )
-                )
-                OR
-                (
-                    CODING_SYSTEM = 'ICD10'
-                    AND
-                    (   
-                        substr(DIAGNOSIS,1,3) IN ('F30', 'F31')
-                        OR
-                        substr(DIAGNOSIS,1,4) IN ('F340', 'F380')
-                    )
-                )
-            )
-        GROUP BY ID_SUBJECT
-    """)
+    
     cursor.execute(f"""
-        INSERT INTO t_pharma (ID_SUBJECT, MIN_YEAR)
-        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_PRESCR) AS INTEGER))
-        FROM pharma    
+        INSERT INTO cohorts (ID_SUBJECT, ID_DISORDER, YEAR_OF_ONSET)
+        SELECT ID_SUBJECT, 'BIPO', MIN(CAST(strftime('%Y', DT_PRESCR) AS INTEGER))
+        FROM pharma
         WHERE
-            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses) /* for some reason, way faster than using INNER JOIN */
+            /* Special Only Pharma version for Athens */
+            /* Preselect only strictly bipolar disorder-related drugs */
+            (
+                ATC_CHAR LIKE 'N05AN%' /* litium */
+                OR
+                ATC_CHAR LIKE 'N03AX09%' /* lamotrigine */
+                OR
+                ATC_CHAR LIKE 'N03AG01%' /* valproic acid */
+                OR
+                ATC_CHAR LIKE 'N03AF01%' /* carbamazepine */
+            )
+            /* Original dashboard logic*/
             /*Bipolar has no contraints on the pharma, except it must be a mental health related pharma */
             /* Since pahrma is already filtered for mental health, no need to filter further */
-            AND
-            CAST(strftime('%Y', DT_PRESCR) AS INTEGER) - ( SELECT MIN_YEAR FROM t_diagnoses WHERE ID_SUBJECT = pharma.ID_SUBJECT LIMIT 1)
-                BETWEEN -{WASHOUT_YEARS} AND 0
         GROUP BY ID_SUBJECT
-    """)
-    cursor.execute(f"""
-        INSERT INTO t_interventions (ID_SUBJECT, MIN_YEAR)
-        SELECT ID_SUBJECT, MIN(CAST(strftime('%Y', DT_INT) AS INTEGER))
-        FROM interventions
-        WHERE
-            ID_SUBJECT IN (SELECT ID_SUBJECT FROM t_diagnoses) /* for some reason, way faster than using INNER JOIN */
-            AND
-            CAST(strftime('%Y', DT_INT) AS INTEGER) - ( SELECT MIN_YEAR FROM t_diagnoses WHERE ID_SUBJECT = interventions.ID_SUBJECT LIMIT 1)
-                BETWEEN -{WASHOUT_YEARS} AND 0
-        GROUP BY ID_SUBJECT
-    """)
-    cursor.execute("""
-        INSERT INTO cohorts (ID_SUBJECT, ID_DISORDER, YEAR_OF_ONSET)
-        SELECT 
-            ID_SUBJECT, 
-            'BIPO', 
-            MIN_YEAR
-        FROM t_diagnoses
-    """)
-    cursor.execute(f"""
-        UPDATE cohorts
-        SET YEAR_OF_ONSET = (
-            SELECT MIN(MIN_YEAR)
-            FROM (
-                SELECT MIN_YEAR FROM (SELECT YEAR_OF_ONSET AS MIN_YEAR FROM cohorts WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
-                UNION
-                SELECT MIN_YEAR FROM (SELECT MIN_YEAR FROM t_pharma WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
-                UNION
-                SELECT MIN_YEAR FROM (SELECT MIN_YEAR FROM t_interventions WHERE ID_SUBJECT = cohorts.ID_SUBJECT LIMIT 1)
-            )
-        )
-        WHERE
-            ID_DISORDER = 'BIPO'
-            AND
-            ID_SUBJECT IN (
-                SELECT ID_SUBJECT FROM t_pharma
-                UNION
-                SELECT ID_SUBJECT FROM t_interventions
-                )
     """)
     # delete the temporary tables
     cursor.execute("DROP TABLE IF EXISTS temp.t_pharma")
@@ -1428,10 +1197,8 @@ def make_age_startification_tables(connection: sqlite3.Connection, year_of_inclu
             The connection to the database.
             The database must have the following tables:
                 demographics
-                diagnoses
-                interventions
                 pharma
-                physical_exams
+                cohorts
         - year_of_inclusions_list: list[int]
             The list of years of inclusion for the cohorts.
         - age_stratifications: list[tuple[int, int]]
