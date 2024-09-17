@@ -645,9 +645,9 @@ ea2_tab_names_langdict["es"].append("Distribución del indicador con violín")
 ea2_tab_names_langdict["pt"].append("Distribuição do indicador com violino")
 
 class ea2_tab2(object):
-    def __init__(self, dict_of_tables: dict):
+    def __init__(self, connection: dict):
         self._language_code = "en"
-        self._dict_of_tables = dict_of_tables
+        self._db_conn = connection
         self.widgets_instance = indicator_widget(
              language_code=self._language_code,
         )
