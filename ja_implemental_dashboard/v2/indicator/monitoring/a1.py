@@ -234,7 +234,7 @@ class ma1_tab0(object):
                     cohorts_required=True,
                     disease_db_code=DISEASE_CODE_TO_DB_CODE[disease_code],
                     year_of_inclusion=year,
-                    age=age_interval,
+                    age=age_interval_list,
                     gender=gender,
                     civil_status=civil_status,
                     job_condition=job_condition,
