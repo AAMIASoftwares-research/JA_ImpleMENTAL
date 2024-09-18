@@ -34,7 +34,6 @@ def ma2(**kwargs):
     disease_db_code = kwargs.get("disease_db_code", None)
     year_of_inclusion = kwargs.get("year_of_inclusion", None)
     age = kwargs.get("age", None)
-    age = [AGE_WIDGET_INTERVALS[a] for a in age]
     gender = kwargs.get("gender", None)
     civil_status = kwargs.get("civil_status", None)
     job_condition = kwargs.get("job_condition", None)
