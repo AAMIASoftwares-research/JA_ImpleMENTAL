@@ -1,14 +1,15 @@
 {
   "devDependencies": {
     "@types/node": "^22.5.5",
+    "@types/sqlite3": "^3.1.11",
     "nodemon": "^3.1.5",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.2"
   },
   "scripts": {
-    "debug": "pwd",
-    "dev": "nodemon --watch \"./src/**/*.ts\" --exec \"./node_modules/.bin/ts-node\" ./src/server.ts",
-    "start": "ts-node --fast ./src/server.ts"
+    "dev": "nodemon --watch \"./src/**/*.ts\" --exec \"ts-node\" ./src/server.ts",
+    "start": "ts-node ./src/server.ts"
   }
 }
-

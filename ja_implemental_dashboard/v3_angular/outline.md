@@ -51,7 +51,7 @@ npm install --save-dev typescript ts-node nodemon @types/node
 # setup the ./tsconfig.json file
 # setup the ./package.json file with the nodemon script
 # run the server with nodemon by running `npm run dev` in the terminal
-
+npm install --save-dev sqlite3 @types/sqlite3
 ```
 
 ## Installation (Production)
