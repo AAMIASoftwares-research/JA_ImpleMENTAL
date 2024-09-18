@@ -1,0 +1,14 @@
+{
+  "devDependencies": {
+    "@types/node": "^22.5.5",
+    "nodemon": "^3.1.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2"
+  },
+  "scripts": {
+    "debug": "pwd",
+    "dev": "nodemon --watch \"./src/**/*.ts\" --exec \"./node_modules/.bin/ts-node\" ./src/server.ts",
+    "start": "ts-node --fast ./src/server.ts"
+  }
+}
+

@@ -225,12 +225,17 @@ class ma2_tab0(object):
             cursor = self._db_conn.cursor()
             # get the years of inclusion as all years from the first occurrence of the disease
             # for any patient up to the current year
-            min_year_ = int(
-                cursor.execute(f"""
-                    SELECT MIN(YEAR_OF_ONSET) FROM cohorts
-                    WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
-                """).fetchone()[0]
-            )
+            try:
+                min_year_ = int(
+                    cursor.execute(f"""
+                        SELECT MIN(YEAR_OF_ONSET) FROM cohorts
+                        WHERE ID_DISORDER = '{DISEASE_CODE_TO_DB_CODE[disease_code]}'
+                    """).fetchone()[0]
+                )
+                min_year_available_ = True
+            except:
+                min_year_ = time.localtime().tm_year - 2
+                min_year_available_ = False
             years_to_evaluate = [y for y in range(min_year_, time.localtime().tm_year+1)]
             # get the indicator values (y-axis) for the years of inclusion (x-axis on the plot)
             ma2_all = []
