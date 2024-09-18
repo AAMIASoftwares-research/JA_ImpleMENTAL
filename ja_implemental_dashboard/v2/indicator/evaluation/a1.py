@@ -411,10 +411,10 @@ class ea1_tab0(object):
             line_width=0,
             size=10
         )
-        if not min_year_available_:
-            print("no data available")              ########################################    TODO
-            # plot.text (write no data available message on the plot)
-            # also hide the line and circle
+        # if not min_year_available_:
+        #     print("no data available")              ########################################    TODO
+        #     # plot.text (write no data available message on the plot)
+        #     # also hide the line and circle
         plot.add_tools(hover_tool)
         plot.toolbar.autohide = True
         plot.toolbar.logo = None
