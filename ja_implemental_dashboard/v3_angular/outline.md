@@ -47,14 +47,37 @@ The Dashboard dependencies are for developing are:
     - SQLite
 
 ``` bash
+# Install typescript and nodemon for fast nodejs server development:
 npm install --save-dev typescript ts-node nodemon @types/node
-# setup the ./tsconfig.json file
-# setup the ./package.json file with the nodemon script
-# run the server with nodemon by running `npm run dev` in the terminal
+# - setup the ./tsconfig.json file
+# - setup the ./package.json file with the nodemon script
+# - run the server with nodemon by running `npm run dev` in the terminal
+# - run the server directly with `ts-node server.ts` in the terminal
+# Install sqlite3 and its types for the server:
 npm install --save-dev sqlite3 @types/sqlite3
+# Install Angular CLI 18 (or higher) for the frontend:
+# - (follow angular.dev to create new project)
+# - run in dev mode with 'npm start'
+npm install -g @angular/cli
 ```
 
-## Installation (Production)
+To make server visible to all other devices in the LAN, these are the steps to follow
+on a Windows machine (concept extensible to all OS):
+
+```
+-> Open the Windows Defender Firewall (or Firewall) -> Advanced settings
+-> Inbound Rules -> New Rule -> Port -> TCP
+-> Specific local ports: 3000 (or the port your server is running on) 
+-> Allow the connection -> Finish procedure and give the rule a name.
+```
+
+Also, check if Node.js runtime is enabled in the firewall for the type of network you are connected to, and I mean Public or Private network.
+Public network is the one that is used when you are connected to a network that is not your home network, like a coffee shop network.
+Private network is the one that is used when you are connected to your home network, one you trust.
+By default, on windows, Node.js runtime is enabled for private networks only. You can enable it for public networks too, but it is actually not recommended. The best course of action is to connect your pc to a network you trst, then go to the wifi settings of that network, and change its profile from public to private. This way, you can enable Node.js runtime for private networks only (should arleady be enabled), and still be able to run your server on any network you trust.
+
+
+## Installation (on user's computer and/or server)
 
 Users of the dashboard are provided with the compiled version of the Dashboard frontend, so they can just open it in the browser and start using it. Regarding the backend, the user is provided with a node.js server that runs the SQLite database and listens for requests from the client. The server is installed automatically when the user installs the Dashboard frontend, and the server is started automatically when the user opens the Dashboard frontend in the browser.
 
