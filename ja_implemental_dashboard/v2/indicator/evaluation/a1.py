@@ -405,7 +405,7 @@ class ea1_tab0(object):
             years_to_evaluate, ea1_list,
             line_color="#FF204Eff" # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
         )
-        plot.circle(
+        plot.scatter(
             years_to_evaluate, ea1_list,
             fill_color="#FF204Eff", # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
             line_width=0,
@@ -414,7 +414,7 @@ class ea1_tab0(object):
         # if not min_year_available_:
         #     print("no data available")              ########################################    TODO
         #     # plot.text (write no data available message on the plot)
-        #     # also hide the line and circle
+        #     # also hide the line and scatter
         plot.add_tools(hover_tool)
         plot.toolbar.autohide = True
         plot.toolbar.logo = None

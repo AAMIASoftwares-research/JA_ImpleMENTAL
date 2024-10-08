@@ -420,7 +420,7 @@ class ea61_tab0(object):
             years_to_evaluate, ea61_list,
             line_color="#134B70" # https://colorhunt.co/palette/201e43134b70508c9beeeeee
         )
-        plot.circle(
+        plot.scatter(
             years_to_evaluate, ea61_list,
             fill_color="#134B70", # https://colorhunt.co/palette/201e43134b70508c9beeeeee
             line_width=0,

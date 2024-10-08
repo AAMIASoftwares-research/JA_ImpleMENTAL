@@ -309,7 +309,7 @@ if __name__ == "__main__":
     plot.title.text = "   "
     data_x = numpy.random.randint(3, 97, (1000))
     data_y = numpy.random.randn(1000)+5
-    circ = plot.circle(data_x, data_y, size=5, color="blue")
+    circ = plot.scatter(data_x, data_y, size=5, color="blue")
 
     def age_widget_2_plot_callback(event):
         # show only the selected age intervals in the plot (x axis)

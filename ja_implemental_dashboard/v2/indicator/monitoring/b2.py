@@ -485,7 +485,7 @@ class mb2_tab0(object):
                 legend_label=f"{name_}: " + str(_all_interventions_langdict[language_code] if name_ == "All" else INTERVENTIONS_CODES_LANGDICT_MAP[language_code][name_]["legend"]),
                 line_color=INTERVENTIONS_CODES_COLOR_DICT[name_]
             )
-            plot.circle(
+            plot.scatter(
                 x=years_to_evaluate, 
                 y=n_list,
                 legend_label=f"{name_}: " + str(_all_interventions_langdict[language_code] if name_ == "All" else INTERVENTIONS_CODES_LANGDICT_MAP[language_code][name_]["legend"]),

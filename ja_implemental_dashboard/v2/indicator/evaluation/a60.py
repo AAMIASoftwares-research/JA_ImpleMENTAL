@@ -428,7 +428,7 @@ class ea60_tab0(object):
             years_to_evaluate, ea60_list,
             line_color="#508C9B" # https://colorhunt.co/palette/201e43134b70508c9beeeeee
         )
-        plot.circle(
+        plot.scatter(
             years_to_evaluate, ea60_list,
             fill_color="#508C9B", # https://colorhunt.co/palette/201e43134b70508c9beeeeee
             line_width=0,

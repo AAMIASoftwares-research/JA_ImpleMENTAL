@@ -303,7 +303,7 @@ class ma2_tab0(object):
             legend_label=DISEASES_LANGDICT[language_code]["_all_"],
             line_color="#a0a0a0ff"
         )
-        plot.circle(
+        plot.scatter(
             x=years_to_evaluate, 
             y=ma2_all,
             legend_label=DISEASES_LANGDICT[language_code]["_all_"],
@@ -316,7 +316,7 @@ class ma2_tab0(object):
             legend_label=DISEASES_LANGDICT[language_code][disease_code],
             line_color="#A0153Eff" # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
         )
-        plot.circle(
+        plot.scatter(
             years_to_evaluate, ma2_selected,
             legend_label=DISEASES_LANGDICT[language_code][disease_code],
             fill_color="#A0153Eff", # https://colorhunt.co/palette/ff204ea0153e5d0e4100224d
